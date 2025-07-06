@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { User, TrendingUp, Calendar, ExternalLink } from "lucide-react"
+import Image from 'next/image'
 import {
   Table,
   TableBody,
@@ -113,8 +114,14 @@ const Dashboard = () => {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <h2 className="text-xl font-bold text-primary">LickedIn Interviews</h2>
+          <div className="flex items-center space-x-4">
+            <Image 
+              src="/lickedin-logo.png" 
+              alt="LickedIn Logo" 
+              width={120} 
+              height={40} 
+              className="h-10"
+            />
             <span className="text-lg font-medium text-foreground">Your Interview History</span>
           </div>
           <div className="flex items-center space-x-2 text-muted-foreground">

@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Upload, FileText, Link, CheckCircle, User as UserIcon } from "lucide-react"
+import Image from 'next/image'
 
 const Setup = () => {
   const router = useRouter()
@@ -156,8 +157,14 @@ const Setup = () => {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <h2 className="text-xl font-bold text-primary">LickedIn Interviews</h2>
+          <div className="flex items-center">
+            <Image 
+              src="/lickedin-logo.png" 
+              alt="LickedIn Logo" 
+              width={120} 
+              height={40} 
+              className="h-10"
+            />
           </div>
           <div className="flex items-center space-x-2 text-muted-foreground">
             <UserIcon size={20} />

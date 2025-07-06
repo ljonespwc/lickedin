@@ -7,6 +7,7 @@ import type { User } from '@supabase/supabase-js'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import Image from 'next/image'
 import { Play } from "lucide-react"
 
 export default function Home() {
@@ -75,8 +76,14 @@ export default function Home() {
         {/* Header */}
         <header className="border-b bg-card">
           <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <h2 className="text-xl font-bold text-primary">LickedIn Interviews</h2>
+            <div className="flex items-center">
+              <Image 
+                src="/lickedin-logo.png" 
+                alt="LickedIn Logo" 
+                width={120} 
+                height={40} 
+                className="h-10"
+              />
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-muted-foreground">{user.email}</span>
@@ -143,9 +150,15 @@ export default function Home() {
       <Card className="w-full max-w-md">
         <CardContent className="p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              LickedIn Interviews
-            </h1>
+            <div className="flex justify-center mb-4">
+              <Image 
+                src="/lickedin-logo.png" 
+                alt="LickedIn Logo" 
+                width={180} 
+                height={60} 
+                className="h-15"
+              />
+            </div>
             <p className="text-muted-foreground">
               AI-Powered Mock Interview Platform
             </p>
