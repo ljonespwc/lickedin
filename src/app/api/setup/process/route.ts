@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import OpenAI from 'openai'
-
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
 
 export async function POST(request: NextRequest) {
   try {
@@ -176,71 +170,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Step 4: Generate initial interview questions using OpenAI
-    try {
-      const questionPrompt = `
-Based on this resume and job description, generate 5 interview questions that would be appropriate for this role.
-
-Resume Summary:
-${resumeText.substring(0, 1000)}
-
-Job Description:
-${jobContent.substring(0, 1000)}
-
-Please generate questions that are:
-1. Relevant to the specific role and company
-2. Based on the candidate's background
-3. Mix of behavioral and technical questions
-4. Appropriate difficulty level
-
-Return the questions in JSON format:
-{
-  "questions": [
-    {
-      "text": "question text",
-      "type": "behavioral|technical|situational",
-      "expectedPoints": ["key point 1", "key point 2"]
-    }
-  ]
-}
-`
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert interviewer who creates personalized interview questions."
-          },
-          {
-            role: "user",
-            content: questionPrompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 1000
-      })
-
-      const questionsData = JSON.parse(completion.choices[0].message.content || '{"questions": []}')
-      
-      return NextResponse.json({
-        success: true,
-        resumeId: resumeData.id,
-        jobDescriptionId: jobData.id,
-        questions: questionsData.questions
-      })
-
-    } catch (openaiError) {
-      console.error('OpenAI error:', openaiError)
-      // Return success even if question generation fails
-      return NextResponse.json({
-        success: true,
-        resumeId: resumeData.id,
-        jobDescriptionId: jobData.id,
-        questions: [],
-        warning: 'Question generation failed, but files were processed successfully'
-      })
-    }
+    // Step 4: Return success - questions will be generated later during interview creation
+    return NextResponse.json({
+      success: true,
+      resumeId: resumeData.id,
+      jobDescriptionId: jobData.id,
+      message: 'Resume and job description processed successfully. Questions will be generated during interview setup.'
+    })
 
   } catch (error) {
     console.error('Setup processing error:', error)

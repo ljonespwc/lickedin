@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import OpenAI from 'openai'
+
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -76,7 +82,7 @@ export async function POST(request: NextRequest) {
     // Get the most recent resume and job description for this user
     const { data: resumeData, error: resumeError } = await supabase
       .from('resumes')
-      .select('id')
+      .select('id, parsed_content')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -91,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     const { data: jobData, error: jobError } = await supabase
       .from('job_descriptions')
-      .select('id')
+      .select('id, job_content')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -127,48 +133,101 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: Generate interview questions and store them
-    // For now, we'll create placeholder questions
-    const placeholderQuestions = [
-      {
-        session_id: sessionData.id,
-        question_text: "Tell me about yourself and your background.",
-        question_order: 1,
-        question_type: "behavioral"
-      },
-      {
-        session_id: sessionData.id,
-        question_text: "Why are you interested in this position?",
-        question_order: 2,
-        question_type: "behavioral"
-      },
-      {
-        session_id: sessionData.id,
-        question_text: "Describe a challenging project you worked on.",
-        question_order: 3,
-        question_type: "behavioral"
-      },
-      {
-        session_id: sessionData.id,
-        question_text: "What are your technical strengths?",
-        question_order: 4,
-        question_type: "technical"
-      },
-      {
-        session_id: sessionData.id,
-        question_text: "Where do you see yourself in 5 years?",
-        question_order: 5,
-        question_type: "behavioral"
+    // Generate personalized interview questions using OpenAI
+    try {
+      const difficultyMap = {
+        softball: "easy and encouraging",
+        medium: "standard professional level",
+        hard: "challenging and detailed",
+        hard_as_fck: "extremely difficult and technical"
       }
-    ]
 
-    const { error: questionsError } = await supabase
-      .from('interview_questions')
-      .insert(placeholderQuestions)
+      const personaMap = {
+        michael_scott: "friendly and slightly humorous but professional",
+        professional: "standard corporate and formal",
+        friendly_mentor: "supportive and encouraging",
+        tech_lead: "technical and detail-oriented"
+      }
 
-    if (questionsError) {
-      console.error('Questions creation error:', questionsError)
-      // Continue anyway - questions can be generated later
+      const questionPrompt = `
+Generate ${questionCount || 5} personalized interview questions based on the following context:
+
+RESUME:
+${resumeData.parsed_content?.substring(0, 1500) || 'No resume content available'}
+
+JOB DESCRIPTION:
+${jobData.job_content?.substring(0, 1500) || 'No job description available'}
+
+DIFFICULTY LEVEL: ${difficultyMap[difficulty as keyof typeof difficultyMap] || 'medium'}
+INTERVIEWER PERSONA: ${personaMap[persona as keyof typeof personaMap] || 'professional'}
+
+Requirements:
+- Questions should be ${difficultyMap[difficulty as keyof typeof difficultyMap] || 'medium'} in nature
+- Style should match a ${personaMap[persona as keyof typeof personaMap] || 'professional'} interviewer
+- Mix behavioral, technical, and situational questions based on the role
+- Questions should be relevant to both the candidate's background and the job requirements
+- Include follow-up points that the interviewer should look for in responses
+
+Return in JSON format:
+{
+  "questions": [
+    {
+      "text": "question text",
+      "type": "behavioral|technical|situational",
+      "expectedPoints": ["key point 1", "key point 2", "key point 3"],
+      "followUp": "optional follow-up question"
+    }
+  ]
+}
+`
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert interviewer who creates personalized interview questions. Your questions should match the specified difficulty level and interviewer persona while being relevant to the candidate's background and the job requirements.`
+          },
+          {
+            role: "user",
+            content: questionPrompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000
+      })
+
+      const questionsResponse = JSON.parse(completion.choices[0].message.content || '{"questions": []}')
+      const generatedQuestions = questionsResponse.questions || []
+
+      // Store the generated questions in the database
+      const questionsToInsert = generatedQuestions.map((q: { text: string; type?: string; expectedPoints?: string[]; followUp?: string }, index: number) => ({
+        session_id: sessionData.id,
+        question_text: q.text,
+        question_order: index + 1,
+        question_type: q.type || 'behavioral',
+        expected_points: q.expectedPoints ? JSON.stringify(q.expectedPoints) : null,
+        follow_up: q.followUp || null
+      }))
+
+      const { error: questionsError } = await supabase
+        .from('interview_questions')
+        .insert(questionsToInsert)
+
+      if (questionsError) {
+        console.error('Questions creation error:', questionsError)
+        return NextResponse.json(
+          { error: 'Failed to store generated questions' },
+          { status: 500 }
+        )
+      }
+
+    } catch (openaiError) {
+      console.error('OpenAI error:', openaiError)
+      return NextResponse.json(
+        { error: 'Failed to generate questions' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({

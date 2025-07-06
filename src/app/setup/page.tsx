@@ -50,7 +50,7 @@ const Setup = () => {
     "Analyzing your background and job requirements...",
     "Resume parsed successfully",
     "Extracting job requirements...",
-    "Generating personalized questions..."
+    "Setup complete - ready for customization"
   ]
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
