@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { parsePDF } from '@/lib/pdf-parser'
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,17 +17,34 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // For now, only support text files - PDF parsing will be added later
-    if (resumeFile.type === 'application/pdf') {
+    // Extract text from resume file
+    let extractedText = ''
+    
+    try {
+      if (resumeFile.type === 'text/plain') {
+        // Handle text files
+        extractedText = resumeText || ''
+      } else if (resumeFile.type === 'application/pdf') {
+        // Handle PDF files
+        const arrayBuffer = await resumeFile.arrayBuffer()
+        extractedText = await parsePDF(Buffer.from(arrayBuffer))
+      } else {
+        return NextResponse.json(
+          { error: 'Unsupported file type. Please upload a TXT or PDF file.' },
+          { status: 400 }
+        )
+      }
+    } catch (error) {
+      console.error('File parsing error:', error)
       return NextResponse.json(
-        { error: 'PDF parsing is temporarily disabled. Please upload a text file (.txt) instead.' },
+        { error: 'Failed to extract text from resume. Please try uploading a different file.' },
         { status: 400 }
       )
     }
 
-    if (!resumeText) {
+    if (!extractedText || extractedText.trim().length === 0) {
       return NextResponse.json(
-        { error: 'Could not extract text from resume' },
+        { error: 'Could not extract text from resume. Please ensure the file contains readable text.' },
         { status: 400 }
       )
     }
@@ -98,7 +116,7 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         filename: resumeFile.name,
         file_url: '', // Will be populated when we implement file storage
-        parsed_content: resumeText,
+        parsed_content: extractedText,
         file_size_bytes: resumeFile.size
       })
       .select()

@@ -65,8 +65,11 @@ const Setup = () => {
       if (file.type === 'text/plain') {
         const text = await file.text()
         setResumeText(text)
+      } else if (file.type === 'application/pdf') {
+        // PDF will be processed on server
+        setResumeText('') // Clear any previous text
       } else {
-        setError('Please upload a TXT file (PDF support coming soon)')
+        setError('Please upload a TXT or PDF file')
         setResumeFile(null)
       }
     } catch (err) {
@@ -79,7 +82,8 @@ const Setup = () => {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'text/plain': ['.txt']
+      'text/plain': ['.txt'],
+      'application/pdf': ['.pdf']
     },
     maxFiles: 1,
     maxSize: 10 * 1024 * 1024 // 10MB
@@ -189,7 +193,7 @@ const Setup = () => {
                   <input {...getInputProps()} />
                   <Upload className="mx-auto mb-4 text-muted-foreground" size={32} />
                   <p className="text-muted-foreground mb-2">
-                    {isDragActive ? 'Drop the file here...' : 'Drop TXT file here'}
+                    {isDragActive ? 'Drop the file here...' : 'Drop TXT or PDF file here'}
                   </p>
                   <p className="text-sm text-muted-foreground mb-4">or click to browse</p>
                   <Button variant="outline">
