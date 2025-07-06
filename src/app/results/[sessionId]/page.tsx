@@ -301,10 +301,10 @@ const Results = () => {
         <div className="flex flex-wrap gap-4 justify-center">
           <Button 
             variant="outline"
-            onClick={() => router.push('/setup')}
+            onClick={() => router.push('/setup/customize')}
             className="flex-1 sm:flex-none"
           >
-            Practice Again
+            New Interview
           </Button>
           <Button 
             variant="outline"

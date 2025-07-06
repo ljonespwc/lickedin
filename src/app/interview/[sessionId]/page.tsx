@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Mic, Square, Pause, Play } from "lucide-react"
+import { Mic, Square, Pause, Play, Settings } from "lucide-react"
 
 interface InterviewSession {
   id: string
@@ -173,7 +173,22 @@ const InterviewSession = () => {
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold mb-2">LIVE INTERVIEW</h1>
+          <div className="flex justify-between items-center">
+            {currentQuestion === 1 && !isRecording && (
+              <Button
+                variant="outline"
+                onClick={() => router.push('/setup/customize')}
+                className="flex items-center space-x-2"
+              >
+                <Settings size={16} />
+                <span>Change Settings</span>
+              </Button>
+            )}
+            {!(currentQuestion === 1 && !isRecording) && <div></div>}
+            
+            <h1 className="text-2xl font-semibold">LIVE INTERVIEW</h1>
+            <div></div>
+          </div>
         </div>
 
         {/* Interviewer Section */}

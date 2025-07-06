@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
-import { User, Flame, FileText } from "lucide-react"
+import { User, Flame, FileText, ArrowLeft } from "lucide-react"
 
 const SetupCustomize = () => {
   const router = useRouter()
@@ -223,7 +223,16 @@ const SetupCustomize = () => {
         </Card>
 
         {/* Start Interview Button */}
-        <div className="flex justify-center">
+        <div className="flex justify-between items-center">
+          <Button 
+            variant="outline"
+            onClick={() => router.push('/setup')}
+            className="flex items-center space-x-2"
+          >
+            <ArrowLeft size={16} />
+            <span>Back to Setup</span>
+          </Button>
+          
           <Button 
             size="lg" 
             disabled={!difficulty || !interviewer || isCreating}
