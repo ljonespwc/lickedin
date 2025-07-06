@@ -73,8 +73,7 @@ export async function GET(request: NextRequest) {
         completed_at,
         status,
         job_descriptions (
-          company_name,
-          job_title
+          job_content
         )
       `)
       .eq('user_id', user.id)
@@ -111,15 +110,31 @@ export async function GET(request: NextRequest) {
         ? session.job_descriptions[0] 
         : session.job_descriptions;
       
+      // Extract company and job title from job_content
+      let companyName = 'Company';
+      let jobTitle = 'Position';
+      
+      if (jobDesc?.job_content) {
+        // Try to extract company name (look for common patterns)
+        const companyMatch = jobDesc.job_content.match(/(?:at|@)\s+([A-Z][a-zA-Z\s&]+?)(?:\s|,|\.|$)/i);
+        if (companyMatch) {
+          companyName = companyMatch[1].trim();
+        }
+        
+        // Try to extract job title (look for common patterns)
+        const titleMatch = jobDesc.job_content.match(/(?:role|position|job|title)\s*:?\s*([A-Z][a-zA-Z\s&-]+?)(?:\s|,|\.|at|@|$)/i);
+        if (titleMatch) {
+          jobTitle = titleMatch[1].trim();
+        }
+      }
+      
       return {
         id: session.id,
-        position: jobDesc 
-          ? `${jobDesc.job_title} @ ${jobDesc.company_name}`
-          : 'Interview Session',
+        position: `${jobTitle} @ ${companyName}`,
         score: session.overall_score || 0,
         completed_at: session.completed_at,
-        company_name: jobDesc?.company_name || 'Company',
-        job_title: jobDesc?.job_title || 'Position'
+        company_name: companyName,
+        job_title: jobTitle
       };
     })
 

@@ -120,8 +120,6 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Scrape and analyze job description
     let jobContent = ''
-    let companyName = ''
-    let jobTitle = ''
     
     try {
       // For now, we'll use a simple approach to extract job info
@@ -134,20 +132,29 @@ export async function POST(request: NextRequest) {
       
       if (response.ok) {
         const html = await response.text()
-        // Basic extraction - this would need to be more sophisticated
-        jobContent = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
         
-        // Try to extract company and job title from URL or content
-        const urlParts = new URL(jobUrl)
-        companyName = urlParts.hostname.split('.')[0] || 'Company'
-        jobTitle = 'Position' // Would extract from content in production
+        // Clean up the HTML content more thoroughly
+        jobContent = html
+          // Remove script and style tags completely
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          // Remove HTML tags
+          .replace(/<[^>]*>/g, ' ')
+          // Remove JavaScript artifacts and function definitions
+          .replace(/function\s+\w+\s*\([^)]*\)\s*\{[^}]*\}/g, '')
+          // Remove window object assignments
+          .replace(/window\.[\w.]+\s*=\s*[^;]+;/g, '')
+          // Remove common web artifacts
+          .replace(/\b(getDfd|lazyloader|tracking|impressionTracking|ingraphTracking|appDetection|pemTracking)\b[^;]*;?/g, '')
+          // Clean up whitespace
+          .replace(/\s+/g, ' ')
+          .replace(/\n\s*\n/g, '\n')
+          .trim()
       }
     } catch (error) {
       console.error('Job scraping error:', error)
       // Continue with limited info if scraping fails
       jobContent = `Job posting from ${jobUrl}`
-      companyName = 'Company'
-      jobTitle = 'Position'
     }
 
     // Step 3: Store job description
@@ -156,9 +163,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: user.id,
         url: jobUrl,
-        company_name: companyName,
-        job_title: jobTitle,
-        job_content: jobContent.substring(0, 5000) // Limit content length
+        job_content: jobContent.substring(0, 10000) // Increased limit for cleaned content
       })
       .select()
       .single()
@@ -181,9 +186,6 @@ ${resumeText.substring(0, 1000)}
 
 Job Description:
 ${jobContent.substring(0, 1000)}
-
-Company: ${companyName}
-Position: ${jobTitle}
 
 Please generate questions that are:
 1. Relevant to the specific role and company
@@ -225,9 +227,7 @@ Return the questions in JSON format:
         success: true,
         resumeId: resumeData.id,
         jobDescriptionId: jobData.id,
-        questions: questionsData.questions,
-        companyName,
-        jobTitle
+        questions: questionsData.questions
       })
 
     } catch (openaiError) {
@@ -238,8 +238,6 @@ Return the questions in JSON format:
         resumeId: resumeData.id,
         jobDescriptionId: jobData.id,
         questions: [],
-        companyName,
-        jobTitle,
         warning: 'Question generation failed, but files were processed successfully'
       })
     }

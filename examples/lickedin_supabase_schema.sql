@@ -31,11 +31,7 @@ CREATE TABLE job_descriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   url TEXT NOT NULL,
-  company_name TEXT,
-  job_title TEXT,
   job_content TEXT, -- Scraped/parsed content
-  location TEXT,
-  salary_range TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
