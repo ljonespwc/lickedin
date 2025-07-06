@@ -206,8 +206,7 @@ Return in JSON format:
         question_text: q.text,
         question_order: index + 1,
         question_type: q.type || 'behavioral',
-        expected_points: q.expectedPoints ? JSON.stringify(q.expectedPoints) : null,
-        follow_up: q.followUp || null
+        expected_answer_points: q.expectedPoints || null
       }))
 
       const { error: questionsError } = await supabase
