@@ -6,7 +6,9 @@ import { supabase } from '@/lib/supabase'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { User, BarChart3, MessageSquare, Award, AlertTriangle, Lightbulb } from "lucide-react"
+import { BarChart3, MessageSquare, Award, AlertTriangle, Lightbulb } from "lucide-react"
+import Image from 'next/image'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 interface InterviewResults {
   session: {
@@ -41,12 +43,14 @@ const Results = () => {
   
   const [results, setResults] = useState<InterviewResults | null>(null)
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<SupabaseUser | null>(null)
 
   useEffect(() => {
     const loadResults = async () => {
       try {
         // Get session and access token
         const { data: { session } } = await supabase.auth.getSession()
+        setUser(session?.user ?? null)
         
         if (!session?.user) {
           router.push('/')
@@ -110,13 +114,20 @@ const Results = () => {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <h2 className="text-xl font-bold text-primary">LickedIn Interviews</h2>
-            <span className="text-lg font-medium text-foreground">Interview Results</span>
+          <div className="flex items-center">
+            <Image 
+              src="/lickedin-logo.png" 
+              alt="LickedIn Logo" 
+              width={101} 
+              height={40} 
+              className="h-10"
+            />
           </div>
-          <div className="flex items-center space-x-2 text-muted-foreground">
-            <User size={20} />
-            <span>[Profile▼]</span>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-muted-foreground">{user?.email}</span>
+            <Button variant="outline" onClick={() => supabase.auth.signOut()}>
+              Sign Out
+            </Button>
           </div>
         </div>
       </header>

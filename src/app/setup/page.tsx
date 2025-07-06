@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
-import { Upload, FileText, Link, CheckCircle, User as UserIcon } from "lucide-react"
+import { Upload, FileText, Link, CheckCircle } from "lucide-react"
 import Image from 'next/image'
 
 const Setup = () => {
@@ -166,9 +166,11 @@ const Setup = () => {
               className="h-10"
             />
           </div>
-          <div className="flex items-center space-x-2 text-muted-foreground">
-            <UserIcon size={20} />
-            <span>{user?.email || '[Profile▼]'}</span>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-muted-foreground">{user?.email}</span>
+            <Button variant="outline" onClick={() => supabase.auth.signOut()}>
+              Sign Out
+            </Button>
           </div>
         </div>
       </header>

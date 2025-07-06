@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Mic, Square, Pause, Play, Settings } from "lucide-react"
+import Image from 'next/image'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 interface InterviewSession {
   id: string
@@ -38,6 +40,7 @@ const InterviewSession = () => {
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentQuestionText, setCurrentQuestionText] = useState('')
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<SupabaseUser | null>(null)
 
   const interviewer = {
     name: session?.persona === 'michael_scott' ? 'Michael Scott' : 
@@ -54,6 +57,7 @@ const InterviewSession = () => {
       try {
         // Get session and access token
         const { data: { session } } = await supabase.auth.getSession()
+        setUser(session?.user ?? null)
         
         if (!session?.user) {
           router.push('/')
@@ -170,6 +174,27 @@ const InterviewSession = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center">
+            <Image 
+              src="/lickedin-logo.png" 
+              alt="LickedIn Logo" 
+              width={101} 
+              height={40} 
+              className="h-10"
+            />
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-muted-foreground">{user?.email}</span>
+            <Button variant="outline" onClick={() => supabase.auth.signOut()}>
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </header>
+      
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="text-center mb-8">

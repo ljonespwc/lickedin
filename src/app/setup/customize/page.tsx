@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { User, Flame, FileText, ArrowLeft } from "lucide-react"
+import Image from 'next/image'
 
 const SetupCustomize = () => {
   const router = useRouter()
@@ -125,12 +126,20 @@ const SetupCustomize = () => {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <h2 className="text-xl font-bold text-primary">LickedIn Interviews</h2>
+          <div className="flex items-center">
+            <Image 
+              src="/lickedin-logo.png" 
+              alt="LickedIn Logo" 
+              width={101} 
+              height={40} 
+              className="h-10"
+            />
           </div>
-          <div className="flex items-center space-x-2 text-muted-foreground">
-            <User size={20} />
-            <span>{user?.email || '[Profile▼]'}</span>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-muted-foreground">{user?.email}</span>
+            <Button variant="outline" onClick={() => supabase.auth.signOut()}>
+              Sign Out
+            </Button>
           </div>
         </div>
       </header>
