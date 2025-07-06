@@ -15,6 +15,9 @@ export async function parsePDF(buffer: Buffer): Promise<string> {
     // Load the PDF document
     const pdf = await pdfjsLib.getDocument({
       data: pdfData,
+      standardFontDataUrl: path.join(process.cwd(), 'node_modules/pdfjs-dist/standard_fonts/'),
+      cMapUrl: path.join(process.cwd(), 'node_modules/pdfjs-dist/cmaps/'),
+      cMapPacked: true,
     }).promise
     
     let fullText = ''
