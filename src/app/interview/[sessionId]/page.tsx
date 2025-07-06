@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress"
 import { Mic, Square, Pause, Play, Settings } from "lucide-react"
 import Image from 'next/image'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { useLayercodePipeline } from '@layercode/react-sdk'
 
 interface InterviewSession {
   id: string
@@ -41,6 +42,12 @@ const InterviewSession = () => {
   const [currentQuestionText, setCurrentQuestionText] = useState('')
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<SupabaseUser | null>(null)
+
+  // LayerCode voice pipeline integration
+  const { agentAudioAmplitude, status: voiceStatus } = useLayercodePipeline({
+    pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
+    authorizeSessionEndpoint: '/api/voice-auth',
+  })
 
   const interviewer = {
     name: session?.persona === 'michael_scott' ? 'Michael Scott' : 
@@ -248,6 +255,34 @@ const InterviewSession = () => {
             <div className="min-h-24 p-4 bg-muted/30 rounded-lg border text-muted-foreground text-sm mb-4">
               {transcription || "[Transcription appears here as you speak...]"}
             </div>
+            
+            {/* Voice Status Indicator */}
+            {voiceStatus && (
+              <div className="flex items-center justify-center space-x-2 mb-4">
+                <div className="flex items-center space-x-1">
+                  {agentAudioAmplitude > 0 && (
+                    <>
+                      <div className="text-sm text-muted-foreground">AI Speaking</div>
+                      <div className="flex space-x-1">
+                        {[...Array(5)].map((_, i) => (
+                          <div
+                            key={i}
+                            className="w-1 bg-primary animate-pulse"
+                            style={{
+                              height: `${Math.max(4, agentAudioAmplitude * 20)}px`,
+                              animationDelay: `${i * 0.1}s`
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  <div className="text-xs text-muted-foreground">
+                    Voice Status: {voiceStatus}
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="flex items-center justify-center space-x-4">
               <Button

@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Disable React Strict Mode for LayerCode voice integration
+  reactStrictMode: false,
 };
 
 export default nextConfig;
