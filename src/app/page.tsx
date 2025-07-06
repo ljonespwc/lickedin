@@ -80,7 +80,7 @@ export default function Home() {
               <Image 
                 src="/lickedin-logo.png" 
                 alt="LickedIn Logo" 
-                width={120} 
+                width={101} 
                 height={40} 
                 className="h-10"
               />
@@ -154,7 +154,7 @@ export default function Home() {
               <Image 
                 src="/lickedin-logo.png" 
                 alt="LickedIn Logo" 
-                width={180} 
+                width={152} 
                 height={60} 
                 className="h-15"
               />

@@ -118,7 +118,7 @@ const Dashboard = () => {
             <Image 
               src="/lickedin-logo.png" 
               alt="LickedIn Logo" 
-              width={120} 
+              width={101} 
               height={40} 
               className="h-10"
             />
