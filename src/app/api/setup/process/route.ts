@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const resumeFile = formData.get('resume') as File
     const jobUrl = formData.get('jobUrl') as string
-    let resumeText = formData.get('resumeText') as string
+    const resumeText = formData.get('resumeText') as string
 
     if (!resumeFile || !jobUrl) {
       return NextResponse.json(
@@ -22,20 +22,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse PDF on server side if needed
+    // For now, only support text files - PDF parsing will be added later
     if (resumeFile.type === 'application/pdf') {
-      try {
-        const pdfParse = (await import('pdf-parse')).default
-        const arrayBuffer = await resumeFile.arrayBuffer()
-        const pdf = await pdfParse(Buffer.from(arrayBuffer))
-        resumeText = pdf.text
-      } catch (pdfError) {
-        console.error('PDF parsing error:', pdfError)
-        return NextResponse.json(
-          { error: 'Failed to parse PDF file' },
-          { status: 400 }
-        )
-      }
+      return NextResponse.json(
+        { error: 'PDF parsing is temporarily disabled. Please upload a text file (.txt) instead.' },
+        { status: 400 }
+      )
     }
 
     if (!resumeText) {
@@ -43,6 +35,14 @@ export async function POST(request: NextRequest) {
         { error: 'Could not extract text from resume' },
         { status: 400 }
       )
+    }
+
+    // Get authentication token
+    const authHeader = request.headers.get('authorization')
+    let accessToken: string | null = null
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      accessToken = authHeader.substring(7)
     }
 
     // Create Supabase client
@@ -56,17 +56,40 @@ export async function POST(request: NextRequest) {
             return cookieStore.get(name)?.value
           },
           set(name: string, value: string, options: { [key: string]: unknown }) {
-            cookieStore.set({ name, value, ...options })
+            cookieStore.set({ 
+              name, 
+              value, 
+              ...options,
+              httpOnly: false,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax',
+              path: '/'
+            })
           },
           remove(name: string, options: { [key: string]: unknown }) {
-            cookieStore.set({ name, value: '', ...options })
+            cookieStore.set({ 
+              name, 
+              value: '', 
+              ...options,
+              httpOnly: false,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax',
+              path: '/'
+            })
           },
         },
+        // Set the access token if we have one
+        global: {
+          headers: accessToken ? {
+            Authorization: `Bearer ${accessToken}`
+          } : {}
+        }
       }
     )
 
     // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken || undefined)
+    
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -123,6 +146,8 @@ export async function POST(request: NextRequest) {
       console.error('Job scraping error:', error)
       // Continue with limited info if scraping fails
       jobContent = `Job posting from ${jobUrl}`
+      companyName = 'Company'
+      jobTitle = 'Position'
     }
 
     // Step 3: Store job description

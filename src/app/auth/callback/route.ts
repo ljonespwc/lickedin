@@ -19,10 +19,26 @@ export async function GET(request: NextRequest) {
               return cookieStore.get(name)?.value
             },
             set(name: string, value: string, options: { [key: string]: unknown }) {
-              cookieStore.set({ name, value, ...options })
+              cookieStore.set({ 
+                name, 
+                value, 
+                ...options,
+                httpOnly: false,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/'
+              })
             },
             remove(name: string, options: { [key: string]: unknown }) {
-              cookieStore.set({ name, value: '', ...options })
+              cookieStore.set({ 
+                name, 
+                value: '', 
+                ...options,
+                httpOnly: false,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/'
+              })
             },
           },
         }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -51,7 +52,23 @@ const InterviewSession = () => {
   useEffect(() => {
     const loadSession = async () => {
       try {
-        const response = await fetch(`/api/interview/${sessionId}`)
+        // Get session and access token
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!session?.user) {
+          router.push('/')
+          return
+        }
+
+        const accessToken = session.access_token
+        
+        const response = await fetch(`/api/interview/${sessionId}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          credentials: 'include'
+        })
+        
         if (!response.ok) {
           throw new Error('Failed to load session')
         }
@@ -71,7 +88,7 @@ const InterviewSession = () => {
     if (sessionId) {
       loadSession()
     }
-  }, [sessionId])
+  }, [sessionId, router])
 
   // Timer effect
   useEffect(() => {

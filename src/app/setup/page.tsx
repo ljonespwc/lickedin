@@ -1,16 +1,19 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDropzone } from 'react-dropzone'
+import { supabase } from '@/lib/supabase'
+import type { User } from '@supabase/supabase-js'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
-import { Upload, FileText, Link, CheckCircle, User } from "lucide-react"
+import { Upload, FileText, Link, CheckCircle, User as UserIcon } from "lucide-react"
 
 const Setup = () => {
   const router = useRouter()
+  const [user, setUser] = useState<User | null>(null)
   const [resumeFile, setResumeFile] = useState<File | null>(null)
   const [resumeText, setResumeText] = useState<string>('')
   const [jobUrl, setJobUrl] = useState('')
@@ -18,6 +21,30 @@ const Setup = () => {
   const [processingStep, setProcessingStep] = useState(0)
   const [isComplete, setIsComplete] = useState(false)
   const [error, setError] = useState<string>('')
+
+  // Check authentication
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+      
+      if (!session?.user) {
+        router.push('/')
+      }
+    }
+    
+    getUser()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      if (!session?.user) {
+        router.push('/')
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
 
   const processingSteps = [
     "Analyzing your background and job requirements...",
@@ -38,11 +65,8 @@ const Setup = () => {
       if (file.type === 'text/plain') {
         const text = await file.text()
         setResumeText(text)
-      } else if (file.type === 'application/pdf') {
-        // For PDFs, we'll parse them server-side during processing
-        setResumeText('[PDF file uploaded - will be parsed on server]')
       } else {
-        setError('Please upload a PDF or TXT file')
+        setError('Please upload a TXT file (PDF support coming soon)')
         setResumeFile(null)
       }
     } catch (err) {
@@ -55,7 +79,6 @@ const Setup = () => {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'application/pdf': ['.pdf'],
       'text/plain': ['.txt']
     },
     maxFiles: 1,
@@ -64,6 +87,17 @@ const Setup = () => {
 
   const handleFetchJobDetails = async () => {
     if (!resumeFile || !jobUrl) return
+    
+    // Double-check authentication before making API call
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session?.user) {
+      setError('Please sign in to continue')
+      return
+    }
+    
+    // Get the access token to pass in headers
+    const accessToken = session.access_token
     
     setIsProcessing(true)
     setProcessingStep(0)
@@ -80,11 +114,18 @@ const Setup = () => {
       const response = await fetch('/api/setup/process', {
         method: 'POST',
         body: formData,
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
       })
 
       if (!response.ok) {
-        throw new Error('Failed to process files')
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || 'Failed to process files')
       }
+
+      await response.json()
 
       // Simulate processing steps for better UX
       const interval = setInterval(() => {
@@ -100,10 +141,9 @@ const Setup = () => {
         })
       }, 1500)
 
-    } catch (err) {
+    } catch {
       setError('Failed to process files. Please try again.')
       setIsProcessing(false)
-      console.error('Processing error:', err)
     }
   }
 
@@ -116,8 +156,8 @@ const Setup = () => {
             <h2 className="text-xl font-bold text-primary">LickedIn Interviews</h2>
           </div>
           <div className="flex items-center space-x-2 text-muted-foreground">
-            <User size={20} />
-            <span>[Profile▼]</span>
+            <UserIcon size={20} />
+            <span>{user?.email || '[Profile▼]'}</span>
           </div>
         </div>
       </header>
@@ -149,7 +189,7 @@ const Setup = () => {
                   <input {...getInputProps()} />
                   <Upload className="mx-auto mb-4 text-muted-foreground" size={32} />
                   <p className="text-muted-foreground mb-2">
-                    {isDragActive ? 'Drop the file here...' : 'Drop PDF/TXT here'}
+                    {isDragActive ? 'Drop the file here...' : 'Drop TXT file here'}
                   </p>
                   <p className="text-sm text-muted-foreground mb-4">or click to browse</p>
                   <Button variant="outline">

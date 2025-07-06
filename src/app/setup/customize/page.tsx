@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -10,9 +12,34 @@ import { User, Flame, FileText } from "lucide-react"
 
 const SetupCustomize = () => {
   const router = useRouter()
+  const [user, setUser] = useState<SupabaseUser | null>(null)
   const [difficulty, setDifficulty] = useState('')
   const [interviewer, setInterviewer] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+
+  // Check authentication
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+      
+      if (!session?.user) {
+        router.push('/')
+      }
+    }
+    
+    getUser()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      if (!session?.user) {
+        router.push('/')
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
 
   const difficultyOptions = [
     { value: "softball", label: "Softball", subtitle: "(Easy Q's)" },
@@ -51,6 +78,15 @@ const SetupCustomize = () => {
   const handleStartInterview = async () => {
     if (!difficulty || !interviewer) return
 
+    // Get session and access token
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session?.user) {
+      router.push('/')
+      return
+    }
+
+    const accessToken = session.access_token
     setIsCreating(true)
 
     try {
@@ -59,7 +95,9 @@ const SetupCustomize = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
         },
+        credentials: 'include',
         body: JSON.stringify({
           difficulty,
           persona: interviewer,
@@ -68,7 +106,8 @@ const SetupCustomize = () => {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to create interview session')
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || 'Failed to create interview session')
       }
 
       const { sessionId } = await response.json()
@@ -91,7 +130,7 @@ const SetupCustomize = () => {
           </div>
           <div className="flex items-center space-x-2 text-muted-foreground">
             <User size={20} />
-            <span>[Profile▼]</span>
+            <span>{user?.email || '[Profile▼]'}</span>
           </div>
         </div>
       </header>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -44,7 +45,23 @@ const Results = () => {
   useEffect(() => {
     const loadResults = async () => {
       try {
-        const response = await fetch(`/api/results/${sessionId}`)
+        // Get session and access token
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!session?.user) {
+          router.push('/')
+          return
+        }
+
+        const accessToken = session.access_token
+        
+        const response = await fetch(`/api/results/${sessionId}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          credentials: 'include'
+        })
+        
         if (!response.ok) {
           throw new Error('Failed to load results')
         }
@@ -61,7 +78,7 @@ const Results = () => {
     if (sessionId) {
       loadResults()
     }
-  }, [sessionId])
+  }, [sessionId, router])
 
   if (loading) {
     return (

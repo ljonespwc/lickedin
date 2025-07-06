@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { User, TrendingUp, Calendar, ExternalLink } from "lucide-react"
@@ -38,7 +39,23 @@ const Dashboard = () => {
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        const response = await fetch('/api/dashboard')
+        // Get session and access token
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!session?.user) {
+          router.push('/')
+          return
+        }
+
+        const accessToken = session.access_token
+        
+        const response = await fetch('/api/dashboard', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          credentials: 'include'
+        })
+        
         if (!response.ok) {
           throw new Error('Failed to load dashboard')
         }
@@ -53,7 +70,7 @@ const Dashboard = () => {
     }
 
     loadDashboard()
-  }, [])
+  }, [router])
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString)
