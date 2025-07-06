@@ -51,6 +51,231 @@ export type Database = {
           updated_at?: string
         }
       }
+      resumes: {
+        Row: {
+          id: string
+          user_id: string
+          filename: string
+          file_url: string
+          parsed_content: string | null
+          file_size_bytes: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          filename: string
+          file_url: string
+          parsed_content?: string | null
+          file_size_bytes?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          filename?: string
+          file_url?: string
+          parsed_content?: string | null
+          file_size_bytes?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      job_descriptions: {
+        Row: {
+          id: string
+          user_id: string
+          url: string
+          company_name: string | null
+          job_title: string | null
+          job_content: string | null
+          location: string | null
+          salary_range: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          url: string
+          company_name?: string | null
+          job_title?: string | null
+          job_content?: string | null
+          location?: string | null
+          salary_range?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          url?: string
+          company_name?: string | null
+          job_title?: string | null
+          job_content?: string | null
+          location?: string | null
+          salary_range?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      interview_sessions: {
+        Row: {
+          id: string
+          user_id: string
+          resume_id: string
+          job_description_id: string
+          persona: string
+          difficulty_level: string
+          question_count: number
+          status: string
+          overall_score: number | null
+          started_at: string | null
+          completed_at: string | null
+          total_duration_seconds: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          resume_id: string
+          job_description_id: string
+          persona?: string
+          difficulty_level?: string
+          question_count?: number
+          status?: string
+          overall_score?: number | null
+          started_at?: string | null
+          completed_at?: string | null
+          total_duration_seconds?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          resume_id?: string
+          job_description_id?: string
+          persona?: string
+          difficulty_level?: string
+          question_count?: number
+          status?: string
+          overall_score?: number | null
+          started_at?: string | null
+          completed_at?: string | null
+          total_duration_seconds?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      interview_questions: {
+        Row: {
+          id: string
+          session_id: string
+          question_text: string
+          question_order: number
+          question_type: string | null
+          expected_answer_points: string[] | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          question_text: string
+          question_order: number
+          question_type?: string | null
+          expected_answer_points?: string[] | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          question_text?: string
+          question_order?: number
+          question_type?: string | null
+          expected_answer_points?: string[] | null
+          created_at?: string
+        }
+      }
+      interview_responses: {
+        Row: {
+          id: string
+          session_id: string
+          question_id: string
+          response_text: string
+          response_audio_url: string | null
+          score: number | null
+          feedback: string | null
+          response_time_seconds: number | null
+          word_count: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          question_id: string
+          response_text: string
+          response_audio_url?: string | null
+          score?: number | null
+          feedback?: string | null
+          response_time_seconds?: number | null
+          word_count?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          question_id?: string
+          response_text?: string
+          response_audio_url?: string | null
+          score?: number | null
+          feedback?: string | null
+          response_time_seconds?: number | null
+          word_count?: number | null
+          created_at?: string
+        }
+      }
+      interview_feedback: {
+        Row: {
+          id: string
+          session_id: string
+          overall_feedback: string
+          strengths: string[] | null
+          areas_for_improvement: string[] | null
+          suggested_next_steps: string[] | null
+          confidence_score: number | null
+          communication_score: number | null
+          content_score: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          overall_feedback: string
+          strengths?: string[] | null
+          areas_for_improvement?: string[] | null
+          suggested_next_steps?: string[] | null
+          confidence_score?: number | null
+          communication_score?: number | null
+          content_score?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          overall_feedback?: string
+          strengths?: string[] | null
+          areas_for_improvement?: string[] | null
+          suggested_next_steps?: string[] | null
+          confidence_score?: number | null
+          communication_score?: number | null
+          content_score?: number | null
+          created_at?: string
+        }
+      }
     }
   }
 }

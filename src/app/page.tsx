@@ -1,10 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Play } from "lucide-react"
 
 export default function Home() {
+  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
@@ -58,75 +64,125 @@ export default function Home() {
     setMessage('Signed out successfully!')
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-6xl font-bold text-gray-900 mb-4">
-          LickedIn Interviews
-        </h1>
-        <p className="text-xl text-gray-600 mb-8">
-          AI-Powered Mock Interview Platform
-        </p>
-        
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md mx-auto">
-          {user ? (
-            // Authenticated state
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                Welcome! 🎉
-              </h2>
-              <p className="text-gray-600 mb-4">
-                You&apos;re signed in as: <br />
-                <span className="font-medium">{user.email}</span>
-              </p>
-              <button
-                onClick={handleSignOut}
-                className="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-              >
-                Sign Out
-              </button>
+  const handleStartInterview = () => {
+    router.push('/setup')
+  }
+
+  if (user) {
+    // Authenticated - show main landing page
+    return (
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <header className="border-b bg-card">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <h2 className="text-xl font-bold text-primary">LickedIn Interviews</h2>
             </div>
-          ) : (
-            // Unauthenticated state
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                Auth Test
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Test Supabase magic link authentication
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-muted-foreground">{user.email}</span>
+              <Button variant="outline" onClick={handleSignOut}>
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </header>
+        
+        <div className="max-w-4xl mx-auto px-6 py-16">
+          <Card className="text-center">
+            <CardContent className="p-12">
+              <div className="text-6xl mb-8">🎯</div>
+              
+              <h1 className="text-4xl font-bold mb-4 text-foreground">
+                Practice Interviews That Don&apos;t Suck
+              </h1>
+              
+              <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+                AI-powered mock interviews with real-time voice conversations. 
+                Upload your resume, customize the difficulty, and practice with engaging personas.
               </p>
               
-              <form onSubmit={handleMagicLink} className="space-y-4">
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                >
-                  {loading ? 'Sending...' : 'Send Magic Link'}
-                </button>
-              </form>
+              <Button 
+                size="lg" 
+                onClick={handleStartInterview}
+                className="bg-primary hover:bg-primary/90 text-white px-8 py-3 text-lg mb-12"
+              >
+                <Play className="mr-2" size={20} />
+                Start Your Interview Prep
+              </Button>
+              
+              <div className="grid md:grid-cols-3 gap-6 text-left">
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-foreground">📄 Upload & Analyze</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Drop in your resume and job description for personalized questions
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-foreground">🎭 Choose Your Interviewer</h3>
+                  <p className="text-sm text-muted-foreground">
+                    From Michael Scott to Tech Leads - pick your practice partner
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-foreground">🗣️ Practice Speaking</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Real-time voice conversations with instant feedback
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // Unauthenticated - show auth form
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Card className="w-full max-w-md">
+        <CardContent className="p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              LickedIn Interviews
+            </h1>
+            <p className="text-muted-foreground">
+              AI-Powered Mock Interview Platform
+            </p>
+          </div>
+          
+          <form onSubmit={handleMagicLink} className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-foreground">Email</label>
+              <Input
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="mt-1"
+              />
             </div>
-          )}
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full"
+            >
+              {loading ? 'Sending...' : 'Send Magic Link'}
+            </Button>
+          </form>
           
           {message && (
             <div className={`mt-4 p-3 rounded-lg text-sm ${
               message.includes('Error') 
-                ? 'bg-red-100 text-red-700' 
-                : 'bg-green-100 text-green-700'
+                ? 'bg-destructive/10 text-destructive border border-destructive/20' 
+                : 'bg-green-50 text-green-700 border border-green-200'
             }`}>
               {message}
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
-  );
+  )
 }
