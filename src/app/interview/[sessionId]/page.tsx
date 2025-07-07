@@ -58,6 +58,25 @@ const InterviewSession = () => {
            session?.persona === 'friendly_mentor' ? '😊' : '👔'
   }
 
+  // Suppress VAD warnings in console
+  useEffect(() => {
+    const originalWarn = console.warn
+    console.warn = (...args) => {
+      const message = args.join(' ')
+      if (message.includes('CleanUnusedInitializersAndNodeArgs') || 
+          message.includes('VAD model failed to load') ||
+          message.includes('onSpeechStart') ||
+          message.includes('Interruption requested')) {
+        return // Suppress these warnings
+      }
+      originalWarn.apply(console, args)
+    }
+    
+    return () => {
+      console.warn = originalWarn
+    }
+  }, [])
+
   // Load session data
   useEffect(() => {
     const loadSession = async () => {

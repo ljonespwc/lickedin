@@ -12,12 +12,11 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify webhook signature for security
-    const signature = request.headers.get('x-layercode-signature')
-    const timestamp = request.headers.get('x-layercode-timestamp')
+    // LayerCode sends signature as "layercode-signature" (without x- prefix)
+    const signature = request.headers.get('layercode-signature')
     
-    if (!signature || !timestamp) {
-      console.error('Missing LayerCode signature headers')
+    if (!signature) {
+      console.error('Missing LayerCode signature header')
       return NextResponse.json({ error: 'Missing signature headers' }, { status: 401 })
     }
 
