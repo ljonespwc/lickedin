@@ -31,15 +31,29 @@ export async function POST(request: NextRequest) {
 
     // Parse the webhook payload
     const body = await request.json()
-    const { type, text } = body
-    // Note: session_id and turn_id available for future use
+    const { type, text, turn_id } = body
+    
+    console.log('Webhook payload:', { type, text, turn_id })
 
     // Handle different webhook event types
     if (type === 'session.start') {
-      // Initialize the interview session
-      // TODO: Use LayerCode streamResponse once SDK types are resolved
-      return new Response("Welcome to LickedIn Interviews! I'm your AI interviewer. Let's start with your first question.", {
-        headers: { 'Content-Type': 'text/plain' }
+      // Initialize the interview session with SSE format
+      const welcomeMessage = "Welcome to LickedIn Interviews! I'm your AI interviewer. Let's start with your first question."
+      
+      const sseData = JSON.stringify({
+        type: "response.tts",
+        content: welcomeMessage,
+        turn_id: turn_id
+      })
+      
+      console.log('Sending welcome TTS response:', sseData)
+      
+      return new Response(`data: ${sseData}\n\ndata: ${JSON.stringify({type: "response.end", turn_id: turn_id})}\n\n`, {
+        headers: { 
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive'
+        }
       })
     }
 
@@ -82,15 +96,39 @@ Current interview context: This is a demo interview session.`
 
         const response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
         
-        // Return the response for LayerCode to convert to speech
-        return new Response(response, {
-          headers: { 'Content-Type': 'text/plain' }
+        // Return SSE format for LayerCode TTS
+        const sseData = JSON.stringify({
+          type: "response.tts",
+          content: response,
+          turn_id: turn_id
+        })
+        
+        console.log('Sending TTS response:', sseData)
+        
+        return new Response(`data: ${sseData}\n\ndata: ${JSON.stringify({type: "response.end", turn_id: turn_id})}\n\n`, {
+          headers: { 
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive'
+          }
         })
 
       } catch (error) {
         console.error('Voice agent error:', error)
-        return new Response("I apologize, but I'm having some technical difficulties. Let's continue with your interview.", {
-          headers: { 'Content-Type': 'text/plain' }
+        
+        const errorMessage = "I apologize, but I'm having some technical difficulties. Let's continue with your interview."
+        const sseData = JSON.stringify({
+          type: "response.tts",
+          content: errorMessage,
+          turn_id: turn_id
+        })
+        
+        return new Response(`data: ${sseData}\n\ndata: ${JSON.stringify({type: "response.end", turn_id: turn_id})}\n\n`, {
+          headers: { 
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive'
+          }
         })
       }
     }
