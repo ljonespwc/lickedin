@@ -1,46 +1,23 @@
-// PDF parsing utility using PDF.js legacy build for Node.js
+import { extractText, getDocumentProxy } from 'unpdf'
+
 export async function parsePDF(buffer: Buffer): Promise<string> {
   try {
-    // Use the legacy build for Node.js environments
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    // Convert Buffer to Uint8Array for unpdf
+    const uint8Array = new Uint8Array(buffer)
     
-    // Set worker source for Node.js environment
-    const path = await import('path')
-    const workerPath = path.join(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs')
-    pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath
+    // Load the PDF file into a PDF.js document
+    const pdf = await getDocumentProxy(uint8Array)
     
-    // Convert Buffer to Uint8Array
-    const pdfData = new Uint8Array(buffer)
+    // Extract the text from the PDF file
+    const { text } = await extractText(pdf, { mergePages: true })
     
-    // Load the PDF document
-    const pdf = await pdfjsLib.getDocument({
-      data: pdfData,
-      standardFontDataUrl: path.join(process.cwd(), 'node_modules/pdfjs-dist/standard_fonts/'),
-      cMapUrl: path.join(process.cwd(), 'node_modules/pdfjs-dist/cmaps/'),
-      cMapPacked: true,
-    }).promise
-    
-    let fullText = ''
-    
-    // Extract text from each page
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum)
-      const textContent = await page.getTextContent()
-      
-      // Combine all text items from the page
-      const pageText = textContent.items
-        .map((item: unknown) => {
-          const textItem = item as { str?: string }
-          return textItem.str || ''
-        })
-        .join(' ')
-      
-      fullText += pageText + '\n'
+    if (!text || text.trim().length === 0) {
+      throw new Error('No text content found in PDF')
     }
     
-    return fullText.trim()
+    return text
   } catch (error) {
     console.error('PDF parsing error:', error)
-    throw new Error('Failed to parse PDF file')
+    throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
