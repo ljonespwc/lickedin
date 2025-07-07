@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         // TODO: In the future, we can get the session_id from the LayerCode session
         // and use it to fetch current interview question and context
         
-        // For now, create an AI interviewer that maintains conversation context
+        // Create an AI interviewer that maintains conversation context
         const completion = await openai.chat.completions.create({
           model: "gpt-4",
           messages: [
