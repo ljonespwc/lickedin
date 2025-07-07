@@ -17,6 +17,13 @@ export async function POST(request: NextRequest) {
     const layercodeApiKey = process.env.LAYERCODE_API_KEY
     const pipelineId = process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID
     
+    console.log('Environment check:', { 
+      hasApiKey: !!layercodeApiKey,
+      hasPipelineId: !!pipelineId,
+      apiKeyLength: layercodeApiKey?.length || 0,
+      pipelineId: pipelineId
+    })
+    
     if (!layercodeApiKey || !pipelineId) {
       throw new Error('Missing LayerCode configuration')
     }
@@ -47,19 +54,20 @@ export async function POST(request: NextRequest) {
     const layercodeData = await layercodeResponse.json()
     console.log('LayerCode authorization successful:', { 
       hasClientSessionKey: !!layercodeData.client_session_key,
-      sessionId: layercodeData.session_id 
+      sessionId: layercodeData.session_id,
+      fullResponse: layercodeData
     })
 
-    // Return the LayerCode session credentials
-    return NextResponse.json({
-      client_session_key: layercodeData.client_session_key,
-      session_id: layercodeData.session_id,
-      authorized: true,
-      timestamp: new Date().toISOString()
-    })
+    // Return exactly what LayerCode API returns for React SDK compatibility
+    console.log('Returning LayerCode response:', layercodeData)
+    return NextResponse.json(layercodeData)
 
   } catch (error) {
-    console.error('Voice authorization error:', error)
+    console.error('Voice authorization error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      type: typeof error
+    })
     
     // Return error response - don't fall back to invalid credentials
     return NextResponse.json({
