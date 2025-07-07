@@ -13,8 +13,8 @@ const openai = new OpenAI({
 export async function POST(request: NextRequest) {
   try {
     // Verify webhook signature for security
-    const signature = request.headers.get('layercode-signature')
-    const timestamp = request.headers.get('layercode-timestamp')
+    const signature = request.headers.get('x-layercode-signature')
+    const timestamp = request.headers.get('x-layercode-timestamp')
     
     if (!signature || !timestamp) {
       console.error('Missing LayerCode signature headers')
