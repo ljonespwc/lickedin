@@ -12,28 +12,18 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    // Log webhook headers for debugging
-    const signature = request.headers.get('x-layercode-signature')
-    const timestamp = request.headers.get('x-layercode-timestamp')
-    const allHeaders = Object.fromEntries(request.headers.entries())
+    // Verify webhook signature for security
+    const signature = request.headers.get('layercode-signature')
+    const timestamp = request.headers.get('layercode-timestamp')
     
-    console.log('Voice agent webhook received:', {
-      hasSignature: !!signature,
-      hasTimestamp: !!timestamp,
-      headers: allHeaders
-    })
-    
-    // Temporarily disable strict signature validation for debugging
-    // TODO: Re-enable proper signature validation once headers are confirmed
-    // if (!signature || !timestamp) {
-    //   return NextResponse.json({ error: 'Missing signature headers' }, { status: 401 })
-    // }
+    if (!signature || !timestamp) {
+      console.error('Missing LayerCode signature headers')
+      return NextResponse.json({ error: 'Missing signature headers' }, { status: 401 })
+    }
 
     // Parse the webhook payload
     const body = await request.json()
     const { type, text, turn_id } = body
-    
-    console.log('Webhook payload:', { type, text, turn_id })
 
     // Handle different webhook event types
     if (type === 'session.start') {
@@ -46,7 +36,6 @@ export async function POST(request: NextRequest) {
         turn_id: turn_id
       })
       
-      console.log('Sending welcome TTS response:', sseData)
       
       return new Response(`data: ${sseData}\n\ndata: ${JSON.stringify({type: "response.end", turn_id: turn_id})}\n\n`, {
         headers: { 
@@ -103,7 +92,6 @@ Current interview context: This is a demo interview session.`
           turn_id: turn_id
         })
         
-        console.log('Sending TTS response:', sseData)
         
         return new Response(`data: ${sseData}\n\ndata: ${JSON.stringify({type: "response.end", turn_id: turn_id})}\n\n`, {
           headers: { 
