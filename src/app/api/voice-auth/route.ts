@@ -13,38 +13,59 @@ export async function POST(request: NextRequest) {
     
     console.log('Voice session data:', { sessionId, metadata })
 
-    // For LayerCode voice integration, we'll allow authorization
-    // TODO: In the future, we can add more sophisticated auth checks
-    // by integrating with the current interview session context
+    // Call LayerCode API to generate client_session_key
+    const layercodeApiKey = process.env.LAYERCODE_API_KEY
+    const pipelineId = process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID
     
-    // Log the session for debugging
-    if (sessionId) {
-      console.log(`Voice session ${sessionId} authorized`)
+    if (!layercodeApiKey || !pipelineId) {
+      throw new Error('Missing LayerCode configuration')
     }
 
-    // Return authorization success
+    // Make request to LayerCode authorization API
+    const layercodeResponse = await fetch('https://api.layercode.com/v1/pipelines/authorize_session', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${layercodeApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        pipeline_id: pipelineId,
+        session_context: {
+          interview_session_id: sessionId,
+          service: 'LickedIn Interviews Voice',
+          ...metadata
+        }
+      })
+    })
+
+    if (!layercodeResponse.ok) {
+      const errorText = await layercodeResponse.text()
+      console.error('LayerCode authorization failed:', errorText)
+      throw new Error(`LayerCode API error: ${layercodeResponse.status}`)
+    }
+
+    const layercodeData = await layercodeResponse.json()
+    console.log('LayerCode authorization successful:', { 
+      hasClientSessionKey: !!layercodeData.client_session_key,
+      sessionId: layercodeData.session_id 
+    })
+
+    // Return the LayerCode session credentials
     return NextResponse.json({
+      client_session_key: layercodeData.client_session_key,
+      session_id: layercodeData.session_id,
       authorized: true,
-      sessionId: sessionId,
-      timestamp: new Date().toISOString(),
-      metadata: {
-        service: 'LickedIn Interviews Voice',
-        ...metadata
-      }
+      timestamp: new Date().toISOString()
     })
 
   } catch (error) {
     console.error('Voice authorization error:', error)
     
-    // Return a more permissive response to avoid blocking voice setup
+    // Return error response - don't fall back to invalid credentials
     return NextResponse.json({
-      authorized: true,
-      sessionId: 'fallback-session',
-      timestamp: new Date().toISOString(),
-      metadata: {
-        service: 'LickedIn Interviews Voice',
-        note: 'Fallback authorization'
-      }
-    })
+      error: 'Voice authorization failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      authorized: false
+    }, { status: 500 })
   }
 }

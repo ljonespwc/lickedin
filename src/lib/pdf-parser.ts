@@ -1,7 +1,10 @@
-import { extractText, getDocumentProxy } from 'unpdf'
+import { definePDFJSModule, extractText, getDocumentProxy } from 'unpdf'
 
 export async function parsePDF(buffer: Buffer): Promise<string> {
   try {
+    // Configure unpdf to use bundled serverless build to eliminate warnings
+    await definePDFJSModule(() => import('unpdf/pdfjs'))
+    
     // Convert Buffer to Uint8Array for unpdf
     const uint8Array = new Uint8Array(buffer)
     
