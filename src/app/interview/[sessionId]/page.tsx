@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Mic, Square, Pause, Play, Settings } from "lucide-react"
+import { Mic, Square, Settings } from "lucide-react"
 import Image from 'next/image'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 // Dynamic import to avoid SSR issues with LayerCode
@@ -24,38 +24,49 @@ interface InterviewSession {
   status: string
 }
 
-interface Question {
-  id: string
-  question_text: string
-  question_order: number
-  question_type: string
-}
+// interface Question {
+//   id: string
+//   question_text: string
+//   question_order: number
+//   question_type: string
+// }
 
 const InterviewSession = () => {
   const params = useParams()
   const router = useRouter()
   const sessionId = params.sessionId as string
   
-  const [isRecording, setIsRecording] = useState(false)
-  const [isPaused, setIsPaused] = useState(false)
-  const [currentQuestion, setCurrentQuestion] = useState(1)
-  const [totalQuestions, setTotalQuestions] = useState(5)
+  const [currentQuestion] = useState(1) // TODO: Implement question progression
+  const [totalQuestions] = useState(5) // TODO: Use actual question count
   const [timeElapsed, setTimeElapsed] = useState(0)
-  const [transcription, setTranscription] = useState('')
+  // const [transcription] = useState('') // TODO: Implement live transcription
   const [session, setSession] = useState<InterviewSession | null>(null)
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [currentQuestionText, setCurrentQuestionText] = useState('')
+  // const [questions] = useState<Question[]>([]) // TODO: Load and use questions
+  // const [currentQuestionText, setCurrentQuestionText] = useState('')
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<SupabaseUser | null>(null)
 
   // Voice integration state
-  const [voiceData, setVoiceData] = useState<{agentAudioAmplitude: number, status: string}>({
+  const [voiceData, setVoiceData] = useState<{
+    agentAudioAmplitude: number; 
+    status: string;
+    agentTranscription?: string;
+    userTranscription?: string;
+  }>({
     agentAudioAmplitude: 0,
-    status: 'disconnected'
+    status: 'disconnected',
+    agentTranscription: '',
+    userTranscription: ''
   })
+  const [userSpeaking] = useState(false) // TODO: Implement user speech detection
 
   // Handle voice data from the dynamic component - memoized to prevent infinite re-renders
-  const handleVoiceData = useCallback((data: { agentAudioAmplitude: number; status: string }) => {
+  const handleVoiceData = useCallback((data: { 
+    agentAudioAmplitude: number; 
+    status: string;
+    agentTranscription?: string;
+    userTranscription?: string;
+  }) => {
     setVoiceData(data)
   }, [])
 
@@ -115,9 +126,10 @@ const InterviewSession = () => {
         
         const data = await response.json()
         setSession(data.session)
-        setQuestions(data.questions)
-        setTotalQuestions(data.questions.length)
-        setCurrentQuestionText(data.questions[0]?.question_text || '')
+        // TODO: Re-enable question loading when implementing question progression
+        // setQuestions(data.questions)
+        // setTotalQuestions(data.questions.length)
+        // setCurrentQuestionText(data.questions[0]?.question_text || '')
         setLoading(false)
       } catch (error) {
         console.error('Error loading session:', error)
@@ -133,13 +145,13 @@ const InterviewSession = () => {
   // Timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout
-    if (!isPaused && !loading) {
+    if (!loading) {
       interval = setInterval(() => {
         setTimeElapsed(prev => prev + 1)
       }, 1000)
     }
     return () => clearInterval(interval)
-  }, [isPaused, loading])
+  }, [loading])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -147,41 +159,22 @@ const InterviewSession = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const handleRecordToggle = () => {
-    if (isRecording) {
-      setIsRecording(false)
-      // TODO: Stop voice recording and process response
-    } else {
-      setIsRecording(true)
-      setIsPaused(false)
-      // TODO: Start voice recording
-    }
-  }
-
-  const handlePause = () => {
-    setIsPaused(!isPaused)
-    // TODO: Pause/resume interview session
-  }
-
   const handleStop = () => {
-    setIsRecording(false)
-    setIsPaused(false)
-    // TODO: End interview and navigate to results
+    // End interview and navigate to results
     router.push(`/results/${sessionId}`)
   }
 
-  const handleNextQuestion = () => {
-    if (currentQuestion < totalQuestions) {
-      const nextQuestion = currentQuestion + 1
-      setCurrentQuestion(nextQuestion)
-      setCurrentQuestionText(questions[nextQuestion - 1]?.question_text || '')
-      setTranscription('')
-      setIsRecording(false)
-    } else {
-      // Interview complete
-      handleStop()
-    }
-  }
+  // const handleNextQuestion = () => {
+  //   if (currentQuestion < totalQuestions) {
+  //     const nextQuestion = currentQuestion + 1
+  //     setCurrentQuestion(nextQuestion)
+  //     setCurrentQuestionText(questions[nextQuestion - 1]?.question_text || '')
+  //     setTranscription('')
+  //   } else {
+  //     // Interview complete
+  //     handleStop()
+  //   }
+  // }
 
   if (loading) {
     return (
@@ -211,7 +204,7 @@ const InterviewSession = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Voice Integration - client-side only */}
-      <VoiceIntegration onVoiceData={handleVoiceData} />
+      <VoiceIntegration onVoiceData={handleVoiceData} sessionId={sessionId} />
       
       {/* Header */}
       <header className="border-b bg-card">
@@ -226,6 +219,13 @@ const InterviewSession = () => {
             />
           </div>
           <div className="flex items-center space-x-4">
+            {/* Voice Status Indicator */}
+            {voiceData.status && (
+              <div className="flex items-center space-x-2 px-3 py-1 bg-muted/30 rounded-full">
+                <div className={`w-2 h-2 rounded-full ${voiceData.status === 'connected' ? 'bg-green-500' : 'bg-yellow-500'} animate-pulse`}></div>
+                <span className="text-xs text-muted-foreground">Voice: {voiceData.status}</span>
+              </div>
+            )}
             <span className="text-sm text-muted-foreground">{user?.email}</span>
             <Button variant="outline" onClick={() => supabase.auth.signOut()}>
               Sign Out
@@ -238,7 +238,7 @@ const InterviewSession = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-between items-center">
-            {currentQuestion === 1 && !isRecording && (
+            {currentQuestion === 1 && (
               <Button
                 variant="outline"
                 onClick={() => router.push('/setup/customize')}
@@ -248,115 +248,88 @@ const InterviewSession = () => {
                 <span>Change Settings</span>
               </Button>
             )}
-            {!(currentQuestion === 1 && !isRecording) && <div></div>}
+            {!(currentQuestion === 1) && <div></div>}
             
             <h1 className="text-2xl font-semibold">LIVE INTERVIEW</h1>
             <div></div>
           </div>
         </div>
 
-        {/* Interviewer Section */}
-        <Card className="mb-6">
+        {/* Interviewer Section - Live Transcription */}
+        <Card className={`mb-6 transition-all ${voiceData.agentAudioAmplitude > 0 ? 'ring-2 ring-primary/20 bg-primary/5' : ''}`}>
           <CardContent className="p-8">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="text-2xl">{interviewer.emoji}</div>
-              <h2 className="text-lg font-medium">{interviewer.name}</h2>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="text-2xl">{interviewer.emoji}</div>
+                <h2 className="text-lg font-medium">{interviewer.name}</h2>
+              </div>
+              {voiceData.agentAudioAmplitude > 0 && (
+                <div className="flex items-center space-x-2">
+                  <div className="flex space-x-1">
+                    {[...Array(3)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-1 bg-primary animate-pulse"
+                        style={{
+                          height: `${Math.max(8, voiceData.agentAudioAmplitude * 15)}px`,
+                          animationDelay: `${i * 0.1}s`
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted-foreground">Speaking...</span>
+                </div>
+              )}
             </div>
             
-            <div className="mb-6">
+            <div className="min-h-24">
               <p className="text-foreground leading-relaxed">
-                &quot;{currentQuestionText}&quot;
+                {voiceData.agentTranscription ? (
+                  <span>{voiceData.agentTranscription}</span>
+                ) : (
+                  <span className="italic text-muted-foreground">[AI transcription will appear here as the interviewer speaks...]</span>
+                )}
               </p>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-sm text-muted-foreground">Speaking...</span>
             </div>
           </CardContent>
         </Card>
 
-        {/* User Response Section */}
-        <Card className="mb-6">
+        {/* User Response Section - Live Transcription */}
+        <Card className={`mb-6 transition-all ${userSpeaking ? 'ring-2 ring-blue-500/20 bg-blue-500/5' : ''}`}>
           <CardContent className="p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Mic className="text-primary" size={20} />
-              <h3 className="font-medium">Your Response</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <Mic className="text-primary" size={20} />
+                <h3 className="font-medium">Your Response</h3>
+              </div>
+              {userSpeaking && (
+                <div className="flex items-center space-x-2">
+                  <div className="flex space-x-1">
+                    {[...Array(3)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-1 bg-blue-500 animate-pulse"
+                        style={{
+                          height: `${Math.max(8, 12)}px`,
+                          animationDelay: `${i * 0.1}s`
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted-foreground">Listening...</span>
+                </div>
+              )}
             </div>
             
             <div className="min-h-24 p-4 bg-muted/30 rounded-lg border text-muted-foreground text-sm mb-4">
-              {transcription || "[Transcription appears here as you speak...]"}
+              {voiceData.userTranscription ? (
+                <span className="text-foreground">{voiceData.userTranscription}</span>
+              ) : (
+                <span className="italic">[Your voice transcription will appear here as you speak...]</span>
+              )}
             </div>
             
-            {/* Voice Status Indicator */}
-            {voiceData.status && (
-              <div className="flex items-center justify-center space-x-2 mb-4">
-                <div className="flex items-center space-x-1">
-                  {voiceData.agentAudioAmplitude > 0 && (
-                    <>
-                      <div className="text-sm text-muted-foreground">AI Speaking</div>
-                      <div className="flex space-x-1">
-                        {[...Array(5)].map((_, i) => (
-                          <div
-                            key={i}
-                            className="w-1 bg-primary animate-pulse"
-                            style={{
-                              height: `${Math.max(4, voiceData.agentAudioAmplitude * 20)}px`,
-                              animationDelay: `${i * 0.1}s`
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </>
-                  )}
-                  <div className="text-xs text-muted-foreground">
-                    Voice Status: {voiceData.status}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <div className="flex items-center justify-center space-x-4">
-              <Button
-                variant={isRecording ? "destructive" : "default"}
-                size="lg"
-                onClick={handleRecordToggle}
-                className="flex items-center space-x-2"
-              >
-                {isRecording ? (
-                  <>
-                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                    <span>Recording...</span>
-                  </>
-                ) : (
-                  <>
-                    <Mic size={20} />
-                    <span>Record</span>
-                  </>
-                )}
-              </Button>
-              
-              {isRecording && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={handlePause}
-                    className="flex items-center space-x-2"
-                  >
-                    {isPaused ? <Play size={16} /> : <Pause size={16} />}
-                    <span>{isPaused ? "Resume" : "Pause"}</span>
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    onClick={handleNextQuestion}
-                    className="flex items-center space-x-2"
-                  >
-                    <span>Next Question</span>
-                  </Button>
-                </>
-              )}
-              
+            <div className="flex items-center justify-center">
               <Button
                 variant="outline"
                 onClick={handleStop}
