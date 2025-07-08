@@ -8,14 +8,23 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body to get session context
     const body = await request.json().catch(() => ({}))
-    const { sessionId, metadata } = body
+    console.log('=== VOICE AUTH: REQUEST RECEIVED ===')
+    console.log('Full request body:', body)
+    
+    // The sessionContext from React SDK should be here
+    const { sessionId, metadata, sessionContext } = body
+    const interviewSessionId = sessionId || sessionContext?.sessionId || sessionContext?.interviewSessionId
     
     console.log('=== VOICE AUTH: SESSION SETUP ===')
-    console.log('Interview session ID:', sessionId)
+    console.log('sessionId from body:', sessionId)
+    console.log('sessionContext from body:', sessionContext)
+    console.log('Final interview session ID:', interviewSessionId)
     
     // Store this as the latest interview session for LayerCode mapping
-    if (sessionId) {
-      setLatestInterviewSessionId(sessionId)
+    if (interviewSessionId) {
+      setLatestInterviewSessionId(interviewSessionId)
+    } else {
+      console.log('=== WARNING: No interview session ID found in voice auth ===')
     }
 
     // Call LayerCode API to generate client_session_key
@@ -36,7 +45,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         pipeline_id: pipelineId,
         session_context: {
-          interview_session_id: sessionId,
+          interview_session_id: interviewSessionId,
           service: 'LickedIn Interviews Voice',
           ...metadata
         }

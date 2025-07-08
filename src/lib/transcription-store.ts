@@ -57,6 +57,22 @@ export function getInterviewSessionId(layerCodeSessionId: string): string | unde
   console.log(`=== FALLBACK TO LATEST SESSION ===`)
   console.log(`LayerCode session: ${layerCodeSessionId}`)
   console.log(`Latest interview session: ${latestInterviewSessionId}`)
+  
+  // If no latest session, let's check if we can find an active session from transcription store
+  if (!latestInterviewSessionId) {
+    console.log(`=== ATTEMPTING TO FIND ACTIVE SESSION ===`)
+    // Look for any sessions that have recent activity (last 5 minutes)
+    const now = Date.now()
+    const fiveMinutesAgo = now - (5 * 60 * 1000)
+    
+    for (const [sessionId, data] of transcriptionStore.entries()) {
+      if (data.lastUpdate > fiveMinutesAgo) {
+        console.log(`=== FOUND ACTIVE SESSION: ${sessionId} ===`)
+        return sessionId
+      }
+    }
+  }
+  
   return latestInterviewSessionId || undefined
 }
 

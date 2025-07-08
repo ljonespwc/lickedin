@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getTranscription } from '@/lib/transcription-store'
+import { getTranscription, setLatestInterviewSessionId } from '@/lib/transcription-store'
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,6 +13,10 @@ export async function GET(request: NextRequest) {
       console.log('=== TRANSCRIPTION POLL: Missing sessionId ===')
       return new Response('Missing sessionId', { status: 400 })
     }
+    
+    // Since this is being polled, this is definitely an active interview session
+    // Use this to set the latest interview session ID for webhook mapping
+    setLatestInterviewSessionId(sessionId)
 
     // Simple polling endpoint - get current transcription data
     const data = getTranscription(sessionId)
