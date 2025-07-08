@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { updateTranscription } from '@/lib/transcription-store'
+import { updateTranscription, mapLayerCodeSession, getInterviewSessionId } from '@/lib/transcription-store'
 // Note: LayerCode and Supabase imports available for future integration
 // import { streamResponse } from '@layercode/node-server-sdk'
 // import { createServerClient } from '@supabase/ssr'
@@ -23,6 +23,11 @@ export async function POST(request: NextRequest) {
     console.log('Method:', request.method)
     console.log('URL:', request.url)
     console.log('Timestamp:', new Date().toISOString())
+    
+    // Extract interview session ID from URL query params
+    const { searchParams } = new URL(request.url)
+    const interviewSessionId = searchParams.get('sessionId')
+    console.log('Interview Session ID from URL:', interviewSessionId)
     
     // LayerCode sends signature as "layercode-signature" (without x- prefix)
     const signature = request.headers.get('layercode-signature')
@@ -48,6 +53,15 @@ export async function POST(request: NextRequest) {
 
     // Handle different webhook event types
     if (type === 'session.start') {
+      // Map LayerCode session to interview session if we have the interview session ID
+      if (interviewSessionId && session_id) {
+        console.log('=== MAPPING SESSIONS ===')
+        mapLayerCodeSession(session_id, interviewSessionId)
+      } else {
+        console.log('=== SESSION MAPPING FAILED ===')
+        console.log('Missing interview session ID in URL or LayerCode session ID')
+      }
+      
       // Initialize the interview session with SSE format
       const welcomeMessage = "Welcome to LickedIn Interviews! I'm your AI interviewer. Let's start with your first question."
       
@@ -68,16 +82,26 @@ export async function POST(request: NextRequest) {
     }
 
     if (type === 'message') {
+      // Get the mapped interview session ID
+      const mappedInterviewSessionId = session_id ? getInterviewSessionId(session_id) : null
+      console.log('=== MESSAGE EVENT PROCESSING ===')
+      console.log('LayerCode session ID:', session_id)
+      console.log('Mapped interview session ID:', mappedInterviewSessionId)
+      
       // Store user transcription for real-time display
-      if (text && session_id) {
+      if (text && mappedInterviewSessionId) {
         console.log('=== STORING USER TRANSCRIPTION ===')
-        console.log('Session ID:', session_id)
+        console.log('Using interview session ID:', mappedInterviewSessionId)
         console.log('User text:', text)
-        updateTranscription(session_id, 'user', text)
+        updateTranscription(mappedInterviewSessionId, 'user', text)
         console.log('Transcription stored successfully')
       } else {
         console.log('=== SKIPPING USER TRANSCRIPTION ===')
-        console.log('Missing text or session_id:', { hasText: !!text, hasSessionId: !!session_id })
+        console.log('Missing text or mapped session:', { 
+          hasText: !!text, 
+          hasLayerCodeSession: !!session_id,
+          hasMappedSession: !!mappedInterviewSessionId 
+        })
       }
       
       // Handle user's voice message during interview
@@ -119,15 +143,18 @@ Current interview context: This is a demo interview session.`
         const response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
         
         // Store agent transcription for real-time display
-        if (response && session_id) {
+        if (response && mappedInterviewSessionId) {
           console.log('=== STORING AGENT TRANSCRIPTION ===')
-          console.log('Session ID:', session_id)
+          console.log('Using interview session ID:', mappedInterviewSessionId)
           console.log('Agent response:', response)
-          updateTranscription(session_id, 'agent', response)
+          updateTranscription(mappedInterviewSessionId, 'agent', response)
           console.log('Agent transcription stored successfully')
         } else {
           console.log('=== SKIPPING AGENT TRANSCRIPTION ===')
-          console.log('Missing response or session_id:', { hasResponse: !!response, hasSessionId: !!session_id })
+          console.log('Missing response or mapped session:', { 
+            hasResponse: !!response, 
+            hasMappedSession: !!mappedInterviewSessionId 
+          })
         }
         
         // Return SSE format for LayerCode TTS

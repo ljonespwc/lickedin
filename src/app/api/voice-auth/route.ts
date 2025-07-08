@@ -30,6 +30,10 @@ export async function POST(request: NextRequest) {
           interview_session_id: sessionId,
           service: 'LickedIn Interviews Voice',
           ...metadata
+        },
+        webhook_config: {
+          url: `https://lickedin.vercel.app/api/voice-agent?sessionId=${sessionId}`,
+          events: ['message', 'session.start']
         }
       })
     })

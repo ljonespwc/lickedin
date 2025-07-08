@@ -28,48 +28,55 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
     authorizeSessionEndpoint: '/api/voice-auth',
   })
 
-  // Connect to transcription SSE stream
+  // Poll for transcription updates
   React.useEffect(() => {
     if (!sessionId) {
-      console.log('=== SSE: No sessionId provided ===')
+      console.log('=== TRANSCRIPTION POLL: No sessionId provided ===')
       return
     }
 
-    console.log(`=== SSE: Connecting to transcription stream for session ${sessionId} ===`)
-    const eventSource = new EventSource(`/api/transcription-stream?sessionId=${sessionId}`)
+    console.log(`=== TRANSCRIPTION POLL: Starting polling for session ${sessionId} ===`)
     
-    eventSource.onopen = () => {
-      console.log('=== SSE: Connection opened ===')
-    }
+    let lastTimestamp = 0
     
-    eventSource.onmessage = (event) => {
-      console.log('=== SSE: Message received ===', event.data)
+    const pollTranscription = async () => {
       try {
-        const data = JSON.parse(event.data)
-        console.log('=== SSE: Parsed data ===', data)
+        console.log('=== TRANSCRIPTION POLL: Fetching data ===')
+        const response = await fetch(`/api/transcription-stream?sessionId=${sessionId}`)
         
-        if (data.type === 'transcription') {
-          console.log('=== SSE: Setting transcription data ===')
+        if (!response.ok) {
+          console.error('Transcription poll failed:', response.status)
+          return
+        }
+        
+        const data = await response.json()
+        console.log('=== TRANSCRIPTION POLL: Received data ===', data)
+        
+        // Only update if there's new data
+        if (data.timestamp > lastTimestamp) {
+          console.log('=== TRANSCRIPTION POLL: Updating UI ===')
           console.log('Agent text:', data.agentText)
           console.log('User text:', data.userText)
           setAgentText(data.agentText || '')
           setUserText(data.userText || '')
-        } else if (data.type === 'connected') {
-          console.log('=== SSE: Connected confirmation received ===')
+          lastTimestamp = data.timestamp
+        } else {
+          console.log('=== TRANSCRIPTION POLL: No new data ===')
         }
       } catch (error) {
-        console.error('Error parsing transcription data:', error)
+        console.error('Transcription poll error:', error)
       }
     }
-
-    eventSource.onerror = (error) => {
-      console.error('Transcription SSE error:', error)
-      console.log('EventSource readyState:', eventSource.readyState)
-    }
+    
+    // Poll every 1 second
+    const interval = setInterval(pollTranscription, 1000)
+    
+    // Initial poll
+    pollTranscription()
 
     return () => {
-      console.log('=== SSE: Closing connection ===')
-      eventSource.close()
+      console.log('=== TRANSCRIPTION POLL: Stopping polling ===')
+      clearInterval(interval)
     }
   }, [sessionId])
 

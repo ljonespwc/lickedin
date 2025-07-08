@@ -5,6 +5,9 @@ const transcriptionStore = new Map<string, {
   lastUpdate: number
 }>()
 
+// Map LayerCode session IDs to interview session IDs
+const sessionMapping = new Map<string, string>()
+
 // Helper function to update transcription store
 export function updateTranscription(sessionId: string, type: 'user' | 'agent', text: string) {
   console.log(`=== TRANSCRIPTION STORE UPDATE ===`)
@@ -24,6 +27,18 @@ export function updateTranscription(sessionId: string, type: 'user' | 'agent', t
   
   console.log('Updated data:', existing)
   console.log('Store size:', transcriptionStore.size)
+}
+
+// Helper function to map LayerCode session to interview session
+export function mapLayerCodeSession(layerCodeSessionId: string, interviewSessionId: string) {
+  console.log(`=== SESSION MAPPING ===`)
+  console.log(`LayerCode: ${layerCodeSessionId} -> Interview: ${interviewSessionId}`)
+  sessionMapping.set(layerCodeSessionId, interviewSessionId)
+}
+
+// Helper function to get the interview session ID from LayerCode session ID
+export function getInterviewSessionId(layerCodeSessionId: string): string | undefined {
+  return sessionMapping.get(layerCodeSessionId)
 }
 
 // Helper function to get transcription data
