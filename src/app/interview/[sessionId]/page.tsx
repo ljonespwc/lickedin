@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Button } from "@/components/ui/button"
@@ -9,7 +10,11 @@ import { Progress } from "@/components/ui/progress"
 import { Mic, Square, Pause, Play, Settings } from "lucide-react"
 import Image from 'next/image'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
-import { useLayercodePipeline } from '@layercode/react-sdk'
+// Dynamic import to avoid SSR issues with LayerCode
+const VoiceIntegration = dynamic(() => import('@/components/VoiceIntegration').then(mod => ({ default: mod.VoiceIntegration })), {
+  ssr: false,
+  loading: () => null
+})
 
 interface InterviewSession {
   id: string
@@ -43,11 +48,16 @@ const InterviewSession = () => {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<SupabaseUser | null>(null)
 
-  // LayerCode voice pipeline integration
-  const { agentAudioAmplitude, status: voiceStatus } = useLayercodePipeline({
-    pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
-    authorizeSessionEndpoint: '/api/voice-auth',
+  // Voice integration state
+  const [voiceData, setVoiceData] = useState<{agentAudioAmplitude: number, status: string}>({
+    agentAudioAmplitude: 0,
+    status: 'disconnected'
   })
+
+  // Handle voice data from the dynamic component - memoized to prevent infinite re-renders
+  const handleVoiceData = useCallback((data: { agentAudioAmplitude: number; status: string }) => {
+    setVoiceData(data)
+  }, [])
 
   const interviewer = {
     name: session?.persona === 'michael_scott' ? 'Michael Scott' : 
@@ -200,6 +210,9 @@ const InterviewSession = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Voice Integration - client-side only */}
+      <VoiceIntegration onVoiceData={handleVoiceData} />
+      
       {/* Header */}
       <header className="border-b bg-card">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
@@ -276,10 +289,10 @@ const InterviewSession = () => {
             </div>
             
             {/* Voice Status Indicator */}
-            {voiceStatus && (
+            {voiceData.status && (
               <div className="flex items-center justify-center space-x-2 mb-4">
                 <div className="flex items-center space-x-1">
-                  {agentAudioAmplitude > 0 && (
+                  {voiceData.agentAudioAmplitude > 0 && (
                     <>
                       <div className="text-sm text-muted-foreground">AI Speaking</div>
                       <div className="flex space-x-1">
@@ -288,7 +301,7 @@ const InterviewSession = () => {
                             key={i}
                             className="w-1 bg-primary animate-pulse"
                             style={{
-                              height: `${Math.max(4, agentAudioAmplitude * 20)}px`,
+                              height: `${Math.max(4, voiceData.agentAudioAmplitude * 20)}px`,
                               animationDelay: `${i * 0.1}s`
                             }}
                           />
@@ -297,7 +310,7 @@ const InterviewSession = () => {
                     </>
                   )}
                   <div className="text-xs text-muted-foreground">
-                    Voice Status: {voiceStatus}
+                    Voice Status: {voiceData.status}
                   </div>
                 </div>
               </div>
