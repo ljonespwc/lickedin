@@ -26,6 +26,10 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
   } = useLayercodePipeline({
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
     authorizeSessionEndpoint: '/api/voice-auth',
+    sessionContext: {
+      sessionId: sessionId,
+      interviewSessionId: sessionId
+    }
   })
 
   // Poll for transcription updates

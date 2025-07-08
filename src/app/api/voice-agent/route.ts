@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
-import { updateTranscription, mapLayerCodeSession, getInterviewSessionId } from '@/lib/transcription-store'
+import { updateTranscription, getInterviewSessionId } from '@/lib/transcription-store'
 import { streamResponse, verifySignature } from '@layercode/node-server-sdk'
 
 // Initialize OpenAI
@@ -39,45 +39,40 @@ export async function POST(request: NextRequest) {
     console.log('=== STREAM RESPONSE HANDLER ===')
     console.log('Request body:', requestBody)
     
-    // Extract data from the request body
-    const { text, session_id, session_context } = requestBody
+    // Based on webhook API docs, extract the correct fields
+    const { text, session_id, type, turn_id, connection_id } = requestBody
+    console.log('Event type:', type)
     console.log('Input text:', text)
-    console.log('Session context:', session_context)
+    console.log('Session ID:', session_id)
+    console.log('Turn ID:', turn_id)
+    console.log('Connection ID:', connection_id)
     
-    // Extract interview session ID from LayerCode session context
-    const interviewSessionId = session_context?.interview_session_id
-    console.log('Interview session ID from context:', interviewSessionId)
-    
-    // TEMPORARY WORKAROUND: Since session_context is undefined, 
-    // we'll need to get the interview session ID another way
-    // For now, let's extract it from the current URL or use a default approach
-    
-    // Map LayerCode session to interview session (if we have context)
-    if (session_id && interviewSessionId) {
-      console.log('=== MAPPING SESSIONS ===')
-      mapLayerCodeSession(session_id, interviewSessionId)
-    } else {
-      console.log('=== SESSION CONTEXT MISSING ===')
-      console.log('Will need alternative approach to map sessions')
-    }
-    
-    // Get interview session ID (with fallback approach)
+    // Get interview session ID using fallback approach
     const mappedInterviewSessionId = session_id ? getInterviewSessionId(session_id) : null
     console.log('=== FINAL SESSION MAPPING ===')
     console.log('Mapped interview session ID:', mappedInterviewSessionId)
     
-    // Store user transcription
-    if (text && mappedInterviewSessionId) {
-      console.log('=== STORING USER TRANSCRIPTION ===')
-      console.log('Text:', text)
-      console.log('Session:', mappedInterviewSessionId)
-      updateTranscription(mappedInterviewSessionId, 'user', text)
-    } else {
-      console.log('=== CANNOT STORE USER TRANSCRIPTION ===')
-      console.log('Missing text or session mapping:', { 
-        hasText: !!text,
-        hasMappedSession: !!mappedInterviewSessionId 
-      })
+    // Handle SESSION_START event
+    if (type === 'SESSION_START') {
+      console.log('=== SESSION START EVENT ===')
+      // Just respond with a greeting, no transcription storage needed
+    }
+    
+    // Handle MESSAGE event
+    if (type === 'MESSAGE' || !type) { // Handle both MESSAGE and undefined type
+      // Store user transcription
+      if (text && mappedInterviewSessionId) {
+        console.log('=== STORING USER TRANSCRIPTION ===')
+        console.log('Text:', text)
+        console.log('Session:', mappedInterviewSessionId)
+        updateTranscription(mappedInterviewSessionId, 'user', text)
+      } else {
+        console.log('=== CANNOT STORE USER TRANSCRIPTION ===')
+        console.log('Missing text or session mapping:', { 
+          hasText: !!text,
+          hasMappedSession: !!mappedInterviewSessionId 
+        })
+      }
     }
 
     // Generate AI response
@@ -119,17 +114,11 @@ Current interview context: This is a demo interview session.`
       }
       
       // Stream the response back to LayerCode
-      const responseStream = async function* () {
-        yield response
-      }
-      await stream.ttsTextStream(responseStream())
+      stream.tts(response)
       
     } catch (error) {
       console.error('OpenAI error:', error)
-      const errorStream = async function* () {
-        yield "I apologize, but I'm having some technical difficulties. Let's continue with your interview."
-      }
-      await stream.ttsTextStream(errorStream())
+      stream.tts("I apologize, but I'm having some technical difficulties. Let's continue with your interview.")
     }
     
     // End the stream
