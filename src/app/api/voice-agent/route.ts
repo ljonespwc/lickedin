@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
-import { updateTranscription, mapLayerCodeSession } from '@/lib/transcription-store'
+import { updateTranscription, mapLayerCodeSession, getInterviewSessionId } from '@/lib/transcription-store'
 import { streamResponse, verifySignature } from '@layercode/node-server-sdk'
 
 // Initialize OpenAI
@@ -48,17 +48,36 @@ export async function POST(request: NextRequest) {
     const interviewSessionId = session_context?.interview_session_id
     console.log('Interview session ID from context:', interviewSessionId)
     
-    // Map LayerCode session to interview session
+    // TEMPORARY WORKAROUND: Since session_context is undefined, 
+    // we'll need to get the interview session ID another way
+    // For now, let's extract it from the current URL or use a default approach
+    
+    // Map LayerCode session to interview session (if we have context)
     if (session_id && interviewSessionId) {
       console.log('=== MAPPING SESSIONS ===')
       mapLayerCodeSession(session_id, interviewSessionId)
+    } else {
+      console.log('=== SESSION CONTEXT MISSING ===')
+      console.log('Will need alternative approach to map sessions')
     }
     
+    // Get interview session ID (with fallback approach)
+    const mappedInterviewSessionId = session_id ? getInterviewSessionId(session_id) : null
+    console.log('=== FINAL SESSION MAPPING ===')
+    console.log('Mapped interview session ID:', mappedInterviewSessionId)
+    
     // Store user transcription
-    if (text && interviewSessionId) {
+    if (text && mappedInterviewSessionId) {
       console.log('=== STORING USER TRANSCRIPTION ===')
       console.log('Text:', text)
-      updateTranscription(interviewSessionId, 'user', text)
+      console.log('Session:', mappedInterviewSessionId)
+      updateTranscription(mappedInterviewSessionId, 'user', text)
+    } else {
+      console.log('=== CANNOT STORE USER TRANSCRIPTION ===')
+      console.log('Missing text or session mapping:', { 
+        hasText: !!text,
+        hasMappedSession: !!mappedInterviewSessionId 
+      })
     }
 
     // Generate AI response
@@ -92,10 +111,11 @@ Current interview context: This is a demo interview session.`
       const response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
       
       // Store agent transcription
-      if (response && interviewSessionId) {
+      if (response && mappedInterviewSessionId) {
         console.log('=== STORING AGENT TRANSCRIPTION ===')
         console.log('Response:', response)
-        updateTranscription(interviewSessionId, 'agent', response)
+        console.log('Session:', mappedInterviewSessionId)
+        updateTranscription(mappedInterviewSessionId, 'agent', response)
       }
       
       // Stream the response back to LayerCode

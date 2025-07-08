@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { setLatestInterviewSessionId } from '@/lib/transcription-store'
 // Note: Supabase imports available for future authentication integration
 // import { createServerClient } from '@supabase/ssr'
 // import { cookies } from 'next/headers'
@@ -8,6 +9,14 @@ export async function POST(request: NextRequest) {
     // Parse request body to get session context
     const body = await request.json().catch(() => ({}))
     const { sessionId, metadata } = body
+    
+    console.log('=== VOICE AUTH: SESSION SETUP ===')
+    console.log('Interview session ID:', sessionId)
+    
+    // Store this as the latest interview session for LayerCode mapping
+    if (sessionId) {
+      setLatestInterviewSessionId(sessionId)
+    }
 
     // Call LayerCode API to generate client_session_key
     const layercodeApiKey = process.env.LAYERCODE_API_KEY

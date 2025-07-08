@@ -8,6 +8,9 @@ const transcriptionStore = new Map<string, {
 // Map LayerCode session IDs to interview session IDs
 const sessionMapping = new Map<string, string>()
 
+// Store the latest interview session ID (simple fallback approach)
+let latestInterviewSessionId: string | null = null
+
 // Helper function to update transcription store
 export function updateTranscription(sessionId: string, type: 'user' | 'agent', text: string) {
   console.log(`=== TRANSCRIPTION STORE UPDATE ===`)
@@ -36,9 +39,25 @@ export function mapLayerCodeSession(layerCodeSessionId: string, interviewSession
   sessionMapping.set(layerCodeSessionId, interviewSessionId)
 }
 
+// Helper function to set the latest interview session ID
+export function setLatestInterviewSessionId(sessionId: string) {
+  console.log(`=== SETTING LATEST INTERVIEW SESSION ===`)
+  console.log(`Setting: ${sessionId}`)
+  latestInterviewSessionId = sessionId
+}
+
 // Helper function to get the interview session ID from LayerCode session ID
 export function getInterviewSessionId(layerCodeSessionId: string): string | undefined {
-  return sessionMapping.get(layerCodeSessionId)
+  const mapped = sessionMapping.get(layerCodeSessionId)
+  if (mapped) {
+    return mapped
+  }
+  
+  // Fallback to latest interview session if no mapping exists
+  console.log(`=== FALLBACK TO LATEST SESSION ===`)
+  console.log(`LayerCode session: ${layerCodeSessionId}`)
+  console.log(`Latest interview session: ${latestInterviewSessionId}`)
+  return latestInterviewSessionId || undefined
 }
 
 // Helper function to get transcription data
