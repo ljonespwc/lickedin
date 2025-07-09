@@ -34,41 +34,26 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
 
   // Poll for transcription updates
   React.useEffect(() => {
-    if (!sessionId) {
-      console.log('=== TRANSCRIPTION POLL: No sessionId provided ===')
-      return
-    }
+    if (!sessionId) return
 
-    console.log(`=== TRANSCRIPTION POLL: Starting polling for session ${sessionId} ===`)
-    
     let lastTimestamp = 0
     
     const pollTranscription = async () => {
       try {
-        console.log('=== TRANSCRIPTION POLL: Fetching data ===')
         const response = await fetch(`/api/transcription-stream?sessionId=${sessionId}`)
         
-        if (!response.ok) {
-          console.error('Transcription poll failed:', response.status)
-          return
-        }
+        if (!response.ok) return
         
         const data = await response.json()
-        console.log('=== TRANSCRIPTION POLL: Received data ===', data)
         
         // Only update if there's new data
         if (data.timestamp > lastTimestamp) {
-          console.log('=== TRANSCRIPTION POLL: Updating UI ===')
-          console.log('Agent text:', data.agentText)
-          console.log('User text:', data.userText)
           setAgentText(data.agentText || '')
           setUserText(data.userText || '')
           lastTimestamp = data.timestamp
-        } else {
-          console.log('=== TRANSCRIPTION POLL: No new data ===')
         }
-      } catch (error) {
-        console.error('Transcription poll error:', error)
+      } catch {
+        // Silently handle errors to avoid console spam
       }
     }
     
@@ -79,19 +64,12 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
     pollTranscription()
 
     return () => {
-      console.log('=== TRANSCRIPTION POLL: Stopping polling ===')
       clearInterval(interval)
     }
   }, [sessionId])
 
   // Pass voice data to parent component
   React.useEffect(() => {
-    console.log('=== VOICE DATA UPDATE ===')
-    console.log('Agent amplitude:', agentAudioAmplitude)
-    console.log('Voice status:', voiceStatus)
-    console.log('Agent transcription:', agentText)
-    console.log('User transcription:', userText)
-    
     onVoiceData({ 
       agentAudioAmplitude, 
       status: voiceStatus,

@@ -8,23 +8,14 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body to get session context
     const body = await request.json().catch(() => ({}))
-    console.log('=== VOICE AUTH: REQUEST RECEIVED ===')
-    console.log('Full request body:', body)
     
     // The sessionContext from React SDK should be here
     const { sessionId, metadata, sessionContext } = body
     const interviewSessionId = sessionId || sessionContext?.sessionId || sessionContext?.interviewSessionId
     
-    console.log('=== VOICE AUTH: SESSION SETUP ===')
-    console.log('sessionId from body:', sessionId)
-    console.log('sessionContext from body:', sessionContext)
-    console.log('Final interview session ID:', interviewSessionId)
-    
     // Store this as the latest interview session for LayerCode mapping
     if (interviewSessionId) {
       setLatestInterviewSessionId(interviewSessionId)
-    } else {
-      console.log('=== WARNING: No interview session ID found in voice auth ===')
     }
 
     // Call LayerCode API to generate client_session_key
@@ -53,8 +44,6 @@ export async function POST(request: NextRequest) {
     })
 
     if (!layercodeResponse.ok) {
-      const errorText = await layercodeResponse.text()
-      console.error('LayerCode authorization failed:', errorText)
       throw new Error(`LayerCode API error: ${layercodeResponse.status}`)
     }
 
@@ -64,9 +53,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(layercodeData)
 
   } catch (error) {
-    console.error('Voice authorization error:', error instanceof Error ? error.message : 'Unknown error')
-    
-    // Return error response - don't fall back to invalid credentials
+    // Return error response
     return NextResponse.json({
       error: 'Voice authorization failed',
       message: error instanceof Error ? error.message : 'Unknown error',
