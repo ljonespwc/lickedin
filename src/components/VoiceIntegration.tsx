@@ -30,14 +30,14 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
       // Immediately call parent with the transcription data
       if (data.type === 'user_transcription') {
         console.log('🟢 Sending user text to parent:', data.text)
-        onVoiceData({ 
-          userTranscription: data.text
-        })
+        const payload = { userTranscription: data.text }
+        console.log('🟢 Payload being sent:', payload)
+        onVoiceData(payload)
       } else if (data.type === 'agent_transcription') {
         console.log('🟠 Sending agent text to parent:', data.text)
-        onVoiceData({ 
-          agentTranscription: data.text
-        })
+        const payload = { agentTranscription: data.text }
+        console.log('🟠 Payload being sent:', payload)
+        onVoiceData(payload)
       }
     }
   })
@@ -47,7 +47,7 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
     status: voiceStatus
   } = hookData
 
-  // Send audio/status updates to parent, but DON'T include transcriptions (they're sent separately)
+  // Send audio/status updates to parent separately from transcriptions
   React.useEffect(() => {
     onVoiceData({ 
       agentAudioAmplitude, 
