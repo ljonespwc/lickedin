@@ -17,9 +17,6 @@ interface TranscriptionStreamProps extends VoiceIntegrationProps {
 }
 
 export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStreamProps) {
-  const [agentText, setAgentText] = React.useState('')
-  const [userText, setUserText] = React.useState('')
-  
   const hookData = useLayercodePipeline({
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
     authorizeSessionEndpoint: '/api/voice-auth',
@@ -30,13 +27,23 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
     onDataMessage: (data: { type: string; text: string; timestamp: number }) => {
       console.log('🔥 LayerCode stream.data() received:', data)
       
-      // Handle real-time transcription data from stream.data()
+      // Immediately call parent with the transcription data
       if (data.type === 'user_transcription') {
-        console.log('🟢 Setting user text:', data.text)
-        setUserText(data.text)
+        console.log('🟢 Sending user text to parent:', data.text)
+        onVoiceData({ 
+          agentAudioAmplitude: hookData.agentAudioAmplitude || 0, 
+          status: hookData.status || 'disconnected',
+          agentTranscription: undefined,
+          userTranscription: data.text
+        })
       } else if (data.type === 'agent_transcription') {
-        console.log('🟠 Setting agent text:', data.text)
-        setAgentText(data.text)
+        console.log('🟠 Sending agent text to parent:', data.text)
+        onVoiceData({ 
+          agentAudioAmplitude: hookData.agentAudioAmplitude || 0, 
+          status: hookData.status || 'disconnected',
+          agentTranscription: data.text,
+          userTranscription: undefined
+        })
       }
     }
   })
@@ -46,15 +53,15 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
     status: voiceStatus
   } = hookData
 
-  // Send all data to parent whenever anything changes
+  // Send audio/status updates to parent
   React.useEffect(() => {
     onVoiceData({ 
       agentAudioAmplitude, 
       status: voiceStatus,
-      agentTranscription: agentText,
-      userTranscription: userText
+      agentTranscription: undefined,
+      userTranscription: undefined
     })
-  }, [agentAudioAmplitude, voiceStatus, agentText, userText, onVoiceData])
+  }, [agentAudioAmplitude, voiceStatus, onVoiceData])
 
   return null // This component only handles the voice hook
 }
