@@ -47,9 +47,17 @@ export async function POST(request: NextRequest) {
     
     console.log('Final interview session ID:', interviewSessionId)
     
-    // Handle MESSAGE event - store user transcription
+    // Handle MESSAGE event - store user transcription and send to frontend
     if ((type === 'MESSAGE' || !type) && text && interviewSessionId) {
       updateTranscription(interviewSessionId, 'user', text)
+      
+      // Send user transcription directly to frontend via stream.data()
+      stream.data({
+        type: 'user_transcription',
+        text: text,
+        sessionId: interviewSessionId,
+        timestamp: Date.now()
+      })
     }
 
     // Generate AI response
@@ -82,9 +90,17 @@ Current interview context: This is a demo interview session.`
 
       const response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
       
-      // Store agent transcription
+      // Store agent transcription and send to frontend
       if (response && interviewSessionId) {
         updateTranscription(interviewSessionId, 'agent', response)
+        
+        // Send agent transcription directly to frontend via stream.data()
+        stream.data({
+          type: 'agent_transcription',
+          text: response,
+          sessionId: interviewSessionId,
+          timestamp: Date.now()
+        })
       }
       
       // Stream the response back to LayerCode

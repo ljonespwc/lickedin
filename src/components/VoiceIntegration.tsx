@@ -17,20 +17,38 @@ interface TranscriptionStreamProps extends VoiceIntegrationProps {
 }
 
 export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStreamProps) {
-  const [agentText, setAgentText] = React.useState('')
-  const [userText, setUserText] = React.useState('')
+  const [polledAgentText, setPolledAgentText] = React.useState('')
+  const [polledUserText, setPolledUserText] = React.useState('')
 
-  const { 
-    agentAudioAmplitude, 
-    status: voiceStatus
-  } = useLayercodePipeline({
+  const hookData = useLayercodePipeline({
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
     authorizeSessionEndpoint: '/api/voice-auth',
     sessionContext: {
       sessionId: sessionId,
       interviewSessionId: sessionId
+    },
+    onData: (data: { type: string; text: string; sessionId: string; timestamp: number }) => {
+      console.log('LayerCode stream.data() received:', data)
+      
+      // Handle transcription data from stream.data()
+      if (data.type === 'user_transcription' && data.sessionId === sessionId) {
+        setPolledUserText(data.text)
+      } else if (data.type === 'agent_transcription' && data.sessionId === sessionId) {
+        setPolledAgentText(data.text)
+      }
     }
   })
+
+  // Log all hook data to see what's available
+  React.useEffect(() => {
+    console.log('LayerCode hook data:', hookData)
+  }, [hookData])
+
+  const { 
+    agentAudioAmplitude, 
+    status: voiceStatus,
+    userAudioAmplitude
+  } = hookData
 
   // Poll for transcription updates
   React.useEffect(() => {
@@ -48,8 +66,8 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
         
         // Only update if there's new data
         if (data.timestamp > lastTimestamp) {
-          setAgentText(data.agentText || '')
-          setUserText(data.userText || '')
+          setPolledAgentText(data.agentText || '')
+          setPolledUserText(data.userText || '')
           lastTimestamp = data.timestamp
         }
       } catch {
@@ -70,13 +88,15 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
 
   // Pass voice data to parent component
   React.useEffect(() => {
+    console.log('Transcription update - Agent:', polledAgentText, 'User:', polledUserText)
+    
     onVoiceData({ 
       agentAudioAmplitude, 
       status: voiceStatus,
-      agentTranscription: agentText,
-      userTranscription: userText
+      agentTranscription: polledAgentText,
+      userTranscription: polledUserText
     })
-  }, [agentAudioAmplitude, voiceStatus, agentText, userText, onVoiceData])
+  }, [agentAudioAmplitude, voiceStatus, polledAgentText, polledUserText, onVoiceData, userAudioAmplitude])
 
   return null // This component only handles the voice hook
 }
