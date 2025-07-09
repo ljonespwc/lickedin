@@ -31,6 +31,7 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
       // Handle transcription data
       if (data.type === 'user_transcription') {
         console.log('🟢 User transcription received:', data.text)
+        console.log('🟢 Sending to interview page:', { userTranscription: data.text || '' })
         onVoiceData({ 
           userTranscription: data.text || ''
         })
@@ -40,6 +41,7 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
         const text = data.text || (typeof content === 'object' && content?.text) || (typeof content === 'string' ? content : '') || ''
         
         console.log('🟠 Agent transcription received:', text)
+        console.log('🟠 Sending to interview page:', { agentTranscription: text })
         onVoiceData({ 
           agentTranscription: text
         })
