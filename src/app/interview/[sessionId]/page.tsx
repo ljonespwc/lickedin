@@ -77,7 +77,12 @@ const InterviewSession = () => {
       userAudioAmplitude: data.userAudioAmplitude !== undefined ? data.userAudioAmplitude : prevData.userAudioAmplitude,
       status: data.status !== undefined ? data.status : prevData.status,
       agentTranscription: data.agentTranscription !== undefined ? data.agentTranscription : prevData.agentTranscription,
-      userTranscription: data.userTranscription !== undefined ? data.userTranscription : prevData.userTranscription
+      // Accumulate user transcriptions instead of replacing them, but clear when agent responds
+      userTranscription: data.agentTranscription !== undefined ? 
+        '' : // Clear user transcription when agent responds
+        (data.userTranscription !== undefined ? 
+          (prevData.userTranscription ? prevData.userTranscription + ' ' + data.userTranscription : data.userTranscription) : 
+          prevData.userTranscription)
     }))
   }, [])
 
