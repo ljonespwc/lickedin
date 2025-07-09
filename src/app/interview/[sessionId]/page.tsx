@@ -62,8 +62,8 @@ const InterviewSession = () => {
 
   // Handle voice data from the dynamic component - memoized to prevent infinite re-renders
   const handleVoiceData = useCallback((data: { 
-    agentAudioAmplitude: number; 
-    status: string;
+    agentAudioAmplitude?: number; 
+    status?: string;
     agentTranscription?: string;
     userTranscription?: string;
   }) => {
@@ -71,8 +71,8 @@ const InterviewSession = () => {
     
     // Merge with existing data instead of overwriting
     setVoiceData(prevData => ({
-      agentAudioAmplitude: data.agentAudioAmplitude,
-      status: data.status,
+      agentAudioAmplitude: data.agentAudioAmplitude !== undefined ? data.agentAudioAmplitude : prevData.agentAudioAmplitude,
+      status: data.status !== undefined ? data.status : prevData.status,
       agentTranscription: data.agentTranscription !== undefined ? data.agentTranscription : prevData.agentTranscription,
       userTranscription: data.userTranscription !== undefined ? data.userTranscription : prevData.userTranscription
     }))

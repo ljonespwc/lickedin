@@ -5,8 +5,8 @@ import { useLayercodePipeline } from '@layercode/react-sdk'
 
 interface VoiceIntegrationProps {
   onVoiceData: (data: { 
-    agentAudioAmplitude: number; 
-    status: string;
+    agentAudioAmplitude?: number; 
+    status?: string;
     agentTranscription?: string;
     userTranscription?: string;
   }) => void
@@ -31,18 +31,12 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
       if (data.type === 'user_transcription') {
         console.log('🟢 Sending user text to parent:', data.text)
         onVoiceData({ 
-          agentAudioAmplitude: hookData.agentAudioAmplitude || 0, 
-          status: hookData.status || 'disconnected',
-          agentTranscription: undefined,
           userTranscription: data.text
         })
       } else if (data.type === 'agent_transcription') {
         console.log('🟠 Sending agent text to parent:', data.text)
         onVoiceData({ 
-          agentAudioAmplitude: hookData.agentAudioAmplitude || 0, 
-          status: hookData.status || 'disconnected',
-          agentTranscription: data.text,
-          userTranscription: undefined
+          agentTranscription: data.text
         })
       }
     }
@@ -53,13 +47,11 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
     status: voiceStatus
   } = hookData
 
-  // Send audio/status updates to parent
+  // Send audio/status updates to parent only when they change
   React.useEffect(() => {
     onVoiceData({ 
       agentAudioAmplitude, 
-      status: voiceStatus,
-      agentTranscription: undefined,
-      userTranscription: undefined
+      status: voiceStatus
     })
   }, [agentAudioAmplitude, voiceStatus, onVoiceData])
 
