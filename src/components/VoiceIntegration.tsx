@@ -34,22 +34,24 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
       // Handle real-time transcription data from stream.data()
       if (data.type === 'user_transcription') {
         console.log('🟢 Setting user text:', data.text)
-        setUserText(data.text)
+        const newUserText = data.text
+        setUserText(newUserText)
         // Immediately update parent with new user text
         onVoiceData({ 
           agentAudioAmplitude: currentVoiceData.agentAudioAmplitude, 
           status: currentVoiceData.status,
           agentTranscription: agentText,
-          userTranscription: data.text
+          userTranscription: newUserText
         })
       } else if (data.type === 'agent_transcription') {
         console.log('🟠 Setting agent text:', data.text)
-        setAgentText(data.text)
+        const newAgentText = data.text
+        setAgentText(newAgentText)
         // Immediately update parent with new agent text
         onVoiceData({ 
           agentAudioAmplitude: currentVoiceData.agentAudioAmplitude, 
           status: currentVoiceData.status,
-          agentTranscription: data.text,
+          agentTranscription: newAgentText,
           userTranscription: userText
         })
       }
