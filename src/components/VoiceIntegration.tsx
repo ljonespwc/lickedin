@@ -26,6 +26,7 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
     },
     onDataMessage: (data: { type: string; text: string; timestamp: number }) => {
       console.log('🔥 LayerCode stream.data() received:', data)
+      console.log('🔍 Data type check:', { type: data.type, isUserTranscription: data.type === 'user_transcription', isAgentTranscription: data.type === 'agent_transcription' })
       
       // Immediately call parent with the transcription data
       if (data.type === 'user_transcription') {
@@ -38,6 +39,8 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
         const payload = { agentTranscription: data.text }
         console.log('🟠 Payload being sent:', payload)
         onVoiceData(payload)
+      } else {
+        console.log('❌ Unknown data type, not processing:', data.type)
       }
     }
   })
