@@ -70,12 +70,16 @@ const InterviewSession = () => {
     console.log('🎯 Interview page received voice data:', data)
     
     // Merge with existing data instead of overwriting
-    setVoiceData(prevData => ({
-      agentAudioAmplitude: data.agentAudioAmplitude !== undefined ? data.agentAudioAmplitude : prevData.agentAudioAmplitude,
-      status: data.status !== undefined ? data.status : prevData.status,
-      agentTranscription: data.agentTranscription !== undefined ? data.agentTranscription : prevData.agentTranscription,
-      userTranscription: data.userTranscription !== undefined ? data.userTranscription : prevData.userTranscription
-    }))
+    setVoiceData(prevData => {
+      const newData = {
+        agentAudioAmplitude: data.agentAudioAmplitude !== undefined ? data.agentAudioAmplitude : prevData.agentAudioAmplitude,
+        status: data.status !== undefined ? data.status : prevData.status,
+        agentTranscription: data.agentTranscription !== undefined ? data.agentTranscription : prevData.agentTranscription,
+        userTranscription: data.userTranscription !== undefined ? data.userTranscription : prevData.userTranscription
+      }
+      console.log('🔍 Setting voiceData to:', newData)
+      return newData
+    })
   }, [])
 
   const interviewer = {
@@ -292,11 +296,18 @@ const InterviewSession = () => {
             
             <div className="min-h-24">
               <p className="text-foreground leading-relaxed">
-                {voiceData.agentTranscription ? (
-                  <span>{voiceData.agentTranscription}</span>
-                ) : (
-                  <span className="italic text-muted-foreground">[AI transcription will appear here as the interviewer speaks...]</span>
-                )}
+                {(() => {
+                  console.log('🎨 Rendering agent transcription:', { 
+                    agentTranscription: voiceData.agentTranscription, 
+                    trimmed: voiceData.agentTranscription?.trim(),
+                    condition: voiceData.agentTranscription && voiceData.agentTranscription.trim()
+                  })
+                  return voiceData.agentTranscription && voiceData.agentTranscription.trim() ? (
+                    <span>{voiceData.agentTranscription}</span>
+                  ) : (
+                    <span className="italic text-muted-foreground">[AI transcription will appear here as the interviewer speaks...]</span>
+                  )
+                })()}
               </p>
             </div>
           </CardContent>
