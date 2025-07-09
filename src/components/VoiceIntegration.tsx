@@ -17,12 +17,6 @@ interface TranscriptionStreamProps extends VoiceIntegrationProps {
 }
 
 export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStreamProps) {
-  // Store transcriptions locally to prevent them from being overwritten
-  const [currentTranscriptions, setCurrentTranscriptions] = React.useState({
-    agentTranscription: '',
-    userTranscription: ''
-  })
-
   const hookData = useLayercodePipeline({
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
     authorizeSessionEndpoint: '/api/voice-auth',
@@ -33,16 +27,14 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
     onDataMessage: (data: { type: string; text: string; timestamp: number }) => {
       console.log('🔥 LayerCode stream.data() received:', data)
       
-      // Update local state and call parent with the transcription data
+      // Immediately call parent with the transcription data
       if (data.type === 'user_transcription') {
         console.log('🟢 Sending user text to parent:', data.text)
-        setCurrentTranscriptions(prev => ({ ...prev, userTranscription: data.text }))
         onVoiceData({ 
           userTranscription: data.text
         })
       } else if (data.type === 'agent_transcription') {
         console.log('🟠 Sending agent text to parent:', data.text)
-        setCurrentTranscriptions(prev => ({ ...prev, agentTranscription: data.text }))
         onVoiceData({ 
           agentTranscription: data.text
         })
@@ -55,15 +47,13 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
     status: voiceStatus
   } = hookData
 
-  // Send audio/status updates to parent, but include current transcriptions to prevent overwriting
+  // Send audio/status updates to parent, but DON'T include transcriptions (they're sent separately)
   React.useEffect(() => {
     onVoiceData({ 
       agentAudioAmplitude, 
-      status: voiceStatus,
-      agentTranscription: currentTranscriptions.agentTranscription,
-      userTranscription: currentTranscriptions.userTranscription
+      status: voiceStatus
     })
-  }, [agentAudioAmplitude, voiceStatus, currentTranscriptions, onVoiceData])
+  }, [agentAudioAmplitude, voiceStatus, onVoiceData])
 
   return null // This component only handles the voice hook
 }
