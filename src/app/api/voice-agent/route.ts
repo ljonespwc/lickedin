@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     console.log('🔥 LayerCode webhook:', { text, session_id, type, session_context })
     
     // Send user transcription immediately via stream.data()
-    if ((type === 'MESSAGE' || !type) && text) {
+    if ((type === 'MESSAGE' || type === 'message' || !type) && text) {
       console.log('📤 Sending user transcription via stream.data():', text)
       stream.data({
         type: 'user_transcription',
