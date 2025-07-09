@@ -17,10 +17,6 @@ interface TranscriptionStreamProps extends VoiceIntegrationProps {
 }
 
 export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStreamProps) {
-  const [agentText, setAgentText] = React.useState('')
-  const [userText, setUserText] = React.useState('')
-  const [currentVoiceData, setCurrentVoiceData] = React.useState({ agentAudioAmplitude: 0, status: 'disconnected' })
-
   const hookData = useLayercodePipeline({
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
     authorizeSessionEndpoint: '/api/voice-auth',
@@ -34,49 +30,38 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
       // Handle real-time transcription data from stream.data()
       if (data.type === 'user_transcription') {
         console.log('🟢 Setting user text:', data.text)
-        const newUserText = data.text
-        setUserText(newUserText)
-        // Immediately update parent with new user text
         onVoiceData({ 
-          agentAudioAmplitude: currentVoiceData.agentAudioAmplitude, 
-          status: currentVoiceData.status,
-          agentTranscription: agentText,
-          userTranscription: newUserText
+          agentAudioAmplitude: hookData.agentAudioAmplitude || 0, 
+          status: hookData.status || 'disconnected',
+          agentTranscription: '',
+          userTranscription: data.text
         })
       } else if (data.type === 'agent_transcription') {
         console.log('🟠 Setting agent text:', data.text)
-        const newAgentText = data.text
-        setAgentText(newAgentText)
-        // Immediately update parent with new agent text
         onVoiceData({ 
-          agentAudioAmplitude: currentVoiceData.agentAudioAmplitude, 
-          status: currentVoiceData.status,
-          agentTranscription: newAgentText,
-          userTranscription: userText
+          agentAudioAmplitude: hookData.agentAudioAmplitude || 0, 
+          status: hookData.status || 'disconnected',
+          agentTranscription: data.text,
+          userTranscription: ''
         })
       }
     }
   })
-
 
   const { 
     agentAudioAmplitude, 
     status: voiceStatus
   } = hookData
 
-  // Update current voice data when audio/status changes
+  // Update voice data when audio/status changes
   React.useEffect(() => {
-    const newVoiceData = { agentAudioAmplitude, status: voiceStatus }
-    setCurrentVoiceData(newVoiceData)
-    
-    // Also update parent with current transcription data
     onVoiceData({ 
       agentAudioAmplitude, 
       status: voiceStatus,
-      agentTranscription: agentText,
-      userTranscription: userText
+      agentTranscription: '',
+      userTranscription: ''
     })
-  }, [agentAudioAmplitude, voiceStatus, agentText, userText, onVoiceData])
+  }, [agentAudioAmplitude, voiceStatus, onVoiceData])
 
   return null // This component only handles the voice hook
 }
