@@ -67,6 +67,7 @@ const InterviewSession = () => {
     agentTranscription?: string;
     userTranscription?: string;
   }) => {
+    console.log('🎯 Interview page received voice data:', data)
     setVoiceData(data)
   }, [])
 
