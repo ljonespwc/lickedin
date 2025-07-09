@@ -49,20 +49,24 @@ const InterviewSession = () => {
   // Voice integration state
   const [voiceData, setVoiceData] = useState<{
     agentAudioAmplitude: number; 
+    userAudioAmplitude: number;
     status: string;
     agentTranscription?: string;
     userTranscription?: string;
   }>({
     agentAudioAmplitude: 0,
+    userAudioAmplitude: 0,
     status: 'disconnected',
     agentTranscription: '',
     userTranscription: ''
   })
-  const [userSpeaking] = useState(false) // TODO: Implement user speech detection
+  // User speaking detection based on audio amplitude
+  const userSpeaking = voiceData.userAudioAmplitude > 0.01 // Threshold for considering user is speaking
 
   // Handle voice data from the dynamic component - memoized to prevent infinite re-renders
   const handleVoiceData = useCallback((data: { 
     agentAudioAmplitude?: number; 
+    userAudioAmplitude?: number;
     status?: string;
     agentTranscription?: string;
     userTranscription?: string;
@@ -70,6 +74,7 @@ const InterviewSession = () => {
     // Merge with existing data instead of overwriting
     setVoiceData(prevData => ({
       agentAudioAmplitude: data.agentAudioAmplitude !== undefined ? data.agentAudioAmplitude : prevData.agentAudioAmplitude,
+      userAudioAmplitude: data.userAudioAmplitude !== undefined ? data.userAudioAmplitude : prevData.userAudioAmplitude,
       status: data.status !== undefined ? data.status : prevData.status,
       agentTranscription: data.agentTranscription !== undefined ? data.agentTranscription : prevData.agentTranscription,
       userTranscription: data.userTranscription !== undefined ? data.userTranscription : prevData.userTranscription
@@ -316,13 +321,13 @@ const InterviewSession = () => {
                         key={i}
                         className="w-1 bg-blue-500 animate-pulse"
                         style={{
-                          height: `${Math.max(8, 12)}px`,
+                          height: `${Math.max(8, voiceData.userAudioAmplitude * 15)}px`,
                           animationDelay: `${i * 0.1}s`
                         }}
                       />
                     ))}
                   </div>
-                  <span className="text-xs text-muted-foreground">Listening...</span>
+                  <span className="text-xs text-muted-foreground">Speaking...</span>
                 </div>
               )}
             </div>
