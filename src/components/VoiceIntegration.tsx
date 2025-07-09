@@ -29,16 +29,21 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
       console.log('🔥 LayerCode stream.data() received:', data)
       
       // Handle transcription data
-      if (data.type === 'user_transcription') {
-        console.log('🟢 User transcription received:', data.text)
-        console.log('🟢 Sending to interview page:', { userTranscription: data.text || '' })
+      const content = data.content as { type?: string; text?: string } | undefined
+      
+      if (data.type === 'user_transcription' || 
+          (data.type === 'response.data' && content?.type === 'user_transcription')) {
+        // Extract text from the correct location
+        const text = data.text || content?.text || ''
+        console.log('🟢 User transcription received:', text)
+        console.log('🟢 Sending to interview page:', { userTranscription: text })
         onVoiceData({ 
-          userTranscription: data.text || ''
+          userTranscription: text
         })
-      } else if (data.type === 'agent_transcription' || data.type === 'response.data') {
+      } else if (data.type === 'agent_transcription' || 
+                 (data.type === 'response.data' && content?.type === 'agent_transcription')) {
         // Extract text from the correct location in LayerCode's data structure
-        const content = data.content as { text?: string } | string | undefined
-        const text = data.text || (typeof content === 'object' && content?.text) || (typeof content === 'string' ? content : '') || ''
+        const text = data.text || content?.text || ''
         
         console.log('🟠 Agent transcription received:', text)
         console.log('🟠 Sending to interview page:', { agentTranscription: text })
@@ -46,7 +51,7 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
           agentTranscription: text
         })
       } else {
-        console.log('❓ Unknown stream.data() type:', data.type)
+        console.log('❓ Unknown stream.data() type:', data.type, 'content.type:', content?.type)
       }
     }
   })
