@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
-import { updateTranscription } from '@/lib/transcription-store'
 import { streamResponse, verifySignature } from '@layercode/node-server-sdk'
 
 // Initialize OpenAI
@@ -33,25 +32,13 @@ export async function POST(request: NextRequest) {
     // Extract webhook data
     const { text, session_id, type, session_context } = requestBody
     
-    console.log('LayerCode webhook data:', { session_id, session_context })
+    console.log('🔥 LayerCode webhook:', { text, session_id, type, session_context })
     
-    // Use LayerCode session_id directly for transcription storage
-    const sessionKey = session_id
-    
-    // Try to get the interview session ID from session context for stream.data()
-    const interviewSessionId = session_context?.interviewSessionId || session_context?.sessionId
-    
-    console.log('Session mapping:', { sessionKey, interviewSessionId })
-    
-    // Handle MESSAGE event - store user transcription and send to frontend
-    if ((type === 'MESSAGE' || !type) && text && sessionKey) {
-      updateTranscription(sessionKey, 'user', text)
-      
-      // Send user transcription to frontend via stream.data()
+    // Send user transcription immediately via stream.data()
+    if ((type === 'MESSAGE' || !type) && text) {
       stream.data({
         type: 'user_transcription',
         text: text,
-        sessionId: interviewSessionId || sessionKey,
         timestamp: Date.now()
       })
     }
@@ -86,18 +73,12 @@ Current interview context: This is a demo interview session.`
 
       const response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
       
-      // Store agent transcription and send to frontend
-      if (response && sessionKey) {
-        updateTranscription(sessionKey, 'agent', response)
-        
-        // Send agent transcription to frontend via stream.data()
-        stream.data({
-          type: 'agent_transcription',
-          text: response,
-          sessionId: interviewSessionId || sessionKey,
-          timestamp: Date.now()
-        })
-      }
+      // Send agent transcription immediately via stream.data()
+      stream.data({
+        type: 'agent_transcription',
+        text: response,
+        timestamp: Date.now()
+      })
       
       // Stream the response back to LayerCode
       stream.tts(response)

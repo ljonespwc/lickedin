@@ -17,10 +17,8 @@ interface TranscriptionStreamProps extends VoiceIntegrationProps {
 }
 
 export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStreamProps) {
-  const [polledAgentText, setPolledAgentText] = React.useState('')
-  const [polledUserText, setPolledUserText] = React.useState('')
-  const [streamAgentText, setStreamAgentText] = React.useState('')
-  const [streamUserText, setStreamUserText] = React.useState('')
+  const [agentText, setAgentText] = React.useState('')
+  const [userText, setUserText] = React.useState('')
 
   const hookData = useLayercodePipeline({
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
@@ -29,14 +27,16 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
       sessionId: sessionId,
       interviewSessionId: sessionId
     },
-    onData: (data: { type: string; text: string; sessionId: string; timestamp: number }) => {
+    onData: (data: { type: string; text: string; timestamp: number }) => {
       console.log('🔥 LayerCode stream.data() received:', data)
       
       // Handle real-time transcription data from stream.data()
-      if (data.type === 'user_transcription' && data.sessionId === sessionId) {
-        setStreamUserText(data.text)
-      } else if (data.type === 'agent_transcription' && data.sessionId === sessionId) {
-        setStreamAgentText(data.text)
+      if (data.type === 'user_transcription') {
+        console.log('🟢 Setting user text:', data.text)
+        setUserText(data.text)
+      } else if (data.type === 'agent_transcription') {
+        console.log('🟠 Setting agent text:', data.text)
+        setAgentText(data.text)
       }
     }
   })
@@ -48,64 +48,20 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
     userAudioAmplitude
   } = hookData
 
-  // Poll for transcription updates
-  React.useEffect(() => {
-    if (!sessionId) return
-
-    let lastTimestamp = 0
-    
-    const pollTranscription = async () => {
-      try {
-        const response = await fetch(`/api/transcription-stream?sessionId=${sessionId}`)
-        
-        if (!response.ok) return
-        
-        const data = await response.json()
-        
-        // Only update if there's new data
-        if (data.timestamp > lastTimestamp) {
-          setPolledAgentText(data.agentText || '')
-          setPolledUserText(data.userText || '')
-          lastTimestamp = data.timestamp
-        }
-      } catch {
-        // Silently handle errors to avoid console spam
-      }
-    }
-    
-    // Poll every 1 second
-    const interval = setInterval(pollTranscription, 1000)
-    
-    // Initial poll
-    pollTranscription()
-
-    return () => {
-      clearInterval(interval)
-    }
-  }, [sessionId])
-
   // Pass voice data to parent component
   React.useEffect(() => {
-    // Use stream data if available, otherwise fall back to polled data
-    const finalAgentText = streamAgentText || polledAgentText
-    const finalUserText = streamUserText || polledUserText
-    
-    console.log('📊 Transcription sources:', {
-      streamAgent: streamAgentText,
-      streamUser: streamUserText,
-      polledAgent: polledAgentText,
-      polledUser: polledUserText,
-      finalAgent: finalAgentText,
-      finalUser: finalUserText
+    console.log('📊 Passing transcription data:', {
+      agentText,
+      userText
     })
     
     onVoiceData({ 
       agentAudioAmplitude, 
       status: voiceStatus,
-      agentTranscription: finalAgentText,
-      userTranscription: finalUserText
+      agentTranscription: agentText,
+      userTranscription: userText
     })
-  }, [agentAudioAmplitude, voiceStatus, polledAgentText, polledUserText, streamAgentText, streamUserText, onVoiceData, userAudioAmplitude])
+  }, [agentAudioAmplitude, voiceStatus, agentText, userText, onVoiceData, userAudioAmplitude])
 
   return null // This component only handles the voice hook
 }
