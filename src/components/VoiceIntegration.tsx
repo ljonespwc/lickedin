@@ -26,23 +26,9 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
     sessionContext: {
       sessionId: sessionId,
       interviewSessionId: sessionId
-    },
-    onData: (data: { type: string; text: string; sessionId: string; timestamp: number }) => {
-      console.log('LayerCode stream.data() received:', data)
-      
-      // Handle transcription data from stream.data()
-      if (data.type === 'user_transcription' && data.sessionId === sessionId) {
-        setPolledUserText(data.text)
-      } else if (data.type === 'agent_transcription' && data.sessionId === sessionId) {
-        setPolledAgentText(data.text)
-      }
     }
   })
 
-  // Log all hook data to see what's available
-  React.useEffect(() => {
-    console.log('LayerCode hook data:', hookData)
-  }, [hookData])
 
   const { 
     agentAudioAmplitude, 
@@ -88,8 +74,6 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
 
   // Pass voice data to parent component
   React.useEffect(() => {
-    console.log('Transcription update - Agent:', polledAgentText, 'User:', polledUserText)
-    
     onVoiceData({ 
       agentAudioAmplitude, 
       status: voiceStatus,
