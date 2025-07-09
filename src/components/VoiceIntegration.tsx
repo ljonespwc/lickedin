@@ -27,7 +27,7 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
       sessionId: sessionId,
       interviewSessionId: sessionId
     },
-    onData: (data: { type: string; text: string; timestamp: number }) => {
+    onDataMessage: (data: { type: string; text: string; timestamp: number }) => {
       console.log('🔥 LayerCode stream.data() received:', data)
       
       // Handle real-time transcription data from stream.data()
