@@ -30,20 +30,15 @@ export async function POST(request: NextRequest) {
 
   return streamResponse(requestBody, async ({ stream }) => {
     // Extract webhook data
-    const { text, session_id, type, session_context } = requestBody
-    
-    console.log('🔥 LayerCode webhook:', { text, session_id, type, session_context })
+    const { text, type } = requestBody
     
     // Send user transcription immediately via stream.data()
     if ((type === 'MESSAGE' || type === 'message' || !type) && text) {
-      console.log('📤 Sending user transcription via stream.data():', text)
       stream.data({
         type: 'user_transcription',
         text: text,
         timestamp: Date.now()
       })
-    } else {
-      console.log('⚠️ Skipping user transcription - no text or wrong type:', { type, hasText: !!text })
     }
 
     // Generate AI response
@@ -76,7 +71,6 @@ Current interview context: This is a demo interview session.`
 
       const response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
       
-      console.log('📤 Sending agent transcription via stream.data():', response)
       // Send agent transcription immediately via stream.data()
       stream.data({
         type: 'agent_transcription',
@@ -87,7 +81,8 @@ Current interview context: This is a demo interview session.`
       // Stream the response back to LayerCode
       stream.tts(response)
       
-    } catch {
+    } catch (error) {
+      console.error('OpenAI completion error:', error)
       stream.tts("I apologize, but I'm having some technical difficulties. Let's continue with your interview.")
     }
     

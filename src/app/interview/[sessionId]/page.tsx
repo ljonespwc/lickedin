@@ -71,28 +71,14 @@ const InterviewSession = () => {
     agentTranscription?: string;
     userTranscription?: string;
   }) => {
-    console.log('🎯 Interview page received voice data:', data)
-    
     // Merge with existing data instead of overwriting
-    setVoiceData(prevData => {
-      const newData = {
-        agentAudioAmplitude: data.agentAudioAmplitude !== undefined ? data.agentAudioAmplitude : prevData.agentAudioAmplitude,
-        userAudioAmplitude: data.userAudioAmplitude !== undefined ? data.userAudioAmplitude : prevData.userAudioAmplitude,
-        status: data.status !== undefined ? data.status : prevData.status,
-        agentTranscription: data.agentTranscription !== undefined ? data.agentTranscription : prevData.agentTranscription,
-        userTranscription: data.userTranscription !== undefined ? data.userTranscription : prevData.userTranscription
-      }
-      
-      // Log transcription updates specifically
-      if (data.userTranscription !== undefined) {
-        console.log('👤 User transcription updated:', data.userTranscription)
-      }
-      if (data.agentTranscription !== undefined) {
-        console.log('🤖 Agent transcription updated:', data.agentTranscription)
-      }
-      
-      return newData
-    })
+    setVoiceData(prevData => ({
+      agentAudioAmplitude: data.agentAudioAmplitude !== undefined ? data.agentAudioAmplitude : prevData.agentAudioAmplitude,
+      userAudioAmplitude: data.userAudioAmplitude !== undefined ? data.userAudioAmplitude : prevData.userAudioAmplitude,
+      status: data.status !== undefined ? data.status : prevData.status,
+      agentTranscription: data.agentTranscription !== undefined ? data.agentTranscription : prevData.agentTranscription,
+      userTranscription: data.userTranscription !== undefined ? data.userTranscription : prevData.userTranscription
+    }))
   }, [])
 
   const interviewer = {

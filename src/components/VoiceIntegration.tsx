@@ -26,8 +26,6 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
       interviewSessionId: sessionId
     },
     onDataMessage: (data: { type: string; text?: string; content?: unknown; timestamp?: number }) => {
-      console.log('🔥 LayerCode stream.data() received:', data)
-      
       // Handle transcription data
       const content = data.content as { type?: string; text?: string } | undefined
       
@@ -35,8 +33,6 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
           (data.type === 'response.data' && content?.type === 'user_transcription')) {
         // Extract text from the correct location
         const text = data.text || content?.text || ''
-        console.log('🟢 User transcription received:', text)
-        console.log('🟢 Sending to interview page:', { userTranscription: text })
         onVoiceData({ 
           userTranscription: text
         })
@@ -45,13 +41,12 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
         // Extract text from the correct location in LayerCode's data structure
         const text = data.text || content?.text || ''
         
-        console.log('🟠 Agent transcription received:', text)
-        console.log('🟠 Sending to interview page:', { agentTranscription: text })
         onVoiceData({ 
           agentTranscription: text
         })
       } else {
-        console.log('❓ Unknown stream.data() type:', data.type, 'content.type:', content?.type)
+        // Log unknown data types for debugging
+        console.log('LayerCode unknown data type:', data.type, 'content.type:', content?.type)
       }
     }
   })
@@ -65,11 +60,6 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
   // Send audio/status updates to parent with throttling to reduce spam
   React.useEffect(() => {
     const timeoutId = setTimeout(() => {
-      // Debug log user audio amplitude when it's > 0
-      if (userAudioAmplitude > 0) {
-        console.log('🎙️ User audio amplitude:', userAudioAmplitude)
-      }
-      
       onVoiceData({ 
         agentAudioAmplitude, 
         userAudioAmplitude,
