@@ -19,6 +19,8 @@ interface TranscriptionStreamProps extends VoiceIntegrationProps {
 export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStreamProps) {
   const [polledAgentText, setPolledAgentText] = React.useState('')
   const [polledUserText, setPolledUserText] = React.useState('')
+  const [streamAgentText, setStreamAgentText] = React.useState('')
+  const [streamUserText, setStreamUserText] = React.useState('')
 
   const hookData = useLayercodePipeline({
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
@@ -26,6 +28,16 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
     sessionContext: {
       sessionId: sessionId,
       interviewSessionId: sessionId
+    },
+    onData: (data: { type: string; text: string; sessionId: string; timestamp: number }) => {
+      console.log('🔥 LayerCode stream.data() received:', data)
+      
+      // Handle real-time transcription data from stream.data()
+      if (data.type === 'user_transcription' && data.sessionId === sessionId) {
+        setStreamUserText(data.text)
+      } else if (data.type === 'agent_transcription' && data.sessionId === sessionId) {
+        setStreamAgentText(data.text)
+      }
     }
   })
 
@@ -74,13 +86,26 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
 
   // Pass voice data to parent component
   React.useEffect(() => {
+    // Use stream data if available, otherwise fall back to polled data
+    const finalAgentText = streamAgentText || polledAgentText
+    const finalUserText = streamUserText || polledUserText
+    
+    console.log('📊 Transcription sources:', {
+      streamAgent: streamAgentText,
+      streamUser: streamUserText,
+      polledAgent: polledAgentText,
+      polledUser: polledUserText,
+      finalAgent: finalAgentText,
+      finalUser: finalUserText
+    })
+    
     onVoiceData({ 
       agentAudioAmplitude, 
       status: voiceStatus,
-      agentTranscription: polledAgentText,
-      userTranscription: polledUserText
+      agentTranscription: finalAgentText,
+      userTranscription: finalUserText
     })
-  }, [agentAudioAmplitude, voiceStatus, polledAgentText, polledUserText, onVoiceData, userAudioAmplitude])
+  }, [agentAudioAmplitude, voiceStatus, polledAgentText, polledUserText, streamAgentText, streamUserText, onVoiceData, userAudioAmplitude])
 
   return null // This component only handles the voice hook
 }

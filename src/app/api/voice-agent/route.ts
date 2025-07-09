@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
-import { updateTranscription, getInterviewSessionId } from '@/lib/transcription-store'
+import { updateTranscription } from '@/lib/transcription-store'
 import { streamResponse, verifySignature } from '@layercode/node-server-sdk'
 
 // Initialize OpenAI
@@ -30,26 +30,30 @@ export async function POST(request: NextRequest) {
   }
 
   return streamResponse(requestBody, async ({ stream }) => {
-    // Log the complete request body to understand LayerCode's structure
-    console.log('LayerCode webhook request body:', JSON.stringify(requestBody, null, 2))
-    
     // Extract webhook data
     const { text, session_id, type, session_context } = requestBody
     
-    // Try to get interview session ID from session context first, then fallback to complex mapping
-    let interviewSessionId = session_context?.sessionId || session_context?.interviewSessionId
+    console.log('LayerCode webhook data:', { session_id, session_context })
     
-    // If no session context, use existing fallback approach
-    if (!interviewSessionId && session_id) {
-      interviewSessionId = getInterviewSessionId(session_id)
-      console.log('Using fallback session mapping for:', session_id, '→', interviewSessionId)
-    }
+    // Use LayerCode session_id directly for transcription storage
+    const sessionKey = session_id
     
-    console.log('Final interview session ID:', interviewSessionId)
+    // Try to get the interview session ID from session context for stream.data()
+    const interviewSessionId = session_context?.interviewSessionId || session_context?.sessionId
     
-    // Handle MESSAGE event - store user transcription
-    if ((type === 'MESSAGE' || !type) && text && interviewSessionId) {
-      updateTranscription(interviewSessionId, 'user', text)
+    console.log('Session mapping:', { sessionKey, interviewSessionId })
+    
+    // Handle MESSAGE event - store user transcription and send to frontend
+    if ((type === 'MESSAGE' || !type) && text && sessionKey) {
+      updateTranscription(sessionKey, 'user', text)
+      
+      // Send user transcription to frontend via stream.data()
+      stream.data({
+        type: 'user_transcription',
+        text: text,
+        sessionId: interviewSessionId || sessionKey,
+        timestamp: Date.now()
+      })
     }
 
     // Generate AI response
@@ -82,9 +86,17 @@ Current interview context: This is a demo interview session.`
 
       const response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
       
-      // Store agent transcription
-      if (response && interviewSessionId) {
-        updateTranscription(interviewSessionId, 'agent', response)
+      // Store agent transcription and send to frontend
+      if (response && sessionKey) {
+        updateTranscription(sessionKey, 'agent', response)
+        
+        // Send agent transcription to frontend via stream.data()
+        stream.data({
+          type: 'agent_transcription',
+          text: response,
+          sessionId: interviewSessionId || sessionKey,
+          timestamp: Date.now()
+        })
       }
       
       // Stream the response back to LayerCode
