@@ -67,7 +67,10 @@ const InterviewSession = () => {
     agentTranscription?: string;
     userTranscription?: string;
   }) => {
-    console.log('🎯 Interview page received voice data:', data)
+    // Only log when we actually have transcription data
+    if (data.agentTranscription || data.userTranscription) {
+      console.log('🎯 Interview page received voice data:', data)
+    }
     setVoiceData(data)
   }, [])
 
