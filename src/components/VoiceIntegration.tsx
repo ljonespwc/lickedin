@@ -25,25 +25,19 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
       interviewSessionId: sessionId
     },
     onDataMessage: (data: { type: string; text?: string; content?: unknown; timestamp?: number }) => {
-      console.log('🔥 LayerCode stream.data() received:', data)
-      console.log('🔍 Full data structure:', JSON.stringify(data, null, 2))
-      
-      // Immediately call parent with the transcription data
+      // Handle transcription data
       if (data.type === 'user_transcription') {
-        console.log('🟢 Sending user text to parent:', data.text)
-        const payload = { userTranscription: data.text }
-        console.log('🟢 Payload being sent:', payload)
-        onVoiceData(payload)
+        onVoiceData({ 
+          userTranscription: data.text || ''
+        })
       } else if (data.type === 'agent_transcription' || data.type === 'response.data') {
-        // Try different possible text locations
+        // Extract text from the correct location in LayerCode's data structure
         const content = data.content as { text?: string } | string | undefined
         const text = data.text || (typeof content === 'object' && content?.text) || (typeof content === 'string' ? content : '') || ''
-        console.log('🟠 Sending agent text to parent:', text)
-        const payload = { agentTranscription: text }
-        console.log('🟠 Payload being sent:', payload)
-        onVoiceData(payload)
-      } else {
-        console.log('❌ Unknown data type, not processing:', data.type)
+        
+        onVoiceData({ 
+          agentTranscription: text
+        })
       }
     }
   })
@@ -53,12 +47,16 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
     status: voiceStatus
   } = hookData
 
-  // Send audio/status updates to parent separately from transcriptions
+  // Send audio/status updates to parent with throttling to reduce spam
   React.useEffect(() => {
-    onVoiceData({ 
-      agentAudioAmplitude, 
-      status: voiceStatus
-    })
+    const timeoutId = setTimeout(() => {
+      onVoiceData({ 
+        agentAudioAmplitude, 
+        status: voiceStatus
+      })
+    }, 50) // Throttle to 20fps max
+    
+    return () => clearTimeout(timeoutId)
   }, [agentAudioAmplitude, voiceStatus, onVoiceData])
 
   return null // This component only handles the voice hook

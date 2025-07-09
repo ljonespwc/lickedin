@@ -67,8 +67,6 @@ const InterviewSession = () => {
     agentTranscription?: string;
     userTranscription?: string;
   }) => {
-    console.log('🎯 Interview page received voice data:', data)
-    
     // Merge with existing data instead of overwriting
     setVoiceData(prevData => ({
       agentAudioAmplitude: data.agentAudioAmplitude !== undefined ? data.agentAudioAmplitude : prevData.agentAudioAmplitude,
