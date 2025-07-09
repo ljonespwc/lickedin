@@ -34,7 +34,7 @@ export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStream
         const payload = { userTranscription: data.text }
         console.log('🟢 Payload being sent:', payload)
         onVoiceData(payload)
-      } else if (data.type === 'agent_transcription') {
+      } else if (data.type === 'agent_transcription' || data.type === 'response.data') {
         console.log('🟠 Sending agent text to parent:', data.text)
         const payload = { agentTranscription: data.text }
         console.log('🟠 Payload being sent:', payload)
