@@ -30,15 +30,26 @@ export async function POST(request: NextRequest) {
   }
 
   return streamResponse(requestBody, async ({ stream }) => {
-    // Extract webhook data
-    const { text, session_id, type } = requestBody
+    // Log the complete request body to understand LayerCode's structure
+    console.log('LayerCode webhook request body:', JSON.stringify(requestBody, null, 2))
     
-    // Get interview session ID using fallback approach
-    const mappedInterviewSessionId = session_id ? getInterviewSessionId(session_id) : null
+    // Extract webhook data
+    const { text, session_id, type, session_context } = requestBody
+    
+    // Try to get interview session ID from session context first, then fallback to complex mapping
+    let interviewSessionId = session_context?.sessionId || session_context?.interviewSessionId
+    
+    // If no session context, use existing fallback approach
+    if (!interviewSessionId && session_id) {
+      interviewSessionId = getInterviewSessionId(session_id)
+      console.log('Using fallback session mapping for:', session_id, '→', interviewSessionId)
+    }
+    
+    console.log('Final interview session ID:', interviewSessionId)
     
     // Handle MESSAGE event - store user transcription
-    if ((type === 'MESSAGE' || !type) && text && mappedInterviewSessionId) {
-      updateTranscription(mappedInterviewSessionId, 'user', text)
+    if ((type === 'MESSAGE' || !type) && text && interviewSessionId) {
+      updateTranscription(interviewSessionId, 'user', text)
     }
 
     // Generate AI response
@@ -72,8 +83,8 @@ Current interview context: This is a demo interview session.`
       const response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
       
       // Store agent transcription
-      if (response && mappedInterviewSessionId) {
-        updateTranscription(mappedInterviewSessionId, 'agent', response)
+      if (response && interviewSessionId) {
+        updateTranscription(interviewSessionId, 'agent', response)
       }
       
       // Stream the response back to LayerCode

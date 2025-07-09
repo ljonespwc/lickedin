@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { setLatestInterviewSessionId } from '@/lib/transcription-store'
 // Note: Supabase imports available for future authentication integration
 // import { createServerClient } from '@supabase/ssr'
 // import { cookies } from 'next/headers'
@@ -13,10 +12,13 @@ export async function POST(request: NextRequest) {
     const { sessionId, metadata, sessionContext } = body
     const interviewSessionId = sessionId || sessionContext?.sessionId || sessionContext?.interviewSessionId
     
-    // Store this as the latest interview session for LayerCode mapping
-    if (interviewSessionId) {
-      setLatestInterviewSessionId(interviewSessionId)
-    }
+    console.log('Voice auth - Interview session ID:', interviewSessionId)
+    console.log('Voice auth - Full session context to send:', {
+      sessionId: interviewSessionId,
+      interviewSessionId: interviewSessionId,
+      service: 'LickedIn Interviews Voice',
+      ...metadata
+    })
 
     // Call LayerCode API to generate client_session_key
     const layercodeApiKey = process.env.LAYERCODE_API_KEY
@@ -36,7 +38,8 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         pipeline_id: pipelineId,
         session_context: {
-          interview_session_id: interviewSessionId,
+          sessionId: interviewSessionId,
+          interviewSessionId: interviewSessionId,
           service: 'LickedIn Interviews Voice',
           ...metadata
         }
