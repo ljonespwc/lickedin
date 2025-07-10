@@ -44,42 +44,14 @@ LickedIn Interviews is a Next.js application that provides AI-powered voice inte
 
 **Root Cause**: The VoiceIntegration component was treating all `response.data` events as agent transcriptions, when LayerCode actually sends both user and agent transcriptions through `response.data` but with different `content.type` values.
 
-**Solution**: Updated `VoiceIntegration.tsx:32-46` to check `data.content.type` to properly route transcriptions:
-```typescript
-if (data.type === 'user_transcription' || 
-    (data.type === 'response.data' && content?.type === 'user_transcription')) {
-  onVoiceData({ userTranscription: text })
-} else if (data.type === 'agent_transcription' || 
-           (data.type === 'response.data' && content?.type === 'agent_transcription')) {
-  onVoiceData({ agentTranscription: text })
-}
-```
-
-### Case Sensitivity Fix in Webhook
-**Problem**: LayerCode was sending lowercase 'message' but webhook was checking for uppercase 'MESSAGE'.
-
-**Solution**: Updated `voice-agent/route.ts:36` to handle both cases:
-```typescript
-if ((type === 'MESSAGE' || type === 'message' || !type) && text) {
-```
-
-### OpenAI Model Update
-- Changed from "gpt-4" to "gpt-4.1-mini" in `voice-agent/route.ts:47`
-- Maintained conversation quality while improving response speed
-
 ## Current Issues & Limitations
 
-### 1. Voice Activity Detection (VAD) Sensitivity
-**Issue**: Sporadic voice capture with premature audio cutoffs during user responses.
-**Impact**: Users experience interrupted speech recognition, affecting interview flow.
-**Status**: Identified but not resolved - requires LayerCode configuration adjustments.
-
-### 2. Lack of Personalized Interview Context
+### 1. Lack of Personalized Interview Context
 **Issue**: Live interview conversations use generic prompts instead of user-specific resume/job data.
 **Current State**: Question generation during setup works, but live conversation doesn't use stored context.
 **Location**: `voice-agent/route.ts:50-61` - system prompt is hardcoded and generic.
 
-### 3. Missing Database Integration for Live Interviews
+### 2. Missing Database Integration for Live Interviews
 **Issue**: Interview responses and performance metrics are not being stored.
 **Impact**: No session history, feedback, or progress tracking.
 
@@ -119,21 +91,21 @@ if ((type === 'MESSAGE' || type === 'message' || !type) && text) {
 
 ## Database Schema (Supabase)
 
-### Core Tables
-- `resumes`: User resume storage with parsed content
-- `job_descriptions`: Job posting content and metadata  
-- `interview_sessions`: Interview configurations and status
-- `interview_questions`: Generated personalized questions
-- Additional auth tables managed by Supabase
+### Schema Management
+The database schema is managed in `examples/lickedin_supabase_schema.sql`. This file contains the complete table definitions, indexes, Row Level Security policies, and triggers for the application.
 
-## Environment Configuration
-```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-OPENAI_API_KEY=
-NEXT_PUBLIC_LAYERCODE_PIPELINE_ID=
-LAYERCODE_WEBHOOK_SECRET=
-```
+### Database Access
+**IMPORTANT**: Always use the `supabase-lickedin` MCP server for any database requests. This provides direct access to the Supabase database with proper authentication and security. Use the MCP functions like `mcp__supabase-lickedin__execute_sql` and `mcp__supabase-lickedin__list_tables` instead of making direct API calls.
+
+## Development Workflow Rules
+When working on this project, always follow these 7 rules:
+1. **Plan First**: Think through the problem, read the codebase for relevant files, and write a plan to `docs/todo.md`
+2. **Create Todo List**: The plan should have a list of todo items that you can check off as you complete them
+3. **Get Approval**: Before beginning work, check in with the user and get verification of the plan
+4. **Execute Incrementally**: Work on todo items one by one, marking them as complete as you go
+5. **Communicate Changes**: Give high-level explanations of what changes you made at each step
+6. **Keep It Simple**: Make every task and code change as simple as possible. Avoid massive or complex changes. Every change should impact as little code as possible. Everything is about simplicity.
+7. **Document Results**: Add a review section to the `docs/todo.md` file with a summary of the changes made and any other relevant information
 
 ## Development Commands
 - `npm run dev` - Start development server with Turbopack
@@ -143,12 +115,11 @@ LAYERCODE_WEBHOOK_SECRET=
 ## Next Steps & Recommendations
 
 ### High Priority
-1. **Fix VAD Sensitivity**: Investigate LayerCode configuration options for voice activity detection
-2. **Implement Personalized Interview Context**: Modify `voice-agent/route.ts` to use stored resume/job data in conversation prompts
-3. **Add Interview Session Storage**: Store conversation transcripts and responses in database
+1. **Implement Personalized Interview Context**: Modify `voice-agent/route.ts` to use stored resume/job data in conversation prompts
+2. **Add Interview Session Storage**: Store conversation transcripts and responses in database
 
 ### Medium Priority  
-4. **Performance Metrics**: Implement scoring and feedback system based on responses
+3. **Performance Metrics**: Implement scoring and feedback system based on responses
 5. **Session History**: Build user dashboard showing past interviews and progress
 6. **Advanced Question Types**: Support for coding challenges, scenario-based questions
 
