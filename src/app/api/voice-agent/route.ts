@@ -326,27 +326,50 @@ Respond with JSON only:
 }
 
 export async function GET() {
-  return new Response('Webhook endpoint is working!', { status: 200 })
+  console.log('🔥 GET request to voice-agent endpoint')
+  return new Response('Webhook endpoint is working! Updated with session mapping.', { status: 200 })
 }
 
 export async function POST(request: NextRequest) {
-  const requestBody = await request.json()
+  console.log('🔥🔥🔥 POST request to voice-agent - UPDATED CODE RUNNING!')
+  console.log('Request headers:', Object.fromEntries(request.headers.entries()))
+  
+  let requestBody
+  try {
+    requestBody = await request.json()
+    console.log('✅ Successfully parsed request body:', JSON.stringify(requestBody, null, 2))
+  } catch (error) {
+    console.error('❌ Failed to parse request body:', error)
+    return new Response('Bad Request', { status: 400 })
+  }
   
   // Verify webhook signature
   const signature = request.headers.get('layercode-signature')
+  console.log('Webhook signature present:', !!signature)
+  console.log('Webhook secret configured:', !!process.env.LAYERCODE_WEBHOOK_SECRET)
+  
   if (signature && process.env.LAYERCODE_WEBHOOK_SECRET) {
+    console.log('Verifying webhook signature...')
     const isValid = verifySignature({
       payload: JSON.stringify(requestBody),
       signature,
       secret: process.env.LAYERCODE_WEBHOOK_SECRET
     })
     
+    console.log('Signature valid:', isValid)
     if (!isValid) {
+      console.log('❌ WEBHOOK SIGNATURE INVALID - REJECTING REQUEST')
       return new Response('Unauthorized', { status: 401 })
     }
+  } else {
+    console.log('⚠️ No signature verification (signature or secret missing)')
   }
 
+  console.log('🎯 ENTERING STREAM RESPONSE CALLBACK')
+  
   return streamResponse(requestBody, async ({ stream }) => {
+    console.log('🎯🎯 INSIDE STREAM RESPONSE CALLBACK - PROCESSING REQUEST')
+    
     // Extract webhook data
     const { text, type, session_id, session_context } = requestBody
     
@@ -357,6 +380,7 @@ export async function POST(request: NextRequest) {
     console.log('LayerCode session ID:', layercodeSessionId)
     console.log('Message type:', type)
     console.log('Text:', text)
+    console.log('Full requestBody keys:', Object.keys(requestBody))
     
     // Look up our interview session ID using the LayerCode session ID
     const interviewSessionId = sessionMapping.get(layercodeSessionId || '')
@@ -414,8 +438,13 @@ export async function POST(request: NextRequest) {
       console.log('❌ NO INTERVIEW SESSION ID FOUND - using generic responses')
     }
 
+    console.log('🔍 Checking conditions for user transcription...')
+    console.log('Type check:', type, 'matches MESSAGE/message:', (type === 'MESSAGE' || type === 'message' || !type))
+    console.log('Text check:', !!text, 'Text value:', text)
+    
     // Send user transcription immediately via stream.data()
     if ((type === 'MESSAGE' || type === 'message' || !type) && text) {
+      console.log('✅ Sending user transcription to frontend')
       stream.data({
         type: 'user_transcription',
         text: text,
@@ -447,10 +476,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log('🤖 Starting AI response generation...')
+    
     // Generate AI response
     try {
       // Use decision engine to determine next action
       let decision: { action: 'follow_up' | 'next_question' | 'end_interview', reasoning: string } = { action: 'follow_up', reasoning: 'Default behavior' }
+      console.log('🧠 Running decision engine...')
       if (sessionContext && text) {
         decision = await analyzeConversationAndDecide(sessionContext, recentConversation, text)
         console.log('Decision engine result:', decision)
