@@ -65,17 +65,18 @@ CREATE TABLE interview_questions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Interview responses table
-CREATE TABLE interview_responses (
+-- Interview conversation table (replaces interview_responses)
+-- Stores the full conversation flow between interviewer and candidate
+CREATE TABLE interview_conversation (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES interview_sessions(id) ON DELETE CASCADE,
-  question_id UUID NOT NULL REFERENCES interview_questions(id) ON DELETE CASCADE,
-  response_text TEXT NOT NULL, -- Transcribed response
-  response_audio_url TEXT, -- Optional: store audio file
-  score DECIMAL(5,2), -- 0-100 score for this response
-  feedback TEXT, -- AI-generated feedback for this specific response
-  response_time_seconds INTEGER,
+  turn_number INTEGER NOT NULL, -- Sequential order in conversation (1, 2, 3, ...)
+  speaker TEXT NOT NULL CHECK (speaker IN ('interviewer', 'candidate')),
+  message_text TEXT NOT NULL,
+  message_type TEXT CHECK (message_type IN ('main_question', 'follow_up', 'response', 'transition', 'closing')),
+  related_main_question_id UUID REFERENCES interview_questions(id), -- NULL for follow-ups and transitions
   word_count INTEGER,
+  response_time_seconds INTEGER, -- Time taken to respond (for candidate messages)
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -99,8 +100,9 @@ CREATE INDEX idx_job_descriptions_user_id ON job_descriptions(user_id);
 CREATE INDEX idx_interview_sessions_user_id ON interview_sessions(user_id);
 CREATE INDEX idx_interview_sessions_status ON interview_sessions(status);
 CREATE INDEX idx_interview_questions_session_id ON interview_questions(session_id);
-CREATE INDEX idx_interview_responses_session_id ON interview_responses(session_id);
-CREATE INDEX idx_interview_responses_question_id ON interview_responses(question_id);
+CREATE INDEX idx_interview_conversation_session_id ON interview_conversation(session_id);
+CREATE INDEX idx_interview_conversation_turn_number ON interview_conversation(session_id, turn_number);
+CREATE INDEX idx_interview_conversation_main_question ON interview_conversation(related_main_question_id);
 CREATE INDEX idx_interview_feedback_session_id ON interview_feedback(session_id);
 
 -- Row Level Security Policies
@@ -109,7 +111,7 @@ ALTER TABLE resumes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE job_descriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE interview_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE interview_questions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE interview_responses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE interview_conversation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE interview_feedback ENABLE ROW LEVEL SECURITY;
 
 -- Profiles policies
@@ -180,21 +182,21 @@ CREATE POLICY "Users can insert questions for own sessions" ON interview_questio
     )
   );
 
--- Interview responses policies
-CREATE POLICY "Users can view responses from own sessions" ON interview_responses
+-- Interview conversation policies
+CREATE POLICY "Users can view conversation from own sessions" ON interview_conversation
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM interview_sessions 
-      WHERE interview_sessions.id = interview_responses.session_id 
+      WHERE interview_sessions.id = interview_conversation.session_id 
       AND interview_sessions.user_id = auth.uid()
     )
   );
 
-CREATE POLICY "Users can insert responses for own sessions" ON interview_responses
+CREATE POLICY "Users can insert conversation for own sessions" ON interview_conversation
   FOR INSERT WITH CHECK (
     EXISTS (
       SELECT 1 FROM interview_sessions 
-      WHERE interview_sessions.id = interview_responses.session_id 
+      WHERE interview_sessions.id = interview_conversation.session_id 
       AND interview_sessions.user_id = auth.uid()
     )
   );

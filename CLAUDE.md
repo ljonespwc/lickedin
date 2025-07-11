@@ -46,14 +46,10 @@ LickedIn Interviews is a Next.js application that provides AI-powered voice inte
 
 ## Current Issues & Limitations
 
-### 1. Lack of Personalized Interview Context
-**Issue**: Live interview conversations use generic prompts instead of user-specific resume/job data.
-**Current State**: Question generation during setup works, but live conversation doesn't use stored context.
-**Location**: `voice-agent/route.ts:50-61` - system prompt is hardcoded and generic.
-
-### 2. Missing Database Integration for Live Interviews
-**Issue**: Interview responses and performance metrics are not being stored.
-**Impact**: No session history, feedback, or progress tracking.
+### 1. Voice Activity Detection (VAD) Sensitivity
+**Issue**: Sporadic voice capture with premature audio cutoffs during user responses.
+**Impact**: Users experience interrupted speech recognition, affecting interview flow.
+**Status**: Identified but not resolved - requires LayerCode configuration adjustments.
 
 ## API Flow Documentation
 
@@ -89,6 +85,36 @@ LickedIn Interviews is a Next.js application that provides AI-powered voice inte
    - Routes transcriptions to appropriate UI components
    - Provides audio amplitude feedback
 
+## Dynamic Conversation Architecture (NEW)
+
+### Conversation Flow System
+The interview system now uses a dynamic conversation flow that supports natural follow-up questions and comprehensive conversation tracking.
+
+#### Key Features:
+1. **Personalized Context**: Each conversation uses the candidate's specific resume and job description
+2. **Decision Engine**: GPT-4.1-mini analyzes responses to decide between follow-up questions vs. moving to next main question
+3. **Full Conversation Storage**: All interviewer questions and candidate responses are stored with timestamps
+4. **Natural Flow**: Supports unlimited follow-up questions based on response quality
+
+#### Database Schema:
+- **`interview_conversation` table**: Stores full conversation as sequential turns
+- **Fields**: `turn_number`, `speaker` (interviewer/candidate), `message_type` (main_question/follow_up/response), `message_text`
+- **Relationships**: Links to `interview_sessions` and optionally to `interview_questions`
+
+#### Decision Logic:
+1. **Follow-up**: When response is shallow/incomplete or needs clarification
+2. **Next Question**: When response is complete and should move to next main question  
+3. **End Interview**: When all main questions have been thoroughly covered
+
+#### Voice Agent Flow:
+1. Fetch session context (resume, job description, main questions)
+2. Retrieve recent conversation history (last 8 turns)
+3. Store candidate response in database
+4. Analyze response with decision engine
+5. Generate contextual interviewer response
+6. Store interviewer response with appropriate message type
+7. Stream response to LayerCode for TTS
+
 ## Database Schema (Supabase)
 
 ### Schema Management
@@ -115,18 +141,27 @@ When working on this project, always follow these 7 rules:
 ## Next Steps & Recommendations
 
 ### High Priority
-1. **Implement Personalized Interview Context**: Modify `voice-agent/route.ts` to use stored resume/job data in conversation prompts
-2. **Add Interview Session Storage**: Store conversation transcripts and responses in database
+1. **Fix VAD Sensitivity**: Investigate LayerCode configuration options for voice activity detection
+2. **End-to-End Scoring**: Implement comprehensive scoring system using full conversation history
+3. **Session History Dashboard**: Build user interface showing past interviews and progress
 
 ### Medium Priority  
-3. **Performance Metrics**: Implement scoring and feedback system based on responses
-5. **Session History**: Build user dashboard showing past interviews and progress
-6. **Advanced Question Types**: Support for coding challenges, scenario-based questions
+4. **Performance Metrics**: Add detailed analytics for response times, word counts, and conversation flow
+5. **Advanced Question Types**: Support for coding challenges, scenario-based questions
+6. **Interview Feedback UI**: Display structured feedback with strengths and improvement areas
 
 ### Technical Debt
 7. **Error Handling**: Improve error boundaries and user feedback for API failures
-8. **Type Safety**: Strengthen TypeScript interfaces for LayerCode data structures
-9. **Testing**: Add unit tests for core interview logic and API endpoints
+8. **Testing**: Add unit tests for core interview logic and API endpoints
+9. **Performance Optimization**: Optimize database queries and conversation history retrieval
 
-## Project Status: MVP Functional
-The core voice interview functionality is working with successful transcription routing and real-time conversation flow. The main limitation is VAD sensitivity affecting user experience, but the fundamental technical architecture is solid and scalable.
+## Project Status: Advanced Conversational AI Interviews
+The interview system now features sophisticated conversation flow with personalized context, intelligent follow-up questions, and comprehensive conversation tracking. The architecture supports natural interview experiences that adapt to candidate responses while maintaining complete conversation history for analysis.
+
+### Key Capabilities Implemented:
+- ✅ **Personalized Interview Context**: Uses candidate's resume and job requirements
+- ✅ **Dynamic Conversation Flow**: Intelligent decision between follow-ups and next questions
+- ✅ **Full Conversation Storage**: Complete interaction history with timestamps
+- ✅ **Multi-Persona Support**: Different interviewer personalities (Professional, Michael Scott, etc.)
+- ✅ **Difficulty Adaptation**: Adjusts question complexity based on settings
+- ✅ **Real-time Processing**: Immediate response analysis and context-aware generation

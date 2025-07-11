@@ -1,11 +1,300 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { streamResponse, verifySignature } from '@layercode/node-server-sdk'
+import { createClient } from '@supabase/supabase-js'
+
+// Type definitions
+interface ConversationTurn {
+  id: string
+  session_id: string
+  turn_number: number
+  speaker: 'interviewer' | 'candidate'
+  message_text: string
+  message_type: 'main_question' | 'follow_up' | 'response' | 'transition' | 'closing'
+  related_main_question_id?: string
+  word_count?: number
+  response_time_seconds?: number
+  created_at: string
+}
+
+interface InterviewQuestion {
+  id: string
+  question_text: string
+  question_order: number
+  question_type: string
+  addressed?: boolean // For tracking which questions have been covered
+}
+
+interface SessionContext {
+  id: string
+  persona: string
+  difficulty_level: string
+  interview_questions: InterviewQuestion[]
+  resumes: { parsed_content: string }
+  job_descriptions: { job_content: string }
+}
 
 // Initialize OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
+
+// Initialize Supabase
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+// Helper function to fetch session context from database
+async function fetchSessionContext(sessionId: string): Promise<SessionContext | null> {
+  try {
+    // Fetch interview session with related data
+    const { data: session, error: sessionError } = await supabase
+      .from('interview_sessions')
+      .select(`
+        *,
+        resumes (
+          parsed_content
+        ),
+        job_descriptions (
+          job_content
+        ),
+        interview_questions (
+          id,
+          question_text,
+          question_order,
+          question_type
+        )
+      `)
+      .eq('id', sessionId)
+      .single()
+
+    if (sessionError) {
+      console.error('Error fetching session:', sessionError)
+      return null
+    }
+
+    return session
+  } catch (error) {
+    console.error('Error in fetchSessionContext:', error)
+    return null
+  }
+}
+
+// Helper function to get recent conversation history
+async function getRecentConversation(sessionId: string, limit: number = 10): Promise<ConversationTurn[]> {
+  try {
+    const { data: conversation, error } = await supabase
+      .from('interview_conversation')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('turn_number', { ascending: false })
+      .limit(limit)
+
+    if (error) {
+      console.error('Error fetching conversation:', error)
+      return []
+    }
+
+    // Return in chronological order (oldest first)
+    return conversation.reverse()
+  } catch (error) {
+    console.error('Error in getRecentConversation:', error)
+    return []
+  }
+}
+
+// Helper function to get next turn number
+async function getNextTurnNumber(sessionId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('interview_conversation')
+      .select('turn_number')
+      .eq('session_id', sessionId)
+      .order('turn_number', { ascending: false })
+      .limit(1)
+
+    if (error) {
+      console.error('Error getting turn number:', error)
+      return 1
+    }
+
+    return data.length > 0 ? data[0].turn_number + 1 : 1
+  } catch (error) {
+    console.error('Error in getNextTurnNumber:', error)
+    return 1
+  }
+}
+
+// Helper function to build personalized system prompt
+function buildSystemPrompt(sessionContext: SessionContext | null): string {
+  if (!sessionContext) {
+    return `You are a professional job interviewer conducting a voice interview for LickedIn Interviews. 
+
+Guidelines:
+- Keep responses conversational and natural for voice
+- Ask thoughtful follow-up questions based on responses
+- Be encouraging but maintain professionalism
+- If this seems like the start of conversation, introduce yourself
+- Ask about their background, experience, and motivations
+- Limit responses to 1-2 sentences for natural conversation flow
+
+Current interview context: This is a demo interview session.`
+  }
+
+  const resume = sessionContext.resumes?.parsed_content || 'No resume content available'
+  const jobDescription = sessionContext.job_descriptions?.job_content || 'No job description available'
+  const persona = sessionContext.persona || 'professional'
+  const difficulty = sessionContext.difficulty_level || 'medium'
+  const questions = sessionContext.interview_questions || []
+  
+  // Get persona-specific instructions
+  const personaInstructions = getPersonaInstructions(persona)
+  
+  // Get main questions for reference
+  const mainQuestions = questions
+    .sort((a, b) => a.question_order - b.question_order)
+    .map((q) => `${q.question_order}. ${q.question_text}`)
+    .join('\n')
+
+  return `You are conducting a ${difficulty} difficulty voice interview for LickedIn Interviews. ${personaInstructions}
+
+CANDIDATE BACKGROUND:
+${resume}
+
+JOB REQUIREMENTS:
+${jobDescription}
+
+MAIN INTERVIEW QUESTIONS TO COVER:
+${mainQuestions}
+
+INSTRUCTIONS:
+- Keep responses conversational and natural for voice (1-2 sentences max)
+- Ask thoughtful follow-up questions to get deeper insights
+- Work through the main questions but allow natural conversation flow
+- Decide when to ask follow-ups vs. move to next main question
+- If this seems like the start, introduce yourself and begin with the first main question
+- Be encouraging but maintain professionalism
+- Use the candidate's background and job requirements to make questions relevant
+
+CURRENT CONTEXT: You are conducting a personalized interview based on the candidate's resume and the specific job requirements above.`
+}
+
+// Helper function to get persona-specific instructions
+function getPersonaInstructions(persona: string) {
+  switch (persona) {
+    case 'michael_scott':
+      return "Channel Michael Scott from The Office - be enthusiastic, occasionally make inappropriate comments, use business jargon incorrectly, but still try to conduct a real interview."
+    case 'friendly':
+      return "Be warm, supportive, and encouraging. Make the candidate feel comfortable while still asking probing questions."
+    case 'tech_lead':
+      return "Be technical, direct, and focused on problem-solving. Ask detailed questions about their technical approach and experience."
+    case 'professional':
+    default:
+      return "Be professional, courteous, and thorough. Ask structured questions and listen carefully to responses."
+  }
+}
+
+// Helper function to get decision-specific guidance
+function getDecisionGuidance(action: 'follow_up' | 'next_question' | 'end_interview', sessionContext: SessionContext | null): string {
+  const questions = sessionContext?.interview_questions || []
+  
+  switch (action) {
+    case 'follow_up':
+      return "DECISION: Ask a follow-up question to get more depth on the current topic. Probe for specific examples, challenges, or outcomes."
+    case 'next_question':
+      const nextQuestion = questions.find((q) => !q.addressed) // This would need tracking
+      return nextQuestion 
+        ? `DECISION: Move to the next main question: "${nextQuestion.question_text}"`
+        : "DECISION: Continue with follow-up questions as all main questions have been introduced."
+    case 'end_interview':
+      return "DECISION: All main topics have been covered thoroughly. Wrap up the interview with closing remarks and next steps."
+    default:
+      return "DECISION: Continue with follow-up questions."
+  }
+}
+
+// Helper function to analyze conversation and decide next action
+async function analyzeConversationAndDecide(
+  sessionContext: SessionContext | null,
+  recentConversation: ConversationTurn[],
+  currentResponse: string
+): Promise<{ action: 'follow_up' | 'next_question' | 'end_interview', reasoning: string }> {
+  try {
+    const questions = sessionContext?.interview_questions || []
+    const mainQuestions = questions
+      .sort((a, b) => a.question_order - b.question_order)
+      .map((q) => `${q.question_order}. ${q.question_text}`)
+      .join('\n')
+
+    // Get questions that have been addressed
+    const addressedQuestions = new Set()
+    recentConversation.forEach(turn => {
+      if (turn.related_main_question_id) {
+        addressedQuestions.add(turn.related_main_question_id)
+      }
+    })
+
+    const conversationSummary = recentConversation
+      .slice(-6) // Last 6 turns
+      .map(turn => `${turn.speaker}: ${turn.message_text}`)
+      .join('\n')
+
+    const decisionPrompt = `You are an AI interviewer analyzing a conversation to decide the next action.
+
+MAIN QUESTIONS TO COVER:
+${mainQuestions}
+
+RECENT CONVERSATION:
+${conversationSummary}
+
+CANDIDATE'S LATEST RESPONSE:
+${currentResponse}
+
+QUESTIONS ALREADY ADDRESSED: ${addressedQuestions.size} out of ${questions.length}
+
+Analyze the candidate's response and decide:
+1. "follow_up" - if the response is shallow, incomplete, or needs clarification
+2. "next_question" - if the response is complete and you should move to the next main question
+3. "end_interview" - if all main questions have been thoroughly covered
+
+Respond with JSON only:
+{
+  "action": "follow_up|next_question|end_interview",
+  "reasoning": "Brief explanation of your decision"
+}`
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a decision engine for interview flow. Respond only with valid JSON."
+        },
+        {
+          role: "user",
+          content: decisionPrompt
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 100
+    })
+
+    const response = completion.choices[0]?.message?.content || '{}'
+    const decision = JSON.parse(response)
+    
+    return {
+      action: decision.action || 'follow_up',
+      reasoning: decision.reasoning || 'Default follow-up decision'
+    }
+  } catch (error) {
+    console.error('Error in decision engine:', error)
+    return {
+      action: 'follow_up',
+      reasoning: 'Error in decision engine, defaulting to follow-up'
+    }
+  }
+}
 
 export async function GET() {
   return new Response('Webhook endpoint is working!', { status: 200 })
@@ -30,8 +319,22 @@ export async function POST(request: NextRequest) {
 
   return streamResponse(requestBody, async ({ stream }) => {
     // Extract webhook data
-    const { text, type } = requestBody
+    const { text, type, session_context } = requestBody
     
+    // Get session ID from LayerCode session context
+    const sessionId = session_context?.sessionId || session_context?.interviewSessionId
+    
+    // Fetch session context if available
+    let sessionContext: SessionContext | null = null
+    let recentConversation: ConversationTurn[] = []
+    let nextTurnNumber = 1
+    
+    if (sessionId) {
+      sessionContext = await fetchSessionContext(sessionId)
+      recentConversation = await getRecentConversation(sessionId, 8)
+      nextTurnNumber = await getNextTurnNumber(sessionId)
+    }
+
     // Send user transcription immediately via stream.data()
     if ((type === 'MESSAGE' || type === 'message' || !type) && text) {
       stream.data({
@@ -39,37 +342,83 @@ export async function POST(request: NextRequest) {
         text: text,
         timestamp: Date.now()
       })
+      
+      // Store user message in conversation if we have a session
+      if (sessionId && text) {
+        await supabase
+          .from('interview_conversation')
+          .insert({
+            session_id: sessionId,
+            turn_number: nextTurnNumber,
+            speaker: 'candidate',
+            message_text: text,
+            message_type: 'response',
+            word_count: text.split(' ').length,
+            response_time_seconds: null // TODO: calculate from voice activity
+          })
+        
+        nextTurnNumber++
+      }
     }
 
     // Generate AI response
     try {
+      // Use decision engine to determine next action
+      let decision: { action: 'follow_up' | 'next_question' | 'end_interview', reasoning: string } = { action: 'follow_up', reasoning: 'Default behavior' }
+      if (sessionContext && text) {
+        decision = await analyzeConversationAndDecide(sessionContext, recentConversation, text)
+        console.log('Decision engine result:', decision)
+      }
+      
+      // Build conversation history for context
+      const conversationHistory: Array<{role: 'user' | 'assistant', content: string}> = recentConversation.map(turn => ({
+        role: turn.speaker === 'interviewer' ? 'assistant' as const : 'user' as const,
+        content: turn.message_text
+      }))
+      
+      // Add current user message
+      if (text) {
+        conversationHistory.push({
+          role: 'user',
+          content: text
+        })
+      }
+      
+      // Build personalized system prompt with decision context
+      const systemPrompt = buildSystemPrompt(sessionContext)
+      const decisionGuidance = getDecisionGuidance(decision.action, sessionContext)
+      
       const completion = await openai.chat.completions.create({
         model: "gpt-4.1-mini",
         messages: [
           {
             role: "system",
-            content: `You are a professional job interviewer conducting a voice interview for LickedIn Interviews. 
-
-Guidelines:
-- Keep responses conversational and natural for voice
-- Ask thoughtful follow-up questions based on responses
-- Be encouraging but maintain professionalism
-- If this seems like the start of conversation, introduce yourself
-- Ask about their background, experience, and motivations
-- Limit responses to 1-2 sentences for natural conversation flow
-
-Current interview context: This is a demo interview session.`
+            content: systemPrompt + "\n\n" + decisionGuidance
           },
-          {
-            role: "user", 
-            content: text || "Hello"
-          }
+          ...conversationHistory
         ],
         temperature: 0.7,
         max_tokens: 150
       })
 
       const response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
+      
+      // Store interviewer response in conversation
+      if (sessionId && response) {
+        const messageType = decision.action === 'end_interview' ? 'closing' : 
+                           decision.action === 'next_question' ? 'main_question' : 'follow_up'
+        
+        await supabase
+          .from('interview_conversation')
+          .insert({
+            session_id: sessionId,
+            turn_number: nextTurnNumber,
+            speaker: 'interviewer',
+            message_text: response,
+            message_type: messageType,
+            word_count: response.split(' ').length
+          })
+      }
       
       // Send agent transcription immediately via stream.data()
       stream.data({
