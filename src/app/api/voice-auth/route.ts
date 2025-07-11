@@ -9,8 +9,16 @@ export async function POST(request: NextRequest) {
     // Parse request body to get session context
     const body = await request.json().catch(() => ({}))
     
+    console.log('🔍 VOICE-AUTH FULL REQUEST BODY:', JSON.stringify(body, null, 2))
+    console.log('🔍 VOICE-AUTH BODY KEYS:', Object.keys(body))
+    
     // The sessionContext from React SDK should be here
     const { sessionId, metadata, sessionContext } = body
+    console.log('🔍 EXTRACTED VALUES:')
+    console.log('  sessionId:', sessionId)
+    console.log('  metadata:', metadata)
+    console.log('  sessionContext:', sessionContext)
+    
     const interviewSessionId = sessionId || sessionContext?.sessionId || sessionContext?.interviewSessionId
     
     console.log('Voice auth - Interview session ID:', interviewSessionId)
