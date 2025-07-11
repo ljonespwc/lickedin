@@ -44,12 +44,43 @@ LickedIn Interviews is a Next.js application that provides AI-powered voice inte
 
 **Root Cause**: The VoiceIntegration component was treating all `response.data` events as agent transcriptions, when LayerCode actually sends both user and agent transcriptions through `response.data` but with different `content.type` values.
 
+### Critical Fix: Personalized Context Integration (RESOLVED - July 2025)
+**Problem**: AI was giving generic responses instead of personalized ones based on user's resume and job description. Session mapping between LayerCode's generated session IDs and our database interview session IDs was failing.
+
+**Root Cause**: LayerCode's React SDK was not passing `sessionContext` to our voice-auth endpoint as expected. Initial attempts to pass session data through sessionContext parameter failed because LayerCode doesn't forward custom sessionContext to authorization endpoints.
+
+**Solution**: Used LayerCode's `metadata` parameter in the React SDK hook:
+```typescript
+useLayercodePipeline({
+  pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
+  authorizeSessionEndpoint: '/api/voice-auth',
+  metadata: {
+    interviewSessionId: interviewSessionId
+  }
+})
+```
+
+**Technical Flow**:
+1. Frontend passes interview session ID via `metadata.interviewSessionId` 
+2. Voice-auth endpoint extracts interview session ID from `body.metadata.interviewSessionId`
+3. Voice-auth calls LayerCode API and receives LayerCode's generated session ID
+4. Session mapping stores: `LayerCode sessionId → Interview sessionId`
+5. Voice-agent webhook receives LayerCode session ID and looks up interview context
+6. AI generates personalized responses using resume, job description, and conversation history
+
+**Result**: ✅ AI now conducts fully personalized interviews with proper context, persona integration, and intelligent follow-up questions.
+
 ## Current Issues & Limitations
 
 ### 1. Voice Activity Detection (VAD) Sensitivity
 **Issue**: Sporadic voice capture with premature audio cutoffs during user responses.
 **Impact**: Users experience interrupted speech recognition, affecting interview flow.
 **Status**: Identified but not resolved - requires LayerCode configuration adjustments.
+
+### 2. Results Page Database Schema (MINOR)
+**Issue**: Results page may still reference old `interview_responses` table instead of new `interview_conversation` table.
+**Impact**: Results page errors when trying to display interview history.
+**Status**: Minor fix needed to update results API endpoint.
 
 ## API Flow Documentation
 

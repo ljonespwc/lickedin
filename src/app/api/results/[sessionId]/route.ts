@@ -91,31 +91,69 @@ export async function GET(
       .eq('session_id', sessionId)
       .single()
 
-    // Get interview responses with questions
-    const { data: responses, error: responsesError } = await supabase
-      .from('interview_responses')
-      .select(`
-        *,
-        interview_questions (
-          question_text,
-          question_order,
-          question_type
-        )
-      `)
+    // Get conversation history from the new interview_conversation table
+    const { data: conversation, error: conversationError } = await supabase
+      .from('interview_conversation')
+      .select('*')
       .eq('session_id', sessionId)
-      .order('created_at')
+      .order('turn_number')
 
-    if (responsesError) {
-      console.error('Responses fetch error:', responsesError)
+    if (conversationError) {
+      console.error('Conversation fetch error:', conversationError)
     }
 
-    // Transform responses data
-    const transformedResponses = responses?.map(response => ({
-      question: response.interview_questions,
-      score: response.score,
-      feedback: response.feedback,
-      response_text: response.response_text
-    })) || []
+    // Get interview questions for context
+    const { data: questions } = await supabase
+      .from('interview_questions')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('question_order')
+
+    // Transform conversation data into Q&A pairs
+    const transformedResponses = []
+    if (conversation && questions) {
+      // Group conversation by interviewer questions and candidate responses
+      const conversationPairs = []
+      let currentQuestion = null
+      let candidateResponses = []
+
+      for (const turn of conversation) {
+        if (turn.speaker === 'interviewer' && (turn.message_type === 'main_question' || turn.message_type === 'follow_up')) {
+          // Save previous Q&A pair if exists
+          if (currentQuestion && candidateResponses.length > 0) {
+            conversationPairs.push({
+              question: currentQuestion,
+              responses: candidateResponses
+            })
+          }
+          // Start new Q&A pair
+          currentQuestion = turn
+          candidateResponses = []
+        } else if (turn.speaker === 'candidate' && turn.message_type === 'response') {
+          candidateResponses.push(turn)
+        }
+      }
+      
+      // Add final Q&A pair
+      if (currentQuestion && candidateResponses.length > 0) {
+        conversationPairs.push({
+          question: currentQuestion,
+          responses: candidateResponses
+        })
+      }
+
+      // Transform to expected format
+      transformedResponses.push(...conversationPairs.map((pair, index) => ({
+        question: {
+          question_text: pair.question.message_text,
+          question_order: index + 1,
+          question_type: pair.question.message_type
+        },
+        score: null, // No scoring implemented yet
+        feedback: null, // No individual feedback yet
+        response_text: pair.responses.map(r => r.message_text).join(' ')
+      })))
+    }
 
     return NextResponse.json({
       session,

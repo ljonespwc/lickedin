@@ -188,6 +188,44 @@ export type Database = {
           created_at?: string
         }
       }
+      interview_conversation: {
+        Row: {
+          id: string
+          session_id: string
+          turn_number: number
+          speaker: 'interviewer' | 'candidate'
+          message_text: string
+          message_type: 'main_question' | 'follow_up' | 'response' | 'transition' | 'closing'
+          related_main_question_id: string | null
+          word_count: number | null
+          response_time_seconds: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          turn_number: number
+          speaker: 'interviewer' | 'candidate'
+          message_text: string
+          message_type: 'main_question' | 'follow_up' | 'response' | 'transition' | 'closing'
+          related_main_question_id?: string | null
+          word_count?: number | null
+          response_time_seconds?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          turn_number?: number
+          speaker?: 'interviewer' | 'candidate'
+          message_text?: string
+          message_type?: 'main_question' | 'follow_up' | 'response' | 'transition' | 'closing'
+          related_main_question_id?: string | null
+          word_count?: number | null
+          response_time_seconds?: number | null
+          created_at?: string
+        }
+      }
       interview_responses: {
         Row: {
           id: string
