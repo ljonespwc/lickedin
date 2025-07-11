@@ -223,7 +223,7 @@ function getDecisionGuidance(
       
       const usedQuestionIds = new Set(mainQuestionTurns.map(turn => turn.related_main_question_id!))
       const sortedQuestions = questions.sort((a, b) => a.question_order - b.question_order)
-      const nextQuestion = sortedQuestions.find(q => !usedQuestionIds.has(q.id))
+      const nextQuestion = sortedQuestions[usedQuestionIds.size]
       
       return nextQuestion 
         ? `DECISION: Ask Question ${nextQuestion.question_order}: "${nextQuestion.question_text}"`
@@ -541,8 +541,8 @@ export async function POST(request: NextRequest) {
           const sortedQuestions = sessionContext.interview_questions
             .sort((a, b) => a.question_order - b.question_order)
           
-          // Find the first question that hasn't been used yet (by question_order)
-          const nextQuestion = sortedQuestions.find(q => !usedQuestionIds.has(q.id))
+          // Get next question by sequence (index = number of questions asked)
+          const nextQuestion = sortedQuestions[usedQuestionIds.size]
           
           if (nextQuestion) {
             relatedMainQuestionId = nextQuestion.id
@@ -578,6 +578,13 @@ export async function POST(request: NextRequest) {
       
       // Stream the response back to LayerCode
       stream.tts(response)
+      
+      // If this was a closing message, end the interview session
+      if (decision.action === 'end_interview') {
+        console.log('🏁 Interview completed - ending session')
+        stream.end()
+        return
+      }
       
     } catch (error) {
       console.error('OpenAI completion error:', error)
