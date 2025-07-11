@@ -56,9 +56,6 @@ console.log('Voice Agent initialized with:', {
 // Helper function to fetch session context from database
 async function fetchSessionContext(sessionId: string): Promise<SessionContext | null> {
   try {
-    console.log('🔍 Querying database for session ID:', sessionId)
-    
-    // Fetch interview session with related data
     const { data: session, error: sessionError } = await supabase
       .from('interview_sessions')
       .select(`
@@ -79,33 +76,14 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
       .eq('id', sessionId)
       .single()
 
-    if (sessionError) {
-      console.error('❌ Supabase error fetching session:', sessionError)
-      console.error('Error details:', {
-        message: sessionError.message,
-        code: sessionError.code,
-        details: sessionError.details
-      })
+    if (sessionError || !session) {
+      console.error('Error fetching session context:', sessionError)
       return null
     }
-
-    if (!session) {
-      console.error('❌ No session found with ID:', sessionId)
-      return null
-    }
-
-    console.log('✅ Session found successfully:', {
-      id: session.id,
-      persona: session.persona,
-      difficulty: session.difficulty_level,
-      hasResume: !!session.resumes,
-      hasJobDesc: !!session.job_descriptions,
-      questionCount: session.interview_questions?.length || 0
-    })
 
     return session
   } catch (error) {
-    console.error('❌ Exception in fetchSessionContext:', error)
+    console.error('Exception in fetchSessionContext:', error)
     return null
   }
 }
@@ -331,64 +309,43 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('🔥🔥🔥 POST request to voice-agent - UPDATED CODE RUNNING!')
-  console.log('Request headers:', Object.fromEntries(request.headers.entries()))
   
   let requestBody
   try {
     requestBody = await request.json()
-    console.log('✅ Successfully parsed request body:', JSON.stringify(requestBody, null, 2))
   } catch (error) {
-    console.error('❌ Failed to parse request body:', error)
+    console.error('Failed to parse request body:', error)
     return new Response('Bad Request', { status: 400 })
   }
   
   // Verify webhook signature
   const signature = request.headers.get('layercode-signature')
-  console.log('Webhook signature present:', !!signature)
-  console.log('Webhook secret configured:', !!process.env.LAYERCODE_WEBHOOK_SECRET)
   
   if (signature && process.env.LAYERCODE_WEBHOOK_SECRET) {
-    console.log('Verifying webhook signature...')
     const isValid = verifySignature({
       payload: JSON.stringify(requestBody),
       signature,
       secret: process.env.LAYERCODE_WEBHOOK_SECRET
     })
     
-    console.log('Signature valid:', isValid)
     if (!isValid) {
-      console.log('❌ WEBHOOK SIGNATURE INVALID - REJECTING REQUEST')
+      console.error('Webhook signature invalid - rejecting request')
       return new Response('Unauthorized', { status: 401 })
     }
-  } else {
-    console.log('⚠️ No signature verification (signature or secret missing)')
   }
-
-  console.log('🎯 ENTERING STREAM RESPONSE CALLBACK')
   
   return streamResponse(requestBody, async ({ stream }) => {
-    console.log('🎯🎯 INSIDE STREAM RESPONSE CALLBACK - PROCESSING REQUEST')
-    
     // Extract webhook data
     const { text, type, session_id, session_context } = requestBody
     
     // Get LayerCode's session ID from the request
     const layercodeSessionId = session_id || session_context?.sessionId
     
-    console.log('=== VOICE AGENT DEBUG ===')
-    console.log('LayerCode session ID:', layercodeSessionId)
-    console.log('Message type:', type)
-    console.log('Text:', text)
-    console.log('Full requestBody keys:', Object.keys(requestBody))
-    
     // Look up our interview session ID using the LayerCode session ID
     const interviewSessionId = sessionMapping.get(layercodeSessionId || '')
-    console.log('Mapped interview session ID:', interviewSessionId)
     
     if (!interviewSessionId) {
-      console.log('❌ NO INTERVIEW SESSION MAPPING FOUND')
-      console.log('Available mappings:', Array.from(sessionMapping.entries()))
+      console.error('No interview session mapping found for LayerCode session:', layercodeSessionId)
     }
     
     // Fetch session context if available
@@ -397,54 +354,13 @@ export async function POST(request: NextRequest) {
     let nextTurnNumber = 1
     
     if (interviewSessionId) {
-      console.log('Fetching session context for ID:', interviewSessionId)
-      
-      // First test basic database connectivity and list existing sessions
-      try {
-        const { data: testQuery, error: testError } = await supabase
-          .from('interview_sessions')
-          .select('id, status, created_at')
-          .limit(5)
-          .order('created_at', { ascending: false })
-        
-        if (testError) {
-          console.error('❌ Database connectivity test failed:', testError)
-        } else {
-          console.log('✅ Database connectivity test passed')
-          console.log('Recent sessions in database:', testQuery)
-        }
-      } catch (dbTestError) {
-        console.error('❌ Database connectivity exception:', dbTestError)
-      }
-      
       sessionContext = await fetchSessionContext(interviewSessionId)
-      console.log('Session context retrieved:', sessionContext ? 'SUCCESS' : 'NULL')
-      if (sessionContext) {
-        console.log('Session details:', {
-          persona: sessionContext.persona,
-          difficulty: sessionContext.difficulty_level,
-          questionCount: sessionContext.interview_questions?.length || 0,
-          resumeContent: sessionContext.resumes?.parsed_content ? 'PRESENT' : 'MISSING',
-          jobContent: sessionContext.job_descriptions?.job_content ? 'PRESENT' : 'MISSING'
-        })
-      }
-      
       recentConversation = await getRecentConversation(interviewSessionId, 8)
-      console.log('Recent conversation turns:', recentConversation.length)
-      
       nextTurnNumber = await getNextTurnNumber(interviewSessionId)
-      console.log('Next turn number:', nextTurnNumber)
-    } else {
-      console.log('❌ NO INTERVIEW SESSION ID FOUND - using generic responses')
     }
 
-    console.log('🔍 Checking conditions for user transcription...')
-    console.log('Type check:', type, 'matches MESSAGE/message:', (type === 'MESSAGE' || type === 'message' || !type))
-    console.log('Text check:', !!text, 'Text value:', text)
-    
     // Send user transcription immediately via stream.data()
     if ((type === 'MESSAGE' || type === 'message' || !type) && text) {
-      console.log('✅ Sending user transcription to frontend')
       stream.data({
         type: 'user_transcription',
         text: text,
@@ -453,7 +369,6 @@ export async function POST(request: NextRequest) {
       
       // Store user message in conversation if we have a session
       if (interviewSessionId && text) {
-        console.log('Storing user message in database...')
         const insertResult = await supabase
           .from('interview_conversation')
           .insert({
@@ -463,29 +378,23 @@ export async function POST(request: NextRequest) {
             message_text: text,
             message_type: 'response',
             word_count: text.split(' ').length,
-            response_time_seconds: null // TODO: calculate from voice activity
+            response_time_seconds: null
           })
         
         if (insertResult.error) {
           console.error('Error storing user message:', insertResult.error)
-        } else {
-          console.log('✅ User message stored successfully')
         }
         
         nextTurnNumber++
       }
     }
 
-    console.log('🤖 Starting AI response generation...')
-    
     // Generate AI response
     try {
       // Use decision engine to determine next action
       let decision: { action: 'follow_up' | 'next_question' | 'end_interview', reasoning: string } = { action: 'follow_up', reasoning: 'Default behavior' }
-      console.log('🧠 Running decision engine...')
       if (sessionContext && text) {
         decision = await analyzeConversationAndDecide(sessionContext, recentConversation, text)
-        console.log('Decision engine result:', decision)
       }
       
       // Build conversation history for context
@@ -526,7 +435,6 @@ export async function POST(request: NextRequest) {
         const messageType = decision.action === 'end_interview' ? 'closing' : 
                            decision.action === 'next_question' ? 'main_question' : 'follow_up'
         
-        console.log('Storing interviewer response in database...')
         const insertResult = await supabase
           .from('interview_conversation')
           .insert({
@@ -540,8 +448,6 @@ export async function POST(request: NextRequest) {
         
         if (insertResult.error) {
           console.error('Error storing interviewer response:', insertResult.error)
-        } else {
-          console.log('✅ Interviewer response stored successfully')
         }
       }
       

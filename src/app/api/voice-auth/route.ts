@@ -9,24 +9,11 @@ export async function POST(request: NextRequest) {
     // Parse request body to get session context
     const body = await request.json().catch(() => ({}))
     
-    console.log('🔍 VOICE-AUTH FULL REQUEST BODY:', JSON.stringify(body, null, 2))
-    console.log('🔍 VOICE-AUTH BODY KEYS:', Object.keys(body))
-    
     // Extract values from the request
     const { pipeline_id, metadata } = body
     const interviewSessionId = metadata?.interviewSessionId
     
-    console.log('🔍 EXTRACTED VALUES:')
-    console.log('  pipeline_id:', pipeline_id)
-    console.log('  metadata:', metadata)
-    console.log('  interviewSessionId from metadata:', interviewSessionId)
-    
     console.log('Voice auth - Interview session ID:', interviewSessionId)
-    console.log('Voice auth - Full session context to send:', {
-      sessionId: interviewSessionId,
-      interviewSessionId: interviewSessionId,
-      service: 'LickedIn Interviews Voice'
-    })
 
     // Call LayerCode API to generate client_session_key
     const layercodeApiKey = process.env.LAYERCODE_API_KEY
