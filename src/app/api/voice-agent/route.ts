@@ -214,20 +214,19 @@ function getDecisionGuidance(
     case 'follow_up':
       return "DECISION: Ask a follow-up question to get more depth on the current topic. Probe for specific examples, challenges, or outcomes."
     case 'next_question':
-      // Find which main question to ask next using unique question tracking
-      const usedQuestionIds = new Set(
-        recentConversation
-          .filter(turn => turn.speaker === 'interviewer' && 
-                        turn.message_type === 'main_question' && 
-                        turn.related_main_question_id)
-          .map(turn => turn.related_main_question_id!)
+      // Use explicit sequence tracking instead of Set logic
+      const mainQuestionTurns = recentConversation.filter(turn => 
+        turn.speaker === 'interviewer' && 
+        turn.message_type === 'main_question' && 
+        turn.related_main_question_id
       )
       
+      const questionsAskedCount = mainQuestionTurns.length
       const sortedQuestions = questions.sort((a, b) => a.question_order - b.question_order)
-      const nextQuestion = sortedQuestions.find(q => !usedQuestionIds.has(q.id))
+      const nextQuestion = sortedQuestions[questionsAskedCount]
       
       return nextQuestion 
-        ? `DECISION: Ask the next main question: "${nextQuestion.question_text}"`
+        ? `DECISION: Ask Question ${nextQuestion.question_order}: "${nextQuestion.question_text}"`
         : "DECISION: All main questions have been covered. Wrap up the interview."
     case 'end_interview':
       return "DECISION: All main topics have been covered thoroughly. Wrap up the interview with closing remarks and next steps."
@@ -250,15 +249,15 @@ async function analyzeConversationAndDecide(
       .join('\n')
 
     // Count unique main questions that have been asked
-    const usedQuestionIds = new Set(
-      recentConversation
-        .filter(turn => turn.speaker === 'interviewer' && 
-                      turn.message_type === 'main_question' && 
-                      turn.related_main_question_id)
-        .map(turn => turn.related_main_question_id!)
+    const mainQuestionTurns = recentConversation.filter(turn => 
+      turn.speaker === 'interviewer' && 
+      turn.message_type === 'main_question' && 
+      turn.related_main_question_id
     )
+    
+    const usedQuestionIds = new Set(mainQuestionTurns.map(turn => turn.related_main_question_id!))
     const mainQuestionsAsked = usedQuestionIds.size
-
+    
     // Count follow-ups since the last unique main question
     const lastMainQuestionTurn = recentConversation
       .slice()
@@ -275,7 +274,28 @@ async function analyzeConversationAndDecide(
 
     // Force progression rules
     const MAX_FOLLOWUPS_PER_QUESTION = 2
+    const MAX_TOTAL_INTERVIEWER_TURNS = 15 // Safety net to prevent infinite interviews
     const totalQuestions = questions.length
+    
+    const totalInterviewerTurns = recentConversation.filter(turn => 
+      turn.speaker === 'interviewer'
+    ).length
+
+    console.log('🔍 DECISION ENGINE DEBUG:')
+    console.log('Total questions available:', questions.length)
+    console.log('Main question turns:', mainQuestionTurns.length)
+    console.log('Unique questions asked:', mainQuestionsAsked)
+    console.log('Used question IDs:', Array.from(usedQuestionIds))
+    console.log('Follow-ups since last main:', followUpsSinceLastMain)
+    console.log('Total interviewer turns:', totalInterviewerTurns)
+
+    // Safety net: if we've had too many interviewer turns, end the interview
+    if (totalInterviewerTurns >= MAX_TOTAL_INTERVIEWER_TURNS) {
+      return {
+        action: 'end_interview',
+        reasoning: `Safety limit reached: ${totalInterviewerTurns} interviewer turns, ending interview`
+      }
+    }
 
     // If this is the very first conversation turn, start with first main question
     if (recentConversation.length === 0) {
@@ -513,26 +533,32 @@ export async function POST(request: NextRequest) {
         // Find which main question we're addressing if this is a main question
         let relatedMainQuestionId = null
         if (messageType === 'main_question' && sessionContext?.interview_questions) {
-          // Get all question IDs that have already been used as main questions
-          const usedQuestionIds = new Set(
-            recentConversation
-              .filter(turn => turn.speaker === 'interviewer' && 
-                            turn.message_type === 'main_question' && 
-                            turn.related_main_question_id)
-              .map(turn => turn.related_main_question_id!)
+          // EXPLICIT QUESTION SEQUENCE TRACKING
+          // Instead of relying on Set logic, use explicit sequence tracking
+          
+          // Get count of main questions already asked
+          const mainQuestionTurns = recentConversation.filter(turn => 
+            turn.speaker === 'interviewer' && 
+            turn.message_type === 'main_question' && 
+            turn.related_main_question_id
           )
           
-          // Find the next unused question in order
+          const questionsAskedCount = mainQuestionTurns.length
+          
+          // Sort questions by order and pick the next one in sequence
           const sortedQuestions = sessionContext.interview_questions
             .sort((a, b) => a.question_order - b.question_order)
           
-          const nextQuestion = sortedQuestions.find(q => !usedQuestionIds.has(q.id))
+          // Pick the question at index = questionsAskedCount (0-indexed)
+          const nextQuestion = sortedQuestions[questionsAskedCount]
           
           if (nextQuestion) {
             relatedMainQuestionId = nextQuestion.id
-            console.log(`Next main question assigned: Question ${nextQuestion.question_order} (ID: ${nextQuestion.id})`)
+            console.log(`🎯 EXPLICIT SEQUENCE: Asking Question ${nextQuestion.question_order} (${questionsAskedCount + 1} of ${sortedQuestions.length})`)
+            console.log(`   Question ID: ${nextQuestion.id}`)
+            console.log(`   Question Text: ${nextQuestion.question_text.substring(0, 100)}...`)
           } else {
-            console.log('All main questions have been used')
+            console.log(`🏁 SEQUENCE COMPLETE: All ${sortedQuestions.length} questions have been asked`)
           }
         }
         
