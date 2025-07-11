@@ -215,7 +215,7 @@ const InterviewSession = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Voice Integration - client-side only */}
-      <VoiceIntegration onVoiceData={handleVoiceData} sessionId={sessionId} />
+      <VoiceIntegration onVoiceData={handleVoiceData} interviewSessionId={sessionId} />
       
       {/* Header */}
       <header className="border-b bg-card">

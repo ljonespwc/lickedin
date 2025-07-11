@@ -14,16 +14,15 @@ interface VoiceIntegrationProps {
 }
 
 interface TranscriptionStreamProps extends VoiceIntegrationProps {
-  sessionId: string
+  interviewSessionId: string
 }
 
-export function VoiceIntegration({ onVoiceData, sessionId }: TranscriptionStreamProps) {
+export function VoiceIntegration({ onVoiceData, interviewSessionId }: TranscriptionStreamProps) {
   const hookData = useLayercodePipeline({
     pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
     authorizeSessionEndpoint: '/api/voice-auth',
     sessionContext: {
-      sessionId: sessionId,
-      interviewSessionId: sessionId
+      interviewSessionId: interviewSessionId
     },
     onDataMessage: (data: { type: string; text?: string; content?: unknown; timestamp?: number }) => {
       // Handle transcription data
