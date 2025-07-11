@@ -214,13 +214,17 @@ function getDecisionGuidance(
     case 'follow_up':
       return "DECISION: Ask a follow-up question to get more depth on the current topic. Probe for specific examples, challenges, or outcomes."
     case 'next_question':
-      // Find which main question to ask next
-      const mainQuestionsAsked = recentConversation.filter(turn => 
-        turn.speaker === 'interviewer' && turn.message_type === 'main_question'
-      ).length
+      // Find which main question to ask next using unique question tracking
+      const usedQuestionIds = new Set(
+        recentConversation
+          .filter(turn => turn.speaker === 'interviewer' && 
+                        turn.message_type === 'main_question' && 
+                        turn.related_main_question_id)
+          .map(turn => turn.related_main_question_id!)
+      )
       
       const sortedQuestions = questions.sort((a, b) => a.question_order - b.question_order)
-      const nextQuestion = sortedQuestions[mainQuestionsAsked]
+      const nextQuestion = sortedQuestions.find(q => !usedQuestionIds.has(q.id))
       
       return nextQuestion 
         ? `DECISION: Ask the next main question: "${nextQuestion.question_text}"`
@@ -245,16 +249,23 @@ async function analyzeConversationAndDecide(
       .map((q) => `${q.question_order}. ${q.question_text}`)
       .join('\n')
 
-    // Count main questions that have been asked
-    const mainQuestionsAsked = recentConversation.filter(turn => 
-      turn.speaker === 'interviewer' && turn.message_type === 'main_question'
-    ).length
+    // Count unique main questions that have been asked
+    const usedQuestionIds = new Set(
+      recentConversation
+        .filter(turn => turn.speaker === 'interviewer' && 
+                      turn.message_type === 'main_question' && 
+                      turn.related_main_question_id)
+        .map(turn => turn.related_main_question_id!)
+    )
+    const mainQuestionsAsked = usedQuestionIds.size
 
-    // Count follow-ups for current question
+    // Count follow-ups since the last unique main question
     const lastMainQuestionTurn = recentConversation
       .slice()
       .reverse()
-      .find(turn => turn.speaker === 'interviewer' && turn.message_type === 'main_question')?.turn_number || 0
+      .find(turn => turn.speaker === 'interviewer' && 
+                   turn.message_type === 'main_question' && 
+                   turn.related_main_question_id)?.turn_number || 0
     
     const followUpsSinceLastMain = recentConversation.filter(turn => 
       turn.speaker === 'interviewer' && 
@@ -263,7 +274,7 @@ async function analyzeConversationAndDecide(
     ).length
 
     // Force progression rules
-    const MAX_FOLLOWUPS_PER_QUESTION = 4
+    const MAX_FOLLOWUPS_PER_QUESTION = 2
     const totalQuestions = questions.length
 
     // If this is the very first conversation turn, start with first main question
@@ -448,7 +459,16 @@ export async function POST(request: NextRequest) {
     try {
       // Use decision engine to determine next action
       let decision: { action: 'follow_up' | 'next_question' | 'end_interview', reasoning: string } = { action: 'follow_up', reasoning: 'Default behavior' }
-      if (sessionContext && text) {
+      
+      // Special case: if this is the very first interviewer response, start with main question
+      const hasInterviewerResponses = recentConversation.some(turn => turn.speaker === 'interviewer')
+      
+      if (!hasInterviewerResponses && sessionContext?.interview_questions?.length) {
+        decision = {
+          action: 'next_question',
+          reasoning: 'First interviewer response - starting with first main question'
+        }
+      } else if (sessionContext && text) {
         decision = await analyzeConversationAndDecide(sessionContext, recentConversation, text)
       }
       
@@ -493,15 +513,26 @@ export async function POST(request: NextRequest) {
         // Find which main question we're addressing if this is a main question
         let relatedMainQuestionId = null
         if (messageType === 'main_question' && sessionContext?.interview_questions) {
-          const mainQuestionsAsked = recentConversation.filter(turn => 
-            turn.speaker === 'interviewer' && turn.message_type === 'main_question'
-          ).length
+          // Get all question IDs that have already been used as main questions
+          const usedQuestionIds = new Set(
+            recentConversation
+              .filter(turn => turn.speaker === 'interviewer' && 
+                            turn.message_type === 'main_question' && 
+                            turn.related_main_question_id)
+              .map(turn => turn.related_main_question_id!)
+          )
           
+          // Find the next unused question in order
           const sortedQuestions = sessionContext.interview_questions
             .sort((a, b) => a.question_order - b.question_order)
           
-          if (sortedQuestions[mainQuestionsAsked]) {
-            relatedMainQuestionId = sortedQuestions[mainQuestionsAsked].id
+          const nextQuestion = sortedQuestions.find(q => !usedQuestionIds.has(q.id))
+          
+          if (nextQuestion) {
+            relatedMainQuestionId = nextQuestion.id
+            console.log(`Next main question assigned: Question ${nextQuestion.question_order} (ID: ${nextQuestion.id})`)
+          } else {
+            console.log('All main questions have been used')
           }
         }
         
