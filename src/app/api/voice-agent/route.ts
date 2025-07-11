@@ -274,20 +274,14 @@ async function analyzeConversationAndDecide(
 
     // Force progression rules
     const MAX_FOLLOWUPS_PER_QUESTION = 2
-    const MAX_TOTAL_INTERVIEWER_TURNS = 15 // Safety net to prevent infinite interviews
+    const MAX_TOTAL_INTERVIEWER_TURNS = 8 // Safety net to prevent infinite interviews
     const totalQuestions = questions.length
     
     const totalInterviewerTurns = recentConversation.filter(turn => 
       turn.speaker === 'interviewer'
     ).length
 
-    console.log('🔍 DECISION ENGINE DEBUG:')
-    console.log('Total questions available:', questions.length)
-    console.log('Main question turns:', mainQuestionTurns.length)
-    console.log('Unique questions asked:', mainQuestionsAsked)
-    console.log('Used question IDs:', Array.from(usedQuestionIds))
-    console.log('Follow-ups since last main:', followUpsSinceLastMain)
-    console.log('Total interviewer turns:', totalInterviewerTurns)
+    console.log('📊 Questions:', mainQuestionsAsked, '/', totalQuestions, '| Follow-ups:', followUpsSinceLastMain, '| Turns:', totalInterviewerTurns)
 
     // Safety net: if we've had too many interviewer turns, end the interview
     if (totalInterviewerTurns >= MAX_TOTAL_INTERVIEWER_TURNS) {
@@ -441,7 +435,7 @@ export async function POST(request: NextRequest) {
     
     if (interviewSessionId) {
       sessionContext = await fetchSessionContext(interviewSessionId)
-      recentConversation = await getRecentConversation(interviewSessionId, 8)
+      recentConversation = await getRecentConversation(interviewSessionId, 100)
       nextTurnNumber = await getNextTurnNumber(interviewSessionId)
     }
 
@@ -550,22 +544,11 @@ export async function POST(request: NextRequest) {
           // Find the first question that hasn't been used yet (by question_order)
           const nextQuestion = sortedQuestions.find(q => !usedQuestionIds.has(q.id))
           
-          console.log('🔍 QUESTION SELECTION DEBUG:')
-          console.log('Used question IDs:', Array.from(usedQuestionIds))
-          console.log('Available questions:', sortedQuestions.map(q => ({ order: q.question_order, id: q.id, used: usedQuestionIds.has(q.id) })))
-          
           if (nextQuestion) {
             relatedMainQuestionId = nextQuestion.id
-            console.log(`✅ Next question selected: Q${nextQuestion.question_order} (ID: ${nextQuestion.id})`)
-            console.log(`   Question Text: ${nextQuestion.question_text.substring(0, 100)}...`)
-            
-            // Validation: Check if this question was already used (safety net)
-            if (usedQuestionIds.has(nextQuestion.id)) {
-              console.error(`🚨 DUPLICATE QUESTION DETECTED: Question ${nextQuestion.question_order} was already used!`)
-              relatedMainQuestionId = null // Prevent duplicate assignment
-            }
+            console.log(`✅ Asking Q${nextQuestion.question_order}`)
           } else {
-            console.log(`🏁 SEQUENCE COMPLETE: All ${sortedQuestions.length} questions have been asked`)
+            console.log(`🏁 All questions completed`)
           }
         }
         
