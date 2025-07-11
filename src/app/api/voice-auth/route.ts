@@ -12,26 +12,25 @@ export async function POST(request: NextRequest) {
     console.log('🔍 VOICE-AUTH FULL REQUEST BODY:', JSON.stringify(body, null, 2))
     console.log('🔍 VOICE-AUTH BODY KEYS:', Object.keys(body))
     
-    // The sessionContext from React SDK should be here
-    const { sessionId, metadata, sessionContext } = body
-    console.log('🔍 EXTRACTED VALUES:')
-    console.log('  sessionId:', sessionId)
-    console.log('  metadata:', metadata)
-    console.log('  sessionContext:', sessionContext)
+    // Extract values from the request
+    const { pipeline_id, metadata } = body
+    const interviewSessionId = metadata?.interviewSessionId
     
-    const interviewSessionId = sessionId || sessionContext?.sessionId || sessionContext?.interviewSessionId
+    console.log('🔍 EXTRACTED VALUES:')
+    console.log('  pipeline_id:', pipeline_id)
+    console.log('  metadata:', metadata)
+    console.log('  interviewSessionId from metadata:', interviewSessionId)
     
     console.log('Voice auth - Interview session ID:', interviewSessionId)
     console.log('Voice auth - Full session context to send:', {
       sessionId: interviewSessionId,
       interviewSessionId: interviewSessionId,
-      service: 'LickedIn Interviews Voice',
-      ...metadata
+      service: 'LickedIn Interviews Voice'
     })
 
     // Call LayerCode API to generate client_session_key
     const layercodeApiKey = process.env.LAYERCODE_API_KEY
-    const pipelineId = process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID
+    const pipelineId = pipeline_id || process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID
     
     if (!layercodeApiKey || !pipelineId) {
       throw new Error('Missing LayerCode configuration')
@@ -49,8 +48,7 @@ export async function POST(request: NextRequest) {
         session_context: {
           sessionId: interviewSessionId,
           interviewSessionId: interviewSessionId,
-          service: 'LickedIn Interviews Voice',
-          ...metadata
+          service: 'LickedIn Interviews Voice'
         }
       })
     })
