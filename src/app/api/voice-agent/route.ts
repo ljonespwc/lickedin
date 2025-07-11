@@ -45,9 +45,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// Add startup logging
+console.log('Voice Agent initialized with:', {
+  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING',
+  serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING',
+  openaiKey: process.env.OPENAI_API_KEY ? 'SET' : 'MISSING'
+})
+
 // Helper function to fetch session context from database
 async function fetchSessionContext(sessionId: string): Promise<SessionContext | null> {
   try {
+    console.log('🔍 Querying database for session ID:', sessionId)
+    
     // Fetch interview session with related data
     const { data: session, error: sessionError } = await supabase
       .from('interview_sessions')
@@ -70,13 +79,32 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
       .single()
 
     if (sessionError) {
-      console.error('Error fetching session:', sessionError)
+      console.error('❌ Supabase error fetching session:', sessionError)
+      console.error('Error details:', {
+        message: sessionError.message,
+        code: sessionError.code,
+        details: sessionError.details
+      })
       return null
     }
 
+    if (!session) {
+      console.error('❌ No session found with ID:', sessionId)
+      return null
+    }
+
+    console.log('✅ Session found successfully:', {
+      id: session.id,
+      persona: session.persona,
+      difficulty: session.difficulty_level,
+      hasResume: !!session.resumes,
+      hasJobDesc: !!session.job_descriptions,
+      questionCount: session.interview_questions?.length || 0
+    })
+
     return session
   } catch (error) {
-    console.error('Error in fetchSessionContext:', error)
+    console.error('❌ Exception in fetchSessionContext:', error)
     return null
   }
 }
@@ -319,20 +347,81 @@ export async function POST(request: NextRequest) {
 
   return streamResponse(requestBody, async ({ stream }) => {
     // Extract webhook data
-    const { text, type, session_context } = requestBody
+    const { text, type, session_id, session_context } = requestBody
     
-    // Get session ID from LayerCode session context
-    const sessionId = session_context?.sessionId || session_context?.interviewSessionId
+    // Get session ID from LayerCode request (they send session_id directly)
+    const sessionId = session_id || session_context?.sessionId || session_context?.interviewSessionId
+    
+    console.log('=== VOICE AGENT DEBUG ===')
+    console.log('Request body:', JSON.stringify(requestBody, null, 2))
+    console.log('Session ID found:', sessionId)
+    console.log('Message type:', type)
+    console.log('Text:', text)
+    console.log('Looking for interview session ID in other fields...')
+    
+    // Try to extract interview session ID from various possible locations
+    let interviewSessionId = null
+    if (requestBody.session_context) {
+      interviewSessionId = requestBody.session_context.sessionId || 
+                          requestBody.session_context.interviewSessionId
+      console.log('Found in session_context:', interviewSessionId)
+    }
+    if (requestBody.metadata) {
+      const metadataSessionId = requestBody.metadata.sessionId || 
+                               requestBody.metadata.interviewSessionId
+      console.log('Found in metadata:', metadataSessionId)
+      interviewSessionId = interviewSessionId || metadataSessionId
+    }
+    
+    // Use interview session ID if found, otherwise use the LayerCode session ID
+    const finalSessionId = interviewSessionId || sessionId
+    console.log('Final session ID to use:', finalSessionId)
     
     // Fetch session context if available
     let sessionContext: SessionContext | null = null
     let recentConversation: ConversationTurn[] = []
     let nextTurnNumber = 1
     
-    if (sessionId) {
-      sessionContext = await fetchSessionContext(sessionId)
-      recentConversation = await getRecentConversation(sessionId, 8)
-      nextTurnNumber = await getNextTurnNumber(sessionId)
+    if (finalSessionId) {
+      console.log('Fetching session context for ID:', finalSessionId)
+      
+      // First test basic database connectivity and list existing sessions
+      try {
+        const { data: testQuery, error: testError } = await supabase
+          .from('interview_sessions')
+          .select('id, status, created_at')
+          .limit(5)
+          .order('created_at', { ascending: false })
+        
+        if (testError) {
+          console.error('❌ Database connectivity test failed:', testError)
+        } else {
+          console.log('✅ Database connectivity test passed')
+          console.log('Recent sessions in database:', testQuery)
+        }
+      } catch (dbTestError) {
+        console.error('❌ Database connectivity exception:', dbTestError)
+      }
+      
+      sessionContext = await fetchSessionContext(finalSessionId)
+      console.log('Session context retrieved:', sessionContext ? 'SUCCESS' : 'NULL')
+      if (sessionContext) {
+        console.log('Session details:', {
+          persona: sessionContext.persona,
+          difficulty: sessionContext.difficulty_level,
+          questionCount: sessionContext.interview_questions?.length || 0,
+          resumeContent: sessionContext.resumes?.parsed_content ? 'PRESENT' : 'MISSING',
+          jobContent: sessionContext.job_descriptions?.job_content ? 'PRESENT' : 'MISSING'
+        })
+      }
+      
+      recentConversation = await getRecentConversation(finalSessionId, 8)
+      console.log('Recent conversation turns:', recentConversation.length)
+      
+      nextTurnNumber = await getNextTurnNumber(finalSessionId)
+      console.log('Next turn number:', nextTurnNumber)
+    } else {
+      console.log('❌ NO SESSION ID FOUND - using generic responses')
     }
 
     // Send user transcription immediately via stream.data()
@@ -344,11 +433,12 @@ export async function POST(request: NextRequest) {
       })
       
       // Store user message in conversation if we have a session
-      if (sessionId && text) {
-        await supabase
+      if (finalSessionId && text) {
+        console.log('Storing user message in database...')
+        const insertResult = await supabase
           .from('interview_conversation')
           .insert({
-            session_id: sessionId,
+            session_id: finalSessionId,
             turn_number: nextTurnNumber,
             speaker: 'candidate',
             message_text: text,
@@ -356,6 +446,12 @@ export async function POST(request: NextRequest) {
             word_count: text.split(' ').length,
             response_time_seconds: null // TODO: calculate from voice activity
           })
+        
+        if (insertResult.error) {
+          console.error('Error storing user message:', insertResult.error)
+        } else {
+          console.log('✅ User message stored successfully')
+        }
         
         nextTurnNumber++
       }
@@ -404,20 +500,27 @@ export async function POST(request: NextRequest) {
       const response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
       
       // Store interviewer response in conversation
-      if (sessionId && response) {
+      if (finalSessionId && response) {
         const messageType = decision.action === 'end_interview' ? 'closing' : 
                            decision.action === 'next_question' ? 'main_question' : 'follow_up'
         
-        await supabase
+        console.log('Storing interviewer response in database...')
+        const insertResult = await supabase
           .from('interview_conversation')
           .insert({
-            session_id: sessionId,
+            session_id: finalSessionId,
             turn_number: nextTurnNumber,
             speaker: 'interviewer',
             message_text: response,
             message_type: messageType,
             word_count: response.split(' ').length
           })
+        
+        if (insertResult.error) {
+          console.error('Error storing interviewer response:', insertResult.error)
+        } else {
+          console.log('✅ Interviewer response stored successfully')
+        }
       }
       
       // Send agent transcription immediately via stream.data()
