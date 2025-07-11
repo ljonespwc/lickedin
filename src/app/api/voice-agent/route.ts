@@ -203,17 +203,28 @@ function getPersonaInstructions(persona: string) {
 }
 
 // Helper function to get decision-specific guidance
-function getDecisionGuidance(action: 'follow_up' | 'next_question' | 'end_interview', sessionContext: SessionContext | null): string {
+function getDecisionGuidance(
+  action: 'follow_up' | 'next_question' | 'end_interview', 
+  sessionContext: SessionContext | null, 
+  recentConversation: ConversationTurn[] = []
+): string {
   const questions = sessionContext?.interview_questions || []
   
   switch (action) {
     case 'follow_up':
       return "DECISION: Ask a follow-up question to get more depth on the current topic. Probe for specific examples, challenges, or outcomes."
     case 'next_question':
-      const nextQuestion = questions.find((q) => !q.addressed) // This would need tracking
+      // Find which main question to ask next
+      const mainQuestionsAsked = recentConversation.filter(turn => 
+        turn.speaker === 'interviewer' && turn.message_type === 'main_question'
+      ).length
+      
+      const sortedQuestions = questions.sort((a, b) => a.question_order - b.question_order)
+      const nextQuestion = sortedQuestions[mainQuestionsAsked]
+      
       return nextQuestion 
-        ? `DECISION: Move to the next main question: "${nextQuestion.question_text}"`
-        : "DECISION: Continue with follow-up questions as all main questions have been introduced."
+        ? `DECISION: Ask the next main question: "${nextQuestion.question_text}"`
+        : "DECISION: All main questions have been covered. Wrap up the interview."
     case 'end_interview':
       return "DECISION: All main topics have been covered thoroughly. Wrap up the interview with closing remarks and next steps."
     default:
@@ -234,13 +245,56 @@ async function analyzeConversationAndDecide(
       .map((q) => `${q.question_order}. ${q.question_text}`)
       .join('\n')
 
-    // Get questions that have been addressed
-    const addressedQuestions = new Set()
-    recentConversation.forEach(turn => {
-      if (turn.related_main_question_id) {
-        addressedQuestions.add(turn.related_main_question_id)
+    // Count main questions that have been asked
+    const mainQuestionsAsked = recentConversation.filter(turn => 
+      turn.speaker === 'interviewer' && turn.message_type === 'main_question'
+    ).length
+
+    // Count follow-ups for current question
+    const lastMainQuestionTurn = recentConversation
+      .slice()
+      .reverse()
+      .find(turn => turn.speaker === 'interviewer' && turn.message_type === 'main_question')?.turn_number || 0
+    
+    const followUpsSinceLastMain = recentConversation.filter(turn => 
+      turn.speaker === 'interviewer' && 
+      turn.message_type === 'follow_up' && 
+      turn.turn_number > lastMainQuestionTurn
+    ).length
+
+    // Force progression rules
+    const MAX_FOLLOWUPS_PER_QUESTION = 4
+    const totalQuestions = questions.length
+
+    // If this is the very first conversation turn, start with first main question
+    if (recentConversation.length === 0) {
+      return {
+        action: 'next_question',
+        reasoning: 'Starting interview with first main question'
       }
-    })
+    }
+
+    // If we've hit the follow-up limit, move to next question
+    if (followUpsSinceLastMain >= MAX_FOLLOWUPS_PER_QUESTION) {
+      if (mainQuestionsAsked >= totalQuestions) {
+        return {
+          action: 'end_interview',
+          reasoning: 'All main questions covered and follow-up limit reached'
+        }
+      }
+      return {
+        action: 'next_question',
+        reasoning: `Follow-up limit reached (${followUpsSinceLastMain}), moving to next main question`
+      }
+    }
+
+    // If all main questions have been asked, end interview
+    if (mainQuestionsAsked >= totalQuestions) {
+      return {
+        action: 'end_interview',
+        reasoning: 'All main questions have been covered'
+      }
+    }
 
     const conversationSummary = recentConversation
       .slice(-6) // Last 6 turns
@@ -258,11 +312,12 @@ ${conversationSummary}
 CANDIDATE'S LATEST RESPONSE:
 ${currentResponse}
 
-QUESTIONS ALREADY ADDRESSED: ${addressedQuestions.size} out of ${questions.length}
+MAIN QUESTIONS ASKED SO FAR: ${mainQuestionsAsked} out of ${totalQuestions}
+FOLLOW-UPS SINCE LAST MAIN QUESTION: ${followUpsSinceLastMain} (max: ${MAX_FOLLOWUPS_PER_QUESTION})
 
 Analyze the candidate's response and decide:
-1. "follow_up" - if the response is shallow, incomplete, or needs clarification
-2. "next_question" - if the response is complete and you should move to the next main question
+1. "follow_up" - if the response needs clarification or more depth (but you haven't hit the follow-up limit)
+2. "next_question" - if the response is sufficient OR you've had enough follow-ups on this topic
 3. "end_interview" - if all main questions have been thoroughly covered
 
 Respond with JSON only:
@@ -413,7 +468,7 @@ export async function POST(request: NextRequest) {
       
       // Build personalized system prompt with decision context
       const systemPrompt = buildSystemPrompt(sessionContext)
-      const decisionGuidance = getDecisionGuidance(decision.action, sessionContext)
+      const decisionGuidance = getDecisionGuidance(decision.action, sessionContext, recentConversation)
       
       const completion = await openai.chat.completions.create({
         model: "gpt-4.1-mini",
@@ -435,6 +490,21 @@ export async function POST(request: NextRequest) {
         const messageType = decision.action === 'end_interview' ? 'closing' : 
                            decision.action === 'next_question' ? 'main_question' : 'follow_up'
         
+        // Find which main question we're addressing if this is a main question
+        let relatedMainQuestionId = null
+        if (messageType === 'main_question' && sessionContext?.interview_questions) {
+          const mainQuestionsAsked = recentConversation.filter(turn => 
+            turn.speaker === 'interviewer' && turn.message_type === 'main_question'
+          ).length
+          
+          const sortedQuestions = sessionContext.interview_questions
+            .sort((a, b) => a.question_order - b.question_order)
+          
+          if (sortedQuestions[mainQuestionsAsked]) {
+            relatedMainQuestionId = sortedQuestions[mainQuestionsAsked].id
+          }
+        }
+        
         const insertResult = await supabase
           .from('interview_conversation')
           .insert({
@@ -443,6 +513,7 @@ export async function POST(request: NextRequest) {
             speaker: 'interviewer',
             message_text: response,
             message_type: messageType,
+            related_main_question_id: relatedMainQuestionId,
             word_count: response.split(' ').length
           })
         

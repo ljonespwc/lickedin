@@ -36,8 +36,8 @@ const InterviewSession = () => {
   const router = useRouter()
   const sessionId = params.sessionId as string
   
-  const [currentQuestion] = useState(1) // TODO: Implement question progression
-  const [totalQuestions] = useState(5) // TODO: Use actual question count
+  const [currentQuestion, setCurrentQuestion] = useState(1)
+  const [totalQuestions, setTotalQuestions] = useState(5)
   const [timeElapsed, setTimeElapsed] = useState(0)
   // const [transcription] = useState('') // TODO: Implement live transcription
   const [session, setSession] = useState<InterviewSession | null>(null)
@@ -163,6 +163,39 @@ const InterviewSession = () => {
     }
     return () => clearInterval(interval)
   }, [loading])
+
+  // Progress polling effect
+  useEffect(() => {
+    if (!sessionId || loading) return
+
+    const pollProgress = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) return
+
+        const response = await fetch(`/api/interview/${sessionId}/progress`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          credentials: 'include'
+        })
+        
+        if (response.ok) {
+          const progressData = await response.json()
+          setCurrentQuestion(progressData.currentQuestion)
+          setTotalQuestions(progressData.totalQuestions)
+        }
+      } catch (error) {
+        console.error('Error fetching progress:', error)
+      }
+    }
+
+    // Poll immediately and then every 5 seconds
+    pollProgress()
+    const interval = setInterval(pollProgress, 5000)
+    
+    return () => clearInterval(interval)
+  }, [sessionId, loading])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
