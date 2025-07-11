@@ -214,16 +214,16 @@ function getDecisionGuidance(
     case 'follow_up':
       return "DECISION: Ask a follow-up question to get more depth on the current topic. Probe for specific examples, challenges, or outcomes."
     case 'next_question':
-      // Use explicit sequence tracking instead of Set logic
+      // Use improved unique question tracking
       const mainQuestionTurns = recentConversation.filter(turn => 
         turn.speaker === 'interviewer' && 
         turn.message_type === 'main_question' && 
         turn.related_main_question_id
       )
       
-      const questionsAskedCount = mainQuestionTurns.length
+      const usedQuestionIds = new Set(mainQuestionTurns.map(turn => turn.related_main_question_id!))
       const sortedQuestions = questions.sort((a, b) => a.question_order - b.question_order)
-      const nextQuestion = sortedQuestions[questionsAskedCount]
+      const nextQuestion = sortedQuestions.find(q => !usedQuestionIds.has(q.id))
       
       return nextQuestion 
         ? `DECISION: Ask Question ${nextQuestion.question_order}: "${nextQuestion.question_text}"`
@@ -533,30 +533,37 @@ export async function POST(request: NextRequest) {
         // Find which main question we're addressing if this is a main question
         let relatedMainQuestionId = null
         if (messageType === 'main_question' && sessionContext?.interview_questions) {
-          // EXPLICIT QUESTION SEQUENCE TRACKING
-          // Instead of relying on Set logic, use explicit sequence tracking
-          
-          // Get count of main questions already asked
+          // IMPROVED UNIQUE QUESTION TRACKING
+          // Get unique question IDs that have already been used
           const mainQuestionTurns = recentConversation.filter(turn => 
             turn.speaker === 'interviewer' && 
             turn.message_type === 'main_question' && 
             turn.related_main_question_id
           )
           
-          const questionsAskedCount = mainQuestionTurns.length
+          const usedQuestionIds = new Set(mainQuestionTurns.map(turn => turn.related_main_question_id!))
           
-          // Sort questions by order and pick the next one in sequence
+          // Sort questions by order and find the first unused one
           const sortedQuestions = sessionContext.interview_questions
             .sort((a, b) => a.question_order - b.question_order)
           
-          // Pick the question at index = questionsAskedCount (0-indexed)
-          const nextQuestion = sortedQuestions[questionsAskedCount]
+          // Find the first question that hasn't been used yet (by question_order)
+          const nextQuestion = sortedQuestions.find(q => !usedQuestionIds.has(q.id))
+          
+          console.log('🔍 QUESTION SELECTION DEBUG:')
+          console.log('Used question IDs:', Array.from(usedQuestionIds))
+          console.log('Available questions:', sortedQuestions.map(q => ({ order: q.question_order, id: q.id, used: usedQuestionIds.has(q.id) })))
           
           if (nextQuestion) {
             relatedMainQuestionId = nextQuestion.id
-            console.log(`🎯 EXPLICIT SEQUENCE: Asking Question ${nextQuestion.question_order} (${questionsAskedCount + 1} of ${sortedQuestions.length})`)
-            console.log(`   Question ID: ${nextQuestion.id}`)
+            console.log(`✅ Next question selected: Q${nextQuestion.question_order} (ID: ${nextQuestion.id})`)
             console.log(`   Question Text: ${nextQuestion.question_text.substring(0, 100)}...`)
+            
+            // Validation: Check if this question was already used (safety net)
+            if (usedQuestionIds.has(nextQuestion.id)) {
+              console.error(`🚨 DUPLICATE QUESTION DETECTED: Question ${nextQuestion.question_order} was already used!`)
+              relatedMainQuestionId = null // Prevent duplicate assignment
+            }
           } else {
             console.log(`🏁 SEQUENCE COMPLETE: All ${sortedQuestions.length} questions have been asked`)
           }
