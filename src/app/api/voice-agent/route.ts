@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { streamResponse, verifySignature } from '@layercode/node-server-sdk'
 import { createClient } from '@supabase/supabase-js'
+import { sessionMapping } from '../session-mapping'
 
 // Type definitions
 interface ConversationTurn {
@@ -349,41 +350,30 @@ export async function POST(request: NextRequest) {
     // Extract webhook data
     const { text, type, session_id, session_context } = requestBody
     
-    // Get session ID from LayerCode request (they send session_id directly)
-    const sessionId = session_id || session_context?.sessionId || session_context?.interviewSessionId
+    // Get LayerCode's session ID from the request
+    const layercodeSessionId = session_id || session_context?.sessionId
     
     console.log('=== VOICE AGENT DEBUG ===')
-    console.log('Request body:', JSON.stringify(requestBody, null, 2))
-    console.log('Session ID found:', sessionId)
+    console.log('LayerCode session ID:', layercodeSessionId)
     console.log('Message type:', type)
     console.log('Text:', text)
-    console.log('Looking for interview session ID in other fields...')
     
-    // Try to extract interview session ID from various possible locations
-    let interviewSessionId = null
-    if (requestBody.session_context) {
-      interviewSessionId = requestBody.session_context.sessionId || 
-                          requestBody.session_context.interviewSessionId
-      console.log('Found in session_context:', interviewSessionId)
-    }
-    if (requestBody.metadata) {
-      const metadataSessionId = requestBody.metadata.sessionId || 
-                               requestBody.metadata.interviewSessionId
-      console.log('Found in metadata:', metadataSessionId)
-      interviewSessionId = interviewSessionId || metadataSessionId
-    }
+    // Look up our interview session ID using the LayerCode session ID
+    const interviewSessionId = sessionMapping.get(layercodeSessionId || '')
+    console.log('Mapped interview session ID:', interviewSessionId)
     
-    // Use interview session ID if found, otherwise use the LayerCode session ID
-    const finalSessionId = interviewSessionId || sessionId
-    console.log('Final session ID to use:', finalSessionId)
+    if (!interviewSessionId) {
+      console.log('❌ NO INTERVIEW SESSION MAPPING FOUND')
+      console.log('Available mappings:', Array.from(sessionMapping.entries()))
+    }
     
     // Fetch session context if available
     let sessionContext: SessionContext | null = null
     let recentConversation: ConversationTurn[] = []
     let nextTurnNumber = 1
     
-    if (finalSessionId) {
-      console.log('Fetching session context for ID:', finalSessionId)
+    if (interviewSessionId) {
+      console.log('Fetching session context for ID:', interviewSessionId)
       
       // First test basic database connectivity and list existing sessions
       try {
@@ -403,7 +393,7 @@ export async function POST(request: NextRequest) {
         console.error('❌ Database connectivity exception:', dbTestError)
       }
       
-      sessionContext = await fetchSessionContext(finalSessionId)
+      sessionContext = await fetchSessionContext(interviewSessionId)
       console.log('Session context retrieved:', sessionContext ? 'SUCCESS' : 'NULL')
       if (sessionContext) {
         console.log('Session details:', {
@@ -415,13 +405,13 @@ export async function POST(request: NextRequest) {
         })
       }
       
-      recentConversation = await getRecentConversation(finalSessionId, 8)
+      recentConversation = await getRecentConversation(interviewSessionId, 8)
       console.log('Recent conversation turns:', recentConversation.length)
       
-      nextTurnNumber = await getNextTurnNumber(finalSessionId)
+      nextTurnNumber = await getNextTurnNumber(interviewSessionId)
       console.log('Next turn number:', nextTurnNumber)
     } else {
-      console.log('❌ NO SESSION ID FOUND - using generic responses')
+      console.log('❌ NO INTERVIEW SESSION ID FOUND - using generic responses')
     }
 
     // Send user transcription immediately via stream.data()
@@ -433,12 +423,12 @@ export async function POST(request: NextRequest) {
       })
       
       // Store user message in conversation if we have a session
-      if (finalSessionId && text) {
+      if (interviewSessionId && text) {
         console.log('Storing user message in database...')
         const insertResult = await supabase
           .from('interview_conversation')
           .insert({
-            session_id: finalSessionId,
+            session_id: interviewSessionId,
             turn_number: nextTurnNumber,
             speaker: 'candidate',
             message_text: text,
@@ -500,7 +490,7 @@ export async function POST(request: NextRequest) {
       const response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
       
       // Store interviewer response in conversation
-      if (finalSessionId && response) {
+      if (interviewSessionId && response) {
         const messageType = decision.action === 'end_interview' ? 'closing' : 
                            decision.action === 'next_question' ? 'main_question' : 'follow_up'
         
@@ -508,7 +498,7 @@ export async function POST(request: NextRequest) {
         const insertResult = await supabase
           .from('interview_conversation')
           .insert({
-            session_id: finalSessionId,
+            session_id: interviewSessionId,
             turn_number: nextTurnNumber,
             speaker: 'interviewer',
             message_text: response,
