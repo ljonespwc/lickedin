@@ -39,27 +39,6 @@ LickedIn Interviews is a Next.js application that provides AI-powered voice inte
 
 ## Recent Fixes & Technical Solutions
 
-### Critical Bug Fix: Transcription Routing (RESOLVED)
-**Problem**: User transcriptions were appearing in the agent transcription box instead of the user box.
-
-**Root Cause**: The VoiceIntegration component was treating all `response.data` events as agent transcriptions, when LayerCode actually sends both user and agent transcriptions through `response.data` but with different `content.type` values.
-
-### Critical Fix: Personalized Context Integration (RESOLVED - July 2025)
-**Problem**: AI was giving generic responses instead of personalized ones based on user's resume and job description. Session mapping between LayerCode's generated session IDs and our database interview session IDs was failing.
-
-**Root Cause**: LayerCode's React SDK was not passing `sessionContext` to our voice-auth endpoint as expected. Initial attempts to pass session data through sessionContext parameter failed because LayerCode doesn't forward custom sessionContext to authorization endpoints.
-
-**Solution**: Used LayerCode's `metadata` parameter in the React SDK hook:
-```typescript
-useLayercodePipeline({
-  pipelineId: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID!,
-  authorizeSessionEndpoint: '/api/voice-auth',
-  metadata: {
-    interviewSessionId: interviewSessionId
-  }
-})
-```
-
 **Technical Flow**:
 1. Frontend passes interview session ID via `metadata.interviewSessionId` 
 2. Voice-auth endpoint extracts interview session ID from `body.metadata.interviewSessionId`
@@ -70,17 +49,18 @@ useLayercodePipeline({
 
 **Result**: ✅ AI now conducts fully personalized interviews with proper context, persona integration, and intelligent follow-up questions.
 
+**Layercode Documentation**: 
+https://docs.layercode.com/sdk-reference/node_js_sdk\
+https://docs.layercode.com/sdk-reference/react_sdk\
+https://docs.layercode.com/api-reference/webhook_sse_api\
+https://docs.layercode.com/api-reference/rest_api\
+
 ## Current Issues & Limitations
 
 ### 1. Voice Activity Detection (VAD) Sensitivity
 **Issue**: Sporadic voice capture with premature audio cutoffs during user responses.
 **Impact**: Users experience interrupted speech recognition, affecting interview flow.
 **Status**: Identified but not resolved - requires LayerCode configuration adjustments.
-
-### 2. Results Page Database Schema (MINOR)
-**Issue**: Results page may still reference old `interview_responses` table instead of new `interview_conversation` table.
-**Impact**: Results page errors when trying to display interview history.
-**Status**: Minor fix needed to update results API endpoint.
 
 ## API Flow Documentation
 
@@ -147,9 +127,10 @@ The interview system now uses a dynamic conversation flow that supports natural 
 7. Stream response to LayerCode for TTS
 
 ## Database Schema (Supabase)
+Use MCP lickedin-supabase to get source of truth.
 
 ### Schema Management
-The database schema is managed in `examples/lickedin_supabase_schema.sql`. This file contains the complete table definitions, indexes, Row Level Security policies, and triggers for the application.
+The database schema is managed in `examples/lickedin_supabase_schema.sql`. This file contains the complete table definitions, indexes, Row Level Security policies, and triggers for the application. Try to keep it synced with the Supabase schema.
 
 ### Database Access
 **IMPORTANT**: Always use the `supabase-lickedin` MCP server for any database requests. This provides direct access to the Supabase database with proper authentication and security. Use the MCP functions like `mcp__supabase-lickedin__execute_sql` and `mcp__supabase-lickedin__list_tables` instead of making direct API calls.
@@ -165,26 +146,22 @@ When working on this project, always follow these 7 rules:
 7. **Document Results**: Add a review section to the `docs/todo.md` file with a summary of the changes made and any other relevant information
 
 ## Development Commands
-- `npm run dev` - Start development server with Turbopack
 - `npm run build` - Production build
 - `npm run lint` - ESLint code checking
 
 ## Next Steps & Recommendations
 
-### High Priority
-1. **Fix VAD Sensitivity**: Investigate LayerCode configuration options for voice activity detection
+### Priorities
+1. **Interruptions**: How to recover gracefully from a cutoff question (layercode issue)
 2. **End-to-End Scoring**: Implement comprehensive scoring system using full conversation history
 3. **Session History Dashboard**: Build user interface showing past interviews and progress
-
-### Medium Priority  
-4. **Performance Metrics**: Add detailed analytics for response times, word counts, and conversation flow
-5. **Advanced Question Types**: Support for coding challenges, scenario-based questions
-6. **Interview Feedback UI**: Display structured feedback with strengths and improvement areas
+4. **Interview Feedback UI**: Display structured feedback with strengths and improvement areas
 
 ### Technical Debt
-7. **Error Handling**: Improve error boundaries and user feedback for API failures
-8. **Testing**: Add unit tests for core interview logic and API endpoints
-9. **Performance Optimization**: Optimize database queries and conversation history retrieval
+1. **Error Handling**: Improve error boundaries and user feedback for API failures
+2. **Testing**: Add unit tests for core interview logic and API endpoints
+3. **Performance Optimization**: Optimize database queries and conversation history retrieval
+4. **Fix VAD Sensitivity**: Investigate LayerCode configuration options for voice activity detection
 
 ## Project Status: Advanced Conversational AI Interviews
 The interview system now features sophisticated conversation flow with personalized context, intelligent follow-up questions, and comprehensive conversation tracking. The architecture supports natural interview experiences that adapt to candidate responses while maintaining complete conversation history for analysis.
@@ -229,5 +206,3 @@ The interview system now features sophisticated conversation flow with personali
 - Immediate confetti celebration upon completion
 - "Interview Complete!" modal with congratulations
 - User-controlled navigation to results page (no time pressure)
-
-This resolves the core interview flow issues and provides a polished, professional interview completion experience.
