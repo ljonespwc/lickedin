@@ -316,7 +316,7 @@ async function analyzeConversationAndDecide(
 
     // Force progression rules
     const MAX_FOLLOWUPS_PER_QUESTION = 2
-    const MAX_TOTAL_INTERVIEWER_TURNS = 8 // Safety net to prevent infinite interviews
+    const MAX_TOTAL_INTERVIEWER_TURNS = 18 // Allow 5 questions + 2 follow-ups each + closing turns
     const totalQuestions = questions.length
     
     const totalInterviewerTurns = recentConversation.filter(turn => 
@@ -357,19 +357,10 @@ async function analyzeConversationAndDecide(
 
     // If all main questions have been asked, handle closing phase intelligently
     if (mainQuestionsAsked >= totalQuestions) {
-      // Count recent closing turns to implement safety limit
-      const recentClosingTurns = recentConversation
-        .slice()
-        .reverse()
-        .filter((turn, index) => {
-          // Only count consecutive closing turns from the end
-          if (turn.speaker === 'interviewer' && turn.message_type === 'closing') {
-            // Check if all turns since this one are also closing turns
-            const turnsAfter = recentConversation.slice(recentConversation.length - index)
-            return turnsAfter.every(t => t.speaker !== 'interviewer' || t.message_type === 'closing')
-          }
-          return false
-        }).length
+      // Simple count of recent closing turns by interviewer
+      const recentClosingTurns = recentConversation.filter(turn => 
+        turn.speaker === 'interviewer' && turn.message_type === 'closing'
+      ).length
 
       const MAX_CLOSING_TURNS = 3
 
@@ -379,7 +370,7 @@ async function analyzeConversationAndDecide(
       if (recentClosingTurns >= MAX_CLOSING_TURNS) {
         return {
           action: 'end_interview',
-          reasoning: `Safety limit reached: ${recentClosingTurns} closing turns, ending interview`
+          reasoning: `FORCE_END: ${recentClosingTurns} closing turns reached, ending interview`
         }
       }
 
@@ -390,12 +381,12 @@ async function analyzeConversationAndDecide(
         if (readyToEnd) {
           return {
             action: 'end_interview',
-            reasoning: 'LLM evaluation indicates candidate is ready to conclude interview'
+            reasoning: 'CANDIDATE_READY: LLM evaluation indicates candidate is ready to conclude interview'
           }
         } else {
           return {
             action: 'end_interview', // Continue closing conversation but mark as end_interview for message_type
-            reasoning: `Continuing closing conversation (turn ${recentClosingTurns + 1}/${MAX_CLOSING_TURNS})`
+            reasoning: `CONTINUE_CLOSING: Continuing closing conversation (turn ${recentClosingTurns + 1}/${MAX_CLOSING_TURNS})`
           }
         }
       }
@@ -403,7 +394,7 @@ async function analyzeConversationAndDecide(
       // Default to ending if no response to evaluate
       return {
         action: 'end_interview',
-        reasoning: 'All main questions covered, entering closing phase'
+        reasoning: 'ENTER_CLOSING: All main questions covered, entering closing phase'
       }
     }
 
@@ -664,10 +655,10 @@ export async function POST(request: NextRequest) {
       // Stream the response back to LayerCode
       stream.tts(response)
       
-      // Only actually end the interview if we've determined the candidate is ready or hit safety limits
+      // Check if we should actually end the interview
       if (decision.action === 'end_interview') {
-        const shouldActuallyEnd = decision.reasoning.includes('LLM evaluation indicates candidate is ready') ||
-                                 decision.reasoning.includes('Safety limit reached')
+        const shouldActuallyEnd = decision.reasoning.startsWith('FORCE_END:') ||
+                                 decision.reasoning.startsWith('CANDIDATE_READY:')
         
         if (shouldActuallyEnd) {
           console.log('🏁 Interview completed - ending session:', decision.reasoning)
