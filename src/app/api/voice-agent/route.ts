@@ -224,58 +224,6 @@ function getDecisionGuidance(
   }
 }
 
-// Helper function to evaluate if candidate is ready to conclude interview
-async function evaluateInterviewConclusion(candidateResponse: string): Promise<boolean> {
-  try {
-    const evaluationPrompt = `You are evaluating whether a job interview candidate seems ready to conclude the interview based on their latest response.
-
-CANDIDATE'S RESPONSE:
-"${candidateResponse}"
-
-Analyze this response and determine if the candidate appears satisfied and ready to end the interview.
-
-Signs they're ready to conclude:
-- They say they have no more questions
-- They express satisfaction with the information received
-- They indicate they're ready to move forward or hear next steps
-- They give brief responses suggesting they're wrapping up
-
-Signs they want to continue:
-- They ask new questions about the role, company, or process
-- They request clarification or more details
-- They seem engaged and want to discuss more topics
-
-Respond with JSON only:
-{
-  "ready_to_conclude": true/false,
-  "reasoning": "Brief explanation"
-}`
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are an interview conclusion evaluator. Respond only with valid JSON."
-        },
-        {
-          role: "user",
-          content: evaluationPrompt
-        }
-      ],
-      temperature: 0.2,
-      max_tokens: 100
-    })
-
-    const response = completion.choices[0]?.message?.content || '{}'
-    const evaluation = JSON.parse(response)
-    
-    return evaluation.ready_to_conclude === true
-  } catch (error) {
-    console.error('Error in interview conclusion evaluation:', error)
-    return false // Default to continuing if evaluation fails
-  }
-}
 
 // Helper function to analyze conversation and decide next action
 async function analyzeConversationAndDecide(
@@ -355,46 +303,11 @@ async function analyzeConversationAndDecide(
       }
     }
 
-    // If all main questions have been asked, handle closing phase intelligently
+    // If all main questions have been asked, enter closing phase
     if (mainQuestionsAsked >= totalQuestions) {
-      // Simple count of recent closing turns by interviewer
-      const recentClosingTurns = recentConversation.filter(turn => 
-        turn.speaker === 'interviewer' && turn.message_type === 'closing'
-      ).length
-
-      const MAX_CLOSING_TURNS = 3
-
-      console.log(`🎯 Closing phase: ${recentClosingTurns} closing turns so far (max: ${MAX_CLOSING_TURNS})`)
-
-      // Safety limit: if we've had too many closing turns, force end
-      if (recentClosingTurns >= MAX_CLOSING_TURNS) {
-        return {
-          action: 'end_interview',
-          reasoning: `FORCE_END: ${recentClosingTurns} closing turns reached, ending interview`
-        }
-      }
-
-      // If we have a candidate response, evaluate if they're ready to conclude
-      if (currentResponse && currentResponse.trim()) {
-        const readyToEnd = await evaluateInterviewConclusion(currentResponse)
-        
-        if (readyToEnd) {
-          return {
-            action: 'end_interview',
-            reasoning: 'CANDIDATE_READY: LLM evaluation indicates candidate is ready to conclude interview'
-          }
-        } else {
-          return {
-            action: 'end_interview', // Continue closing conversation but mark as end_interview for message_type
-            reasoning: `CONTINUE_CLOSING: Continuing closing conversation (turn ${recentClosingTurns + 1}/${MAX_CLOSING_TURNS})`
-          }
-        }
-      }
-
-      // Default to ending if no response to evaluate
       return {
         action: 'end_interview',
-        reasoning: 'ENTER_CLOSING: All main questions covered, entering closing phase'
+        reasoning: 'All main questions covered, entering closing phase'
       }
     }
 
@@ -657,16 +570,24 @@ export async function POST(request: NextRequest) {
       
       // Check if we should actually end the interview
       if (decision.action === 'end_interview') {
-        const shouldActuallyEnd = decision.reasoning.startsWith('FORCE_END:') ||
-                                 decision.reasoning.startsWith('CANDIDATE_READY:')
-        
-        if (shouldActuallyEnd) {
-          console.log('🏁 Interview completed - ending session:', decision.reasoning)
+        // Simple closing turn counter
+        const closingTurns = recentConversation.filter(turn => 
+          turn.speaker === 'interviewer' && turn.message_type === 'closing'
+        ).length
+
+        // Expanded natural end signals
+        const candidateSignalsEnd = /^(no|nope|i'm good|that's all|thanks|thank you|great|sounds good|perfect|awesome|excellent|wonderful|good to go|all set|i'm all set|nothing else|no more questions|i think that's it|that covers it|i'm satisfied|looks good|sounds great|you too|you as well|likewise|same to you)[\s\.\!\?]*$/i.test((text || '').trim())
+
+        console.log(`🎯 Closing check: ${closingTurns} turns, candidate response: "${text}", signals end: ${candidateSignalsEnd}`)
+
+        // Bulletproof termination 
+        if (candidateSignalsEnd || closingTurns >= 3) {
+          console.log('🏁 ENDING INTERVIEW:', candidateSignalsEnd ? 'Natural end signal detected' : `${closingTurns} closing turns reached`)
           stream.end()
           return
-        } else {
-          console.log('💬 Continuing closing conversation:', decision.reasoning)
         }
+        
+        console.log('💬 Continuing closing conversation')
       }
       
     } catch (error) {
