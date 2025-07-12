@@ -7,6 +7,8 @@ import type { User as SupabaseUser } from '@supabase/supabase-js'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
 import { User, Flame, ArrowLeft, Briefcase } from "lucide-react"
 import Image from 'next/image'
 
@@ -15,7 +17,8 @@ const SetupCustomize = () => {
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [difficulty, setDifficulty] = useState<number[]>([1])
   const [interviewType, setInterviewType] = useState('')
-  const [interviewer, setInterviewer] = useState('')
+  const [voiceGender, setVoiceGender] = useState('')
+  const [communicationStyle, setCommunicationStyle] = useState('')
   const [isCreating, setIsCreating] = useState(false)
 
   // Check authentication
@@ -52,10 +55,12 @@ const SetupCustomize = () => {
   }
 
   // TODO: Backend integration needed:
-  // 1. Update /api/interview/create to accept interviewType parameter
-  // 2. Modify question generation logic to consider interview type
-  // 3. Update database schema to store interview type in interview_sessions table
-  // 4. Adjust AI prompts based on interview type (e.g., technical questions for technical_screen)
+  // 1. Update /api/interview/create to accept interviewType, voiceGender, and communicationStyle parameters
+  // 2. Modify question generation logic to consider interview type and communication style
+  // 3. Update database schema to store interview type, voice gender, and communication style in interview_sessions table
+  // 4. Adjust AI prompts based on interview type (e.g., technical questions for technical_screen) and communication style
+  // 5. Research LayerCode voice configuration options for male/female voice selection
+  // 6. Integrate communication style into AI personality prompts (formal vs casual vs supportive etc.)
   
   const interviewTypes = [
     {
@@ -98,36 +103,36 @@ const SetupCustomize = () => {
 
 
 
-  const interviewers = [
-    { 
-      id: "michael_scott", 
-      name: "Michael Scott", 
-      emoji: "😎", 
-      description: "Fun but professional"
+  const communicationStyles = [
+    {
+      id: "corporate_professional",
+      name: "Corporate Professional", 
+      emoji: "💼",
+      description: "Formal, traditional business style"
     },
-    { 
-      id: "professional", 
-      name: "Generic Pro", 
-      emoji: "👔", 
-      description: "Standard corporate"
-    },
-    { 
-      id: "friendly_mentor", 
-      name: "Friendly Mentor", 
+    {
+      id: "supportive_mentor",
+      name: "Supportive Mentor",
       emoji: "😊", 
-      description: "Supportive guidance"
+      description: "Encouraging, confidence-building"
     },
-    { 
-      id: "tech_lead", 
-      name: "Tech Lead", 
-      emoji: "💻", 
-      description: "Technical focus"
+    {
+      id: "analytical_expert", 
+      name: "Analytical Expert",
+      emoji: "🤔",
+      description: "Thorough, detail-oriented questioning"
+    },
+    {
+      id: "casual_conversational",
+      name: "Casual Conversational",
+      emoji: "💬", 
+      description: "Relaxed, natural discussion flow"
     }
   ]
 
   const handleStartInterview = async () => {
     const difficultyValue = getDifficultyFromSlider(difficulty[0])
-    if (!difficultyValue || !interviewType || !interviewer) return
+    if (!difficultyValue || !interviewType || !voiceGender || !communicationStyle) return
 
     // Get session and access token
     const { data: { session } } = await supabase.auth.getSession()
@@ -152,7 +157,8 @@ const SetupCustomize = () => {
         body: JSON.stringify({
           difficulty: difficultyValue,
           interviewType: interviewType, // TODO: Backend needs to handle interview type in question generation
-          persona: interviewer,
+          voiceGender: voiceGender, // TODO: Backend needs to pass voice gender to LayerCode voice configuration
+          communicationStyle: communicationStyle, // TODO: Backend needs to integrate communication style into AI prompts
           questionCount: 5
         }),
       })
@@ -282,39 +288,68 @@ const SetupCustomize = () => {
           </CardContent>
         </Card>
 
-        {/* Choose Interviewer */}
+        {/* Interviewer Voice & Style */}
         <Card className="mb-6">
           <CardContent className="p-6">
             <div className="flex items-center space-x-2 mb-6">
               <User className="text-primary" size={20} />
-              <h3 className="font-medium text-lg">Choose Your Interviewer</h3>
+              <h3 className="font-medium text-lg">Interviewer Voice & Style</h3>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {interviewers.map((person) => (
-                <Card 
-                  key={person.id}
-                  className={`cursor-pointer transition-colors ${
-                    interviewer === person.id 
-                      ? 'ring-2 ring-primary bg-primary/5' 
-                      : 'hover:bg-muted/50'
-                  }`}
-                  onClick={() => setInterviewer(person.id)}
-                >
-                  <CardContent className="p-4 text-center">
-                    <div className="text-3xl mb-2">{person.emoji}</div>
-                    <h4 className="font-medium mb-1">{person.name}</h4>
-                    <p className="text-xs text-muted-foreground mb-2">{person.description}</p>
-                    <Button 
-                      variant={interviewer === person.id ? "default" : "outline"} 
-                      size="sm" 
-                      className="text-xs"
-                    >
-                      {interviewer === person.id ? 'Selected' : 'Select'}
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+            {/* Interviewer Voice Selection */}
+            <div className="mb-6 p-4 bg-muted/30 rounded-lg">
+              <h4 className="font-medium mb-3">Interviewer Voice</h4>
+              <RadioGroup 
+                value={voiceGender} 
+                onValueChange={setVoiceGender}
+                className="flex space-x-6"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="male" id="male" />
+                  <Label htmlFor="male" className="flex items-center space-x-2 cursor-pointer">
+                    <span>🎤</span>
+                    <span>Male</span>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="female" id="female" />
+                  <Label htmlFor="female" className="flex items-center space-x-2 cursor-pointer">
+                    <span>🎵</span>
+                    <span>Female</span>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Communication Style Selection */}
+            <div>
+              <h4 className="font-medium mb-3">Communication Style</h4>
+              <div className="grid grid-cols-2 gap-4">
+                {communicationStyles.map((style) => (
+                  <Card 
+                    key={style.id}
+                    className={`cursor-pointer transition-colors ${
+                      communicationStyle === style.id 
+                        ? 'ring-2 ring-primary bg-primary/5' 
+                        : 'hover:bg-muted/50'
+                    }`}
+                    onClick={() => setCommunicationStyle(style.id)}
+                  >
+                    <CardContent className="p-4 text-center">
+                      <div className="text-2xl mb-2">{style.emoji}</div>
+                      <h5 className="font-medium mb-1 text-sm">{style.name}</h5>
+                      <p className="text-xs text-muted-foreground mb-3">{style.description}</p>
+                      <Button 
+                        variant={communicationStyle === style.id ? "default" : "outline"} 
+                        size="sm" 
+                        className="text-xs w-full"
+                      >
+                        {communicationStyle === style.id ? 'Selected' : 'Select'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -333,7 +368,7 @@ const SetupCustomize = () => {
           
           <Button 
             size="lg" 
-            disabled={!difficulty[0] || difficulty[0] < 1 || !interviewType || !interviewer || isCreating}
+            disabled={!difficulty[0] || difficulty[0] < 1 || !interviewType || !voiceGender || !communicationStyle || isCreating}
             className="px-8 bg-primary hover:bg-primary/90"
             onClick={handleStartInterview}
           >
