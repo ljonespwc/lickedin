@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Mic, Square, Settings } from "lucide-react"
+import { Mic, Settings } from "lucide-react"
 import Image from 'next/image'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import Confetti from 'react-confetti'
@@ -83,11 +83,6 @@ const InterviewSession = () => {
       console.log('🎉 Interview completion triggered by custom event')
       setInterviewCompleted(true)
       setShowConfetti(true)
-      
-      // Auto-navigate to results after 4 seconds
-      setTimeout(() => {
-        router.push(`/results/${sessionId}`)
-      }, 4000)
     }
     
     // Merge with existing data instead of overwriting
@@ -98,7 +93,7 @@ const InterviewSession = () => {
       agentTranscription: data.agentTranscription !== undefined ? data.agentTranscription : prevData.agentTranscription,
       userTranscription: data.userTranscription !== undefined ? data.userTranscription : prevData.userTranscription
     }))
-  }, [interviewCompleted, router, sessionId])
+  }, [interviewCompleted])
 
   const interviewer = {
     name: session?.persona === 'michael_scott' ? 'Michael Scott' : 
@@ -243,10 +238,6 @@ const InterviewSession = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const handleStop = () => {
-    // End interview and navigate to results
-    router.push(`/results/${sessionId}`)
-  }
 
   // const handleNextQuestion = () => {
   //   if (currentQuestion < totalQuestions) {
@@ -304,11 +295,8 @@ const InterviewSession = () => {
           <div className="bg-white rounded-lg p-8 text-center max-w-md mx-4">
             <div className="text-6xl mb-4">🎉</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Interview Complete!</h2>
-            <p className="text-gray-600 mb-4">
+            <p className="text-gray-600 mb-6">
               Great job! You&apos;ve successfully completed your interview.
-            </p>
-            <p className="text-sm text-gray-500">
-              Redirecting to results in a few seconds...
             </p>
             <Button 
               onClick={() => router.push(`/results/${sessionId}`)}
@@ -446,16 +434,6 @@ const InterviewSession = () => {
               )}
             </div>
             
-            <div className="flex items-center justify-center">
-              <Button
-                variant="outline"
-                onClick={handleStop}
-                className="flex items-center space-x-2"
-              >
-                <Square size={16} />
-                <span>End Interview</span>
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
