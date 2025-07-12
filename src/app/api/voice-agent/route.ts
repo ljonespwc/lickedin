@@ -224,6 +224,59 @@ function getDecisionGuidance(
   }
 }
 
+// Helper function to evaluate if candidate is ready to conclude interview
+async function evaluateInterviewConclusion(candidateResponse: string): Promise<boolean> {
+  try {
+    const evaluationPrompt = `You are evaluating whether a job interview candidate seems ready to conclude the interview based on their latest response.
+
+CANDIDATE'S RESPONSE:
+"${candidateResponse}"
+
+Analyze this response and determine if the candidate appears satisfied and ready to end the interview.
+
+Signs they're ready to conclude:
+- They say they have no more questions
+- They express satisfaction with the information received
+- They indicate they're ready to move forward or hear next steps
+- They give brief responses suggesting they're wrapping up
+
+Signs they want to continue:
+- They ask new questions about the role, company, or process
+- They request clarification or more details
+- They seem engaged and want to discuss more topics
+
+Respond with JSON only:
+{
+  "ready_to_conclude": true/false,
+  "reasoning": "Brief explanation"
+}`
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an interview conclusion evaluator. Respond only with valid JSON."
+        },
+        {
+          role: "user",
+          content: evaluationPrompt
+        }
+      ],
+      temperature: 0.2,
+      max_tokens: 100
+    })
+
+    const response = completion.choices[0]?.message?.content || '{}'
+    const evaluation = JSON.parse(response)
+    
+    return evaluation.ready_to_conclude === true
+  } catch (error) {
+    console.error('Error in interview conclusion evaluation:', error)
+    return false // Default to continuing if evaluation fails
+  }
+}
+
 // Helper function to analyze conversation and decide next action
 async function analyzeConversationAndDecide(
   sessionContext: SessionContext | null,
@@ -302,11 +355,55 @@ async function analyzeConversationAndDecide(
       }
     }
 
-    // If all main questions have been asked, end interview
+    // If all main questions have been asked, handle closing phase intelligently
     if (mainQuestionsAsked >= totalQuestions) {
+      // Count recent closing turns to implement safety limit
+      const recentClosingTurns = recentConversation
+        .slice()
+        .reverse()
+        .filter((turn, index) => {
+          // Only count consecutive closing turns from the end
+          if (turn.speaker === 'interviewer' && turn.message_type === 'closing') {
+            // Check if all turns since this one are also closing turns
+            const turnsAfter = recentConversation.slice(recentConversation.length - index)
+            return turnsAfter.every(t => t.speaker !== 'interviewer' || t.message_type === 'closing')
+          }
+          return false
+        }).length
+
+      const MAX_CLOSING_TURNS = 3
+
+      console.log(`🎯 Closing phase: ${recentClosingTurns} closing turns so far (max: ${MAX_CLOSING_TURNS})`)
+
+      // Safety limit: if we've had too many closing turns, force end
+      if (recentClosingTurns >= MAX_CLOSING_TURNS) {
+        return {
+          action: 'end_interview',
+          reasoning: `Safety limit reached: ${recentClosingTurns} closing turns, ending interview`
+        }
+      }
+
+      // If we have a candidate response, evaluate if they're ready to conclude
+      if (currentResponse && currentResponse.trim()) {
+        const readyToEnd = await evaluateInterviewConclusion(currentResponse)
+        
+        if (readyToEnd) {
+          return {
+            action: 'end_interview',
+            reasoning: 'LLM evaluation indicates candidate is ready to conclude interview'
+          }
+        } else {
+          return {
+            action: 'end_interview', // Continue closing conversation but mark as end_interview for message_type
+            reasoning: `Continuing closing conversation (turn ${recentClosingTurns + 1}/${MAX_CLOSING_TURNS})`
+          }
+        }
+      }
+
+      // Default to ending if no response to evaluate
       return {
         action: 'end_interview',
-        reasoning: 'All main questions have been covered'
+        reasoning: 'All main questions covered, entering closing phase'
       }
     }
 
@@ -567,11 +664,18 @@ export async function POST(request: NextRequest) {
       // Stream the response back to LayerCode
       stream.tts(response)
       
-      // If this was a closing message, end the interview session
+      // Only actually end the interview if we've determined the candidate is ready or hit safety limits
       if (decision.action === 'end_interview') {
-        console.log('🏁 Interview completed - ending session')
-        stream.end()
-        return
+        const shouldActuallyEnd = decision.reasoning.includes('LLM evaluation indicates candidate is ready') ||
+                                 decision.reasoning.includes('Safety limit reached')
+        
+        if (shouldActuallyEnd) {
+          console.log('🏁 Interview completed - ending session:', decision.reasoning)
+          stream.end()
+          return
+        } else {
+          console.log('💬 Continuing closing conversation:', decision.reasoning)
+        }
       }
       
     } catch (error) {
