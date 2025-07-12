@@ -177,12 +177,13 @@ ${mainQuestions}
 
 INSTRUCTIONS:
 - Keep responses conversational and natural for voice (1-2 sentences max)
+- When asked to ask a main question, use the EXACT question text provided - do not paraphrase or modify it
 - Ask thoughtful follow-up questions to get deeper insights
 - Work through the main questions but allow natural conversation flow
 - Decide when to ask follow-ups vs. move to next main question
 - If this seems like the start, introduce yourself and begin with the first main question
 - Be encouraging but maintain professionalism
-- Use the candidate's background and job requirements to make questions relevant
+- CRITICAL: When given a specific question to ask, ask it word-for-word without changes
 
 CURRENT CONTEXT: You are conducting a personalized interview based on the candidate's resume and the specific job requirements above.`
 }
@@ -226,7 +227,7 @@ function getDecisionGuidance(
       const nextQuestion = sortedQuestions[usedQuestionIds.size]
       
       return nextQuestion 
-        ? `DECISION: Ask Question ${nextQuestion.question_order}: "${nextQuestion.question_text}"`
+        ? `DECISION: Ask the next main question. You MUST ask this exact question word-for-word: "${nextQuestion.question_text}"`
         : "DECISION: All main questions have been covered. Wrap up the interview."
     case 'end_interview':
       return "DECISION: All main topics have been covered thoroughly. Wrap up the interview with closing remarks and next steps."
