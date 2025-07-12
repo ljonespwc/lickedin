@@ -76,7 +76,20 @@ const InterviewSession = () => {
     status?: string;
     agentTranscription?: string;
     userTranscription?: string;
+    interviewComplete?: boolean;
   }) => {
+    // Handle interview completion immediately
+    if (data.interviewComplete && !interviewCompleted) {
+      console.log('🎉 Interview completion triggered by custom event')
+      setInterviewCompleted(true)
+      setShowConfetti(true)
+      
+      // Auto-navigate to results after 4 seconds
+      setTimeout(() => {
+        router.push(`/results/${sessionId}`)
+      }, 4000)
+    }
+    
     // Merge with existing data instead of overwriting
     setVoiceData(prevData => ({
       agentAudioAmplitude: data.agentAudioAmplitude !== undefined ? data.agentAudioAmplitude : prevData.agentAudioAmplitude,
@@ -85,7 +98,7 @@ const InterviewSession = () => {
       agentTranscription: data.agentTranscription !== undefined ? data.agentTranscription : prevData.agentTranscription,
       userTranscription: data.userTranscription !== undefined ? data.userTranscription : prevData.userTranscription
     }))
-  }, [])
+  }, [interviewCompleted, router, sessionId])
 
   const interviewer = {
     name: session?.persona === 'michael_scott' ? 'Michael Scott' : 

@@ -10,6 +10,7 @@ interface VoiceIntegrationProps {
     status?: string;
     agentTranscription?: string;
     userTranscription?: string;
+    interviewComplete?: boolean;
   }) => void
 }
 
@@ -25,6 +26,16 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId }: Transcript
       interviewSessionId: interviewSessionId
     },
     onDataMessage: (data: { type: string; text?: string; content?: unknown; timestamp?: number }) => {
+      // Handle interview completion event
+      if (data.type === 'interview_complete') {
+        console.log('🎉 Received interview_complete event:', data)
+        onVoiceData({ 
+          interviewComplete: true,
+          status: 'disconnected' // Force status to disconnected
+        })
+        return
+      }
+      
       // Handle transcription data
       const content = data.content as { type?: string; text?: string } | undefined
       
