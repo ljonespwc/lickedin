@@ -26,8 +26,12 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId }: Transcript
       interviewSessionId: interviewSessionId
     },
     onDataMessage: (data: { type: string; text?: string; content?: unknown; timestamp?: number }) => {
-      // Handle interview completion event
-      if (data.type === 'interview_complete') {
+      // Handle transcription data
+      const content = data.content as { type?: string; text?: string; message?: string } | undefined
+      
+      // Handle interview completion event - check BOTH patterns
+      if (data.type === 'interview_complete' || 
+          (data.type === 'response.data' && content?.type === 'interview_complete')) {
         console.log('🎉 Received interview_complete event:', data)
         onVoiceData({ 
           interviewComplete: true,
@@ -35,9 +39,6 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId }: Transcript
         })
         return
       }
-      
-      // Handle transcription data
-      const content = data.content as { type?: string; text?: string } | undefined
       
       if (data.type === 'user_transcription' || 
           (data.type === 'response.data' && content?.type === 'user_transcription')) {
