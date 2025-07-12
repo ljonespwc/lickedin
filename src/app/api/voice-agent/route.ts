@@ -153,17 +153,10 @@ Current interview context: This is a demo interview session.`
   const jobDescription = sessionContext.job_descriptions?.job_content || 'No job description available'
   const persona = sessionContext.persona || 'professional'
   const difficulty = sessionContext.difficulty_level || 'medium'
-  const questions = sessionContext.interview_questions || []
   
   // Get persona-specific instructions
   const personaInstructions = getPersonaInstructions(persona)
   
-  // Get main questions for reference
-  const mainQuestions = questions
-    .sort((a, b) => a.question_order - b.question_order)
-    .map((q) => `${q.question_order}. ${q.question_text}`)
-    .join('\n')
-
   return `You are conducting a ${difficulty} difficulty voice interview for LickedIn Interviews. ${personaInstructions}
 
 CANDIDATE BACKGROUND:
@@ -172,18 +165,13 @@ ${resume}
 JOB REQUIREMENTS:
 ${jobDescription}
 
-MAIN INTERVIEW QUESTIONS TO COVER:
-${mainQuestions}
-
 INSTRUCTIONS:
 - Keep responses conversational and natural for voice (1-2 sentences max)
-- When asked to ask a main question, use the EXACT question text provided - do not paraphrase or modify it
 - Ask thoughtful follow-up questions to get deeper insights
-- Work through the main questions but allow natural conversation flow
-- Decide when to ask follow-ups vs. move to next main question
-- If this seems like the start, introduce yourself and begin with the first main question
+- Work through the interview but allow natural conversation flow
+- If this seems like the start, introduce yourself briefly
 - Be encouraging but maintain professionalism
-- CRITICAL: When given a specific question to ask, ask it word-for-word without changes
+- Focus on getting detailed responses and building rapport
 
 CURRENT CONTEXT: You are conducting a personalized interview based on the candidate's resume and the specific job requirements above.`
 }
@@ -227,7 +215,7 @@ function getDecisionGuidance(
       const nextQuestion = sortedQuestions[usedQuestionIds.size]
       
       return nextQuestion 
-        ? `DECISION: Ask the next main question. You MUST ask this exact question word-for-word: "${nextQuestion.question_text}"`
+        ? "DECISION: Move to the next main question."
         : "DECISION: All main questions have been covered. Wrap up the interview."
     case 'end_interview':
       return "DECISION: All main topics have been covered thoroughly. Wrap up the interview with closing remarks and next steps."
@@ -518,40 +506,39 @@ export async function POST(request: NextRequest) {
         max_tokens: 150
       })
 
-      const response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
+      let response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
+      
+      // Handle main question insertion directly from database
+      let relatedMainQuestionId = null
+      if (decision.action === 'next_question' && sessionContext?.interview_questions) {
+        // Get the next question directly from database
+        const mainQuestionTurns = recentConversation.filter(turn => 
+          turn.speaker === 'interviewer' && 
+          turn.message_type === 'main_question' && 
+          turn.related_main_question_id
+        )
+        
+        const usedQuestionIds = new Set(mainQuestionTurns.map(turn => turn.related_main_question_id!))
+        const sortedQuestions = sessionContext.interview_questions
+          .sort((a, b) => a.question_order - b.question_order)
+        
+        const nextQuestion = sortedQuestions[usedQuestionIds.size]
+        
+        if (nextQuestion) {
+          // Override LLM response with exact question from database
+          response = nextQuestion.question_text
+          relatedMainQuestionId = nextQuestion.id
+          console.log(`✅ Asking Q${nextQuestion.question_order}: ${nextQuestion.question_text.substring(0, 50)}...`)
+        }
+      }
       
       // Store interviewer response in conversation
       if (interviewSessionId && response) {
         const messageType = decision.action === 'end_interview' ? 'closing' : 
                            decision.action === 'next_question' ? 'main_question' : 'follow_up'
         
-        // Find which main question we're addressing if this is a main question
-        let relatedMainQuestionId = null
-        if (messageType === 'main_question' && sessionContext?.interview_questions) {
-          // IMPROVED UNIQUE QUESTION TRACKING
-          // Get unique question IDs that have already been used
-          const mainQuestionTurns = recentConversation.filter(turn => 
-            turn.speaker === 'interviewer' && 
-            turn.message_type === 'main_question' && 
-            turn.related_main_question_id
-          )
-          
-          const usedQuestionIds = new Set(mainQuestionTurns.map(turn => turn.related_main_question_id!))
-          
-          // Sort questions by order and find the first unused one
-          const sortedQuestions = sessionContext.interview_questions
-            .sort((a, b) => a.question_order - b.question_order)
-          
-          // Get next question by sequence (index = number of questions asked)
-          const nextQuestion = sortedQuestions[usedQuestionIds.size]
-          
-          if (nextQuestion) {
-            relatedMainQuestionId = nextQuestion.id
-            console.log(`✅ Asking Q${nextQuestion.question_order}`)
-          } else {
-            console.log(`🏁 All questions completed`)
-          }
-        }
+        // relatedMainQuestionId already set above for main questions
+        // For follow-ups and closing, it remains null
         
         const insertResult = await supabase
           .from('interview_conversation')
