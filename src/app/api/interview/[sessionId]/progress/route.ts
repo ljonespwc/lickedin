@@ -104,8 +104,10 @@ export async function GET(
       turn.speaker === 'interviewer' && turn.message_type === 'main_question'
     ).length || 0
 
-    // If no main questions yet, we're still on question 1
-    const currentQuestion = mainQuestionsAsked === 0 ? 1 : mainQuestionsAsked + 1
+    // Current question number = number of questions asked (1-based)
+    // If 0 questions asked, we're on question 1
+    // If 1 question asked, we're still on question 1 (until it's answered)
+    const currentQuestion = Math.max(1, mainQuestionsAsked)
     const totalQuestions = session.question_count
     const progress = Math.round((mainQuestionsAsked / totalQuestions) * 100)
 
