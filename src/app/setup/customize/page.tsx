@@ -7,13 +7,14 @@ import type { User as SupabaseUser } from '@supabase/supabase-js'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
-import { User, Flame, ArrowLeft } from "lucide-react"
+import { User, Flame, ArrowLeft, Briefcase } from "lucide-react"
 import Image from 'next/image'
 
 const SetupCustomize = () => {
   const router = useRouter()
   const [user, setUser] = useState<SupabaseUser | null>(null)
-  const [difficulty, setDifficulty] = useState<number[]>([0])
+  const [difficulty, setDifficulty] = useState<number[]>([1])
+  const [interviewType, setInterviewType] = useState('')
   const [interviewer, setInterviewer] = useState('')
   const [isCreating, setIsCreating] = useState(false)
 
@@ -42,13 +43,58 @@ const SetupCustomize = () => {
   }, [router])
 
 
-  // Map slider value to difficulty string
+  // Map slider value (1-10) to difficulty string
   const getDifficultyFromSlider = (value: number): string => {
-    if (value <= 25) return "softball"
-    if (value <= 50) return "medium"
-    if (value <= 75) return "hard"
-    return "hard_as_fck"
+    if (value <= 2) return "softball"        // 1-2: Softball
+    if (value <= 5) return "medium"          // 3-5: Medium  
+    if (value <= 8) return "hard"            // 6-8: Hard
+    return "hard_as_fck"                     // 9-10: Hard as F*ck
   }
+
+  // TODO: Backend integration needed:
+  // 1. Update /api/interview/create to accept interviewType parameter
+  // 2. Modify question generation logic to consider interview type
+  // 3. Update database schema to store interview type in interview_sessions table
+  // 4. Adjust AI prompts based on interview type (e.g., technical questions for technical_screen)
+  
+  const interviewTypes = [
+    {
+      id: "phone_screening",
+      name: "Phone Screening",
+      emoji: "📞",
+      description: "Initial recruiter call"
+    },
+    {
+      id: "technical_screen", 
+      name: "Technical Screen",
+      emoji: "💻",
+      description: "Coding & technical skills"
+    },
+    {
+      id: "hiring_manager",
+      name: "Hiring Manager",
+      emoji: "👔", 
+      description: "Role-specific discussion"
+    },
+    {
+      id: "panel_interview",
+      name: "Panel Interview", 
+      emoji: "👥",
+      description: "Multiple interviewers"
+    },
+    {
+      id: "cultural_fit",
+      name: "Cultural Fit",
+      emoji: "🤝",
+      description: "Team & values focus"
+    },
+    {
+      id: "executive_round",
+      name: "Executive Round",
+      emoji: "🎯", 
+      description: "Senior leadership"
+    }
+  ]
 
 
 
@@ -81,7 +127,7 @@ const SetupCustomize = () => {
 
   const handleStartInterview = async () => {
     const difficultyValue = getDifficultyFromSlider(difficulty[0])
-    if (!difficultyValue || !interviewer) return
+    if (!difficultyValue || !interviewType || !interviewer) return
 
     // Get session and access token
     const { data: { session } } = await supabase.auth.getSession()
@@ -105,6 +151,7 @@ const SetupCustomize = () => {
         credentials: 'include',
         body: JSON.stringify({
           difficulty: difficultyValue,
+          interviewType: interviewType, // TODO: Backend needs to handle interview type in question generation
           persona: interviewer,
           questionCount: 5
         }),
@@ -180,12 +227,57 @@ const SetupCustomize = () => {
                 <Slider
                   value={difficulty}
                   onValueChange={setDifficulty}
-                  max={100}
-                  min={0}
+                  max={10}
+                  min={1}
                   step={1}
                   className="w-full"
                 />
+                
+                {/* Current difficulty level indicator */}
+                <div className="text-center mt-3">
+                  <div className="inline-flex items-center space-x-2 px-3 py-1 bg-primary/10 rounded-full">
+                    <span className="text-sm font-medium text-primary">Level {difficulty[0]}</span>
+                    <span className="text-xs text-muted-foreground">of 10</span>
+                  </div>
+                </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Interview Type */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-2 mb-6">
+              <Briefcase className="text-blue-500" size={20} />
+              <h3 className="font-medium text-lg">Interview Type</h3>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {interviewTypes.map((type) => (
+                <Card 
+                  key={type.id}
+                  className={`cursor-pointer transition-colors ${
+                    interviewType === type.id 
+                      ? 'ring-2 ring-primary bg-primary/5' 
+                      : 'hover:bg-muted/50'
+                  }`}
+                  onClick={() => setInterviewType(type.id)}
+                >
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl mb-2">{type.emoji}</div>
+                    <h4 className="font-medium mb-1 text-sm">{type.name}</h4>
+                    <p className="text-xs text-muted-foreground mb-3">{type.description}</p>
+                    <Button 
+                      variant={interviewType === type.id ? "default" : "outline"} 
+                      size="sm" 
+                      className="text-xs w-full"
+                    >
+                      {interviewType === type.id ? 'Selected' : 'Select'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -241,7 +333,7 @@ const SetupCustomize = () => {
           
           <Button 
             size="lg" 
-            disabled={difficulty[0] === undefined || !interviewer || isCreating}
+            disabled={!difficulty[0] || difficulty[0] < 1 || !interviewType || !interviewer || isCreating}
             className="px-8 bg-primary hover:bg-primary/90"
             onClick={handleStartInterview}
           >
