@@ -6,15 +6,14 @@ import { supabase } from '@/lib/supabase'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Label } from "@/components/ui/label"
-import { User, Flame, FileText, ArrowLeft } from "lucide-react"
+import { Slider } from "@/components/ui/slider"
+import { User, Flame, ArrowLeft } from "lucide-react"
 import Image from 'next/image'
 
 const SetupCustomize = () => {
   const router = useRouter()
   const [user, setUser] = useState<SupabaseUser | null>(null)
-  const [difficulty, setDifficulty] = useState('')
+  const [difficulty, setDifficulty] = useState<number[]>([0])
   const [interviewer, setInterviewer] = useState('')
   const [isCreating, setIsCreating] = useState(false)
 
@@ -42,12 +41,16 @@ const SetupCustomize = () => {
     return () => subscription.unsubscribe()
   }, [router])
 
-  const difficultyOptions = [
-    { value: "softball", label: "Softball", subtitle: "(Easy Q's)" },
-    { value: "medium", label: "Medium", subtitle: "(Realistic)" },
-    { value: "hard", label: "Hard", subtitle: "" },
-    { value: "hard_as_fck", label: "Hard as F*ck", subtitle: "(Good luck!)" }
-  ]
+
+  // Map slider value to difficulty string
+  const getDifficultyFromSlider = (value: number): string => {
+    if (value <= 25) return "softball"
+    if (value <= 50) return "medium"
+    if (value <= 75) return "hard"
+    return "hard_as_fck"
+  }
+
+
 
   const interviewers = [
     { 
@@ -77,7 +80,8 @@ const SetupCustomize = () => {
   ]
 
   const handleStartInterview = async () => {
-    if (!difficulty || !interviewer) return
+    const difficultyValue = getDifficultyFromSlider(difficulty[0])
+    if (!difficultyValue || !interviewer) return
 
     // Get session and access token
     const { data: { session } } = await supabase.auth.getSession()
@@ -100,7 +104,7 @@ const SetupCustomize = () => {
         },
         credentials: 'include',
         body: JSON.stringify({
-          difficulty,
+          difficulty: difficultyValue,
           persona: interviewer,
           questionCount: 5
         }),
@@ -158,23 +162,31 @@ const SetupCustomize = () => {
               <h3 className="font-medium text-lg">Interview Difficulty</h3>
             </div>
             
-            <RadioGroup 
-              value={difficulty} 
-              onValueChange={setDifficulty} 
-              className="grid grid-cols-2 md:grid-cols-4 gap-4"
-            >
-              {difficultyOptions.map((option) => (
-                <div key={option.value} className="flex items-center space-x-2">
-                  <RadioGroupItem value={option.value} id={option.value} />
-                  <Label htmlFor={option.value} className="flex flex-col cursor-pointer">
-                    <span className="font-medium">{option.label}</span>
-                    {option.subtitle && (
-                      <span className="text-sm text-muted-foreground">{option.subtitle}</span>
-                    )}
-                  </Label>
+            <div className="space-y-6">
+              
+              {/* Slider with anchor labels */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-sm font-medium mb-2">
+                  <div className="flex items-center space-x-1">
+                    <span>🥎</span>
+                    <span>Softball</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <span>🔥</span>
+                    <span>Good luck!</span>
+                  </div>
                 </div>
-              ))}
-            </RadioGroup>
+                
+                <Slider
+                  value={difficulty}
+                  onValueChange={setDifficulty}
+                  max={100}
+                  min={0}
+                  step={1}
+                  className="w-full"
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -215,21 +227,6 @@ const SetupCustomize = () => {
           </CardContent>
         </Card>
 
-        {/* Interview Details */}
-        <Card className="mb-8">
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <FileText className="text-primary" size={20} />
-              <h3 className="font-medium">Interview Details</h3>
-            </div>
-            
-            <div className="space-y-2 text-sm">
-              <p><span className="font-medium">Questions:</span> 5 (perfect for a demo!)</p>
-              <p><span className="font-medium">Estimated time:</span> 10-15 minutes</p>
-              <p><span className="font-medium">Job:</span> Frontend Developer at TechCorp</p>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Start Interview Button */}
         <div className="flex justify-between items-center">
@@ -244,7 +241,7 @@ const SetupCustomize = () => {
           
           <Button 
             size="lg" 
-            disabled={!difficulty || !interviewer || isCreating}
+            disabled={difficulty[0] === undefined || !interviewer || isCreating}
             className="px-8 bg-primary hover:bg-primary/90"
             onClick={handleStartInterview}
           >
