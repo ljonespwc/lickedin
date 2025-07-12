@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress"
 import { Mic, Square, Settings } from "lucide-react"
 import Image from 'next/image'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
+import Confetti from 'react-confetti'
 // Dynamic import to avoid SSR issues with LayerCode
 const VoiceIntegration = dynamic(() => import('@/components/VoiceIntegration').then(mod => ({ default: mod.VoiceIntegration })), {
   ssr: false,
@@ -45,6 +46,11 @@ const InterviewSession = () => {
   // const [currentQuestionText, setCurrentQuestionText] = useState('')
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<SupabaseUser | null>(null)
+  
+  // Interview completion state
+  const [showConfetti, setShowConfetti] = useState(false)
+  const [interviewCompleted, setInterviewCompleted] = useState(false)
+  const prevStatusRef = useRef<string>('disconnected')
 
   // Voice integration state
   const [voiceData, setVoiceData] = useState<{
@@ -197,6 +203,27 @@ const InterviewSession = () => {
     return () => clearInterval(interval)
   }, [sessionId, loading])
 
+  // Interview completion detection effect
+  useEffect(() => {
+    const prevStatus = prevStatusRef.current
+    const currentStatus = voiceData.status
+
+    // Detect voice session end: connected -> disconnected (and not initial load)
+    if (prevStatus === 'connected' && currentStatus === 'disconnected' && !interviewCompleted) {
+      console.log('🎉 Interview completed - voice session ended')
+      setInterviewCompleted(true)
+      setShowConfetti(true)
+      
+      // Auto-navigate to results after 4 seconds
+      setTimeout(() => {
+        router.push(`/results/${sessionId}`)
+      }, 4000)
+    }
+
+    // Update previous status reference
+    prevStatusRef.current = currentStatus
+  }, [voiceData.status, interviewCompleted, router, sessionId])
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
@@ -247,6 +274,39 @@ const InterviewSession = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Confetti celebration */}
+      {showConfetti && (
+        <Confetti
+          width={typeof window !== 'undefined' ? window.innerWidth : 1200}
+          height={typeof window !== 'undefined' ? window.innerHeight : 800}
+          recycle={false}
+          numberOfPieces={500}
+          gravity={0.3}
+        />
+      )}
+      
+      {/* Interview completion overlay */}
+      {interviewCompleted && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 text-center max-w-md mx-4">
+            <div className="text-6xl mb-4">🎉</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Interview Complete!</h2>
+            <p className="text-gray-600 mb-4">
+              Great job! You&apos;ve successfully completed your interview.
+            </p>
+            <p className="text-sm text-gray-500">
+              Redirecting to results in a few seconds...
+            </p>
+            <Button 
+              onClick={() => router.push(`/results/${sessionId}`)}
+              className="mt-4"
+            >
+              View Results Now
+            </Button>
+          </div>
+        </div>
+      )}
+      
       {/* Voice Integration - client-side only */}
       <VoiceIntegration onVoiceData={handleVoiceData} interviewSessionId={sessionId} />
       
