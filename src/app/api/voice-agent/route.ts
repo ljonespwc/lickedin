@@ -533,6 +533,26 @@ export async function POST(request: NextRequest) {
         }
       }
       
+      // Check termination BEFORE storing/streaming response
+      if (decision.action === 'end_interview') {
+        // Simple closing turn counter (from existing conversation)
+        const closingTurns = recentConversation.filter(turn => 
+          turn.speaker === 'interviewer' && turn.message_type === 'closing'
+        ).length
+
+        // Expanded natural end signals
+        const candidateSignalsEnd = text && /^(no|nope|i'm good|that's all|thanks|thank you|great|sounds good|perfect|awesome|excellent|wonderful|good to go|all set|i'm all set|nothing else|no more questions|i think that's it|that covers it|i'm satisfied|looks good|sounds great|you too|you as well|likewise|same to you|goodbye|bye)[\s\.\!\?]*$/i.test(text.trim())
+
+        console.log(`🎯 Closing check: ${closingTurns} existing turns, candidate response: "${text}", signals end: ${candidateSignalsEnd}`)
+
+        // Bulletproof termination - check BEFORE adding this turn
+        if (candidateSignalsEnd || closingTurns >= 2) {
+          console.log('🏁 ENDING INTERVIEW:', candidateSignalsEnd ? 'Natural end signal detected' : `${closingTurns + 1} closing turns would exceed limit`)
+          stream.end()
+          return
+        }
+      }
+      
       // Store interviewer response in conversation
       if (interviewSessionId && response) {
         const messageType = decision.action === 'end_interview' ? 'closing' : 
@@ -568,27 +588,7 @@ export async function POST(request: NextRequest) {
       // Stream the response back to LayerCode
       stream.tts(response)
       
-      // Check if we should actually end the interview
-      if (decision.action === 'end_interview') {
-        // Simple closing turn counter
-        const closingTurns = recentConversation.filter(turn => 
-          turn.speaker === 'interviewer' && turn.message_type === 'closing'
-        ).length
-
-        // Expanded natural end signals
-        const candidateSignalsEnd = /^(no|nope|i'm good|that's all|thanks|thank you|great|sounds good|perfect|awesome|excellent|wonderful|good to go|all set|i'm all set|nothing else|no more questions|i think that's it|that covers it|i'm satisfied|looks good|sounds great|you too|you as well|likewise|same to you)[\s\.\!\?]*$/i.test((text || '').trim())
-
-        console.log(`🎯 Closing check: ${closingTurns} turns, candidate response: "${text}", signals end: ${candidateSignalsEnd}`)
-
-        // Bulletproof termination 
-        if (candidateSignalsEnd || closingTurns >= 3) {
-          console.log('🏁 ENDING INTERVIEW:', candidateSignalsEnd ? 'Natural end signal detected' : `${closingTurns} closing turns reached`)
-          stream.end()
-          return
-        }
-        
-        console.log('💬 Continuing closing conversation')
-      }
+      console.log('💬 Continuing closing conversation')
       
     } catch (error) {
       console.error('OpenAI completion error:', error)
