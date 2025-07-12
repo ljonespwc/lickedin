@@ -257,7 +257,7 @@ const InterviewSession = () => {
             <Image 
               src="/lickedin-logo.png" 
               alt="LickedIn Logo" 
-              width={101} 
+              width={83} 
               height={40} 
               className="h-10"
             />
