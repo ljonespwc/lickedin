@@ -19,8 +19,11 @@ const VoiceIntegration = dynamic(() => import('@/components/VoiceIntegration').t
 
 interface InterviewSession {
   id: string
-  persona: string
+  persona: string // DEPRECATED: Legacy field
   difficulty_level: string
+  interview_type: string
+  voice_gender: string
+  communication_style: string
   question_count: number
   status: string
 }
@@ -95,14 +98,24 @@ const InterviewSession = () => {
     }))
   }, [interviewCompleted])
 
-  const interviewer = {
-    name: session?.persona === 'michael_scott' ? 'Michael Scott' : 
-          session?.persona === 'tech_lead' ? 'Tech Lead' :
-          session?.persona === 'friendly_mentor' ? 'Friendly Mentor' : 'Professional Interviewer',
-    emoji: session?.persona === 'michael_scott' ? '😎' : 
-           session?.persona === 'tech_lead' ? '💻' :
-           session?.persona === 'friendly_mentor' ? '😊' : '👔'
+  // Create interviewer display info based on new customization fields
+  const getInterviewerInfo = () => {
+    if (!session?.interview_type) {
+      return { name: 'Professional Interviewer', emoji: '👔' }
+    }
+
+    const interviewTypeMap = {
+      phone_screening: { name: 'Phone Screener', emoji: '📞' },
+      technical_screen: { name: 'Technical Interviewer', emoji: '💻' },
+      hiring_manager: { name: 'Hiring Manager', emoji: '👔' },
+      cultural_fit: { name: 'Culture Interviewer', emoji: '🤝' }
+    }
+
+    return interviewTypeMap[session.interview_type as keyof typeof interviewTypeMap] || 
+           { name: 'Professional Interviewer', emoji: '👔' }
   }
+
+  const interviewer = getInterviewerInfo()
 
   // Suppress VAD warnings in console
   useEffect(() => {
