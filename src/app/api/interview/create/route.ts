@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
 
       const interviewTypeMap = {
         phone_screening: "initial screening focused on cultural fit, basic qualifications, and motivation",
-        technical_screen: "technical assessment emphasizing coding skills, problem-solving, and technical architecture",
+        technical_screen: "technical assessment focusing on role-specific skills, tools, methodologies, and problem-solving approaches relevant to the candidate's field",
         hiring_manager: "role-specific deep-dive covering past experiences, leadership situations, and job-specific scenarios",
         cultural_fit: "team dynamics, company values alignment, work style preferences, and interpersonal skills"
       }
@@ -212,7 +212,16 @@ Return in JSON format:
         messages: [
           {
             role: "system",
-            content: `You are an expert interviewer who creates personalized interview questions. Your questions must perfectly match the specified difficulty level, interview type focus, and communication style. You understand how to tailor questions based on interview context - technical screens emphasize problem-solving, phone screens focus on cultural fit, hiring manager rounds dive deep into experience, and cultural fit interviews explore team dynamics.`
+            content: `You are an expert interviewer who creates personalized interview questions. Your questions must perfectly match the specified difficulty level, interview type focus, and communication style. 
+
+For technical screens, interpret "technical" based on the candidate's professional background and role level:
+- Marketing professionals: focus on MarTech, analytics, testing methodologies, tool selection, data interpretation, automation platforms
+- Engineering professionals: focus on coding, architecture, algorithms, system design  
+- Leadership roles: focus on technical decision-making, team technical guidance, tool evaluation, strategic technical choices
+- Sales professionals: focus on CRM systems, sales tools, process optimization, data analysis
+- Other roles: adapt technical focus to field-specific tools, methodologies, and problem-solving approaches
+
+You understand that technical competency varies by role - a marketing director's technical skills involve different tools and concepts than a software engineer's.`
           },
           {
             role: "user",
