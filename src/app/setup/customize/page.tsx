@@ -82,22 +82,10 @@ const SetupCustomize = () => {
       description: "Role-specific discussion"
     },
     {
-      id: "panel_interview",
-      name: "Panel Interview", 
-      emoji: "👥",
-      description: "Multiple interviewers"
-    },
-    {
       id: "cultural_fit",
       name: "Cultural Fit",
       emoji: "🤝",
       description: "Team & values focus"
-    },
-    {
-      id: "executive_round",
-      name: "Executive Round",
-      emoji: "🎯", 
-      description: "Senior leadership"
     }
   ]
 
@@ -109,18 +97,6 @@ const SetupCustomize = () => {
       name: "Corporate Professional", 
       emoji: "💼",
       description: "Formal, traditional business style"
-    },
-    {
-      id: "supportive_mentor",
-      name: "Supportive Mentor",
-      emoji: "😊", 
-      description: "Encouraging, confidence-building"
-    },
-    {
-      id: "analytical_expert", 
-      name: "Analytical Expert",
-      emoji: "🤔",
-      description: "Thorough, detail-oriented questioning"
     },
     {
       id: "casual_conversational",
@@ -259,7 +235,7 @@ const SetupCustomize = () => {
               <h3 className="font-medium text-lg">Interview Type</h3>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               {interviewTypes.map((type) => (
                 <Card 
                   key={type.id}
