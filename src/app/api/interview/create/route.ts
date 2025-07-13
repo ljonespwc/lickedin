@@ -117,7 +117,6 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         resume_id: resumeData.id,
         job_description_id: jobData.id,
-        persona: communicationStyle, // Map to legacy field for backward compatibility
         difficulty_level: difficulty,
         interview_type: interviewType,
         voice_gender: voiceGender,
