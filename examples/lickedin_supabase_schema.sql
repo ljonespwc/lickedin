@@ -42,8 +42,11 @@ CREATE TABLE interview_sessions (
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
   job_description_id UUID NOT NULL REFERENCES job_descriptions(id) ON DELETE CASCADE,
-  persona TEXT NOT NULL DEFAULT 'professional', -- 'michael_scott', 'professional', 'friendly', etc.
+  persona TEXT NOT NULL DEFAULT 'professional', -- DEPRECATED: Legacy field, use communication_style instead
   difficulty_level TEXT NOT NULL DEFAULT 'medium', -- 'softball', 'medium', 'hard', 'hard_as_fck'
+  interview_type TEXT NOT NULL CHECK (interview_type IN ('phone_screening', 'technical_screen', 'hiring_manager', 'cultural_fit')),
+  voice_gender TEXT NOT NULL CHECK (voice_gender IN ('male', 'female')),
+  communication_style TEXT NOT NULL CHECK (communication_style IN ('corporate_professional', 'casual_conversational')),
   question_count INTEGER NOT NULL DEFAULT 5,
   status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'in_progress', 'paused', 'completed', 'abandoned'
   overall_score DECIMAL(5,2), -- 0-100 score

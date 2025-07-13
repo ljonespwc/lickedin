@@ -28,11 +28,14 @@ interface InterviewQuestion {
 
 interface SessionContext {
   id: string
-  persona: string
+  persona: string // DEPRECATED: Legacy field
   difficulty_level: string
+  interview_type: string
+  voice_gender: string
+  communication_style: string
   interview_questions: InterviewQuestion[]
-  resumes: { parsed_content: string }
-  job_descriptions: { job_content: string }
+  resumes: { parsed_content: string }[]
+  job_descriptions: { job_content: string }[]
 }
 
 // Initialize OpenAI
@@ -59,7 +62,12 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
     const { data: session, error: sessionError } = await supabase
       .from('interview_sessions')
       .select(`
-        *,
+        id,
+        persona,
+        difficulty_level,
+        interview_type,
+        voice_gender,
+        communication_style,
         resumes (
           parsed_content
         ),
@@ -149,15 +157,35 @@ Guidelines:
 Current interview context: This is a demo interview session.`
   }
 
-  const resume = sessionContext.resumes?.parsed_content || 'No resume content available'
-  const jobDescription = sessionContext.job_descriptions?.job_content || 'No job description available'
-  const persona = sessionContext.persona || 'professional'
-  const difficulty = sessionContext.difficulty_level || 'medium'
+  const resume = sessionContext.resumes?.[0]?.parsed_content || 'No resume content available'
+  const jobDescription = sessionContext.job_descriptions?.[0]?.job_content || 'No job description available'
+  const difficulty = sessionContext.difficulty_level
+  const interviewType = sessionContext.interview_type
+  const communicationStyle = sessionContext.communication_style
   
-  // Get persona-specific instructions
-  const personaInstructions = getPersonaInstructions(persona)
+  // Get difficulty description
+  const getDifficultyContext = (level: string): string => {
+    const numLevel = parseInt(level) || 5
+    if (numLevel <= 2) return "easy, encouraging approach suitable for entry-level"
+    if (numLevel <= 5) return "standard professional level with moderate depth"
+    if (numLevel <= 8) return "challenging questions requiring detailed examples"
+    return "extremely difficult with expert-level technical depth"
+  }
   
-  return `You are conducting a ${difficulty} difficulty voice interview for LickedIn Interviews. ${personaInstructions}
+  // Legacy difficulty mapping
+  const difficultyMap = {
+    softball: "easy, encouraging approach suitable for entry-level",
+    medium: "standard professional level with moderate depth",
+    hard: "challenging questions requiring detailed examples", 
+    hard_as_fck: "extremely difficult with expert-level technical depth"
+  }
+  
+  const difficultyContext = difficultyMap[difficulty as keyof typeof difficultyMap] || getDifficultyContext(difficulty)
+  
+  // Get communication style and interview type instructions
+  const styleInstructions = getCommunicationStyleInstructions(communicationStyle, interviewType)
+  
+  return `You are conducting a voice interview for LickedIn Interviews with ${difficultyContext}. ${styleInstructions}
 
 CANDIDATE BACKGROUND:
 ${resume}
@@ -165,7 +193,12 @@ ${resume}
 JOB REQUIREMENTS:
 ${jobDescription}
 
-INSTRUCTIONS:
+INTERVIEW CONFIGURATION:
+- Type: ${interviewType} interview
+- Communication Style: ${communicationStyle}
+- Difficulty Level: ${difficultyContext}
+
+CORE INSTRUCTIONS:
 - Keep responses conversational and natural for voice (1-2 sentences max)
 - Ask thoughtful follow-up questions to get deeper insights
 - Work through the interview but allow natural conversation flow
@@ -173,22 +206,27 @@ INSTRUCTIONS:
 - Be encouraging but maintain professionalism
 - Focus on getting detailed responses and building rapport
 
-CURRENT CONTEXT: You are conducting a personalized interview based on the candidate's resume and the specific job requirements above.`
+CURRENT CONTEXT: You are conducting a personalized ${interviewType} interview based on the candidate's resume and the specific job requirements above.`
 }
 
-// Helper function to get persona-specific instructions
-function getPersonaInstructions(persona: string) {
-  switch (persona) {
-    case 'michael_scott':
-      return "Channel Michael Scott from The Office - be enthusiastic, occasionally make inappropriate comments, use business jargon incorrectly, but still try to conduct a real interview."
-    case 'friendly':
-      return "Be warm, supportive, and encouraging. Make the candidate feel comfortable while still asking probing questions."
-    case 'tech_lead':
-      return "Be technical, direct, and focused on problem-solving. Ask detailed questions about their technical approach and experience."
-    case 'professional':
-    default:
-      return "Be professional, courteous, and thorough. Ask structured questions and listen carefully to responses."
+// Helper function to get communication style instructions
+function getCommunicationStyleInstructions(communicationStyle: string, interviewType: string) {
+  const baseStyleInstructions = {
+    corporate_professional: "Use formal business language, maintain structured conversation flow, ask precise questions with professional terminology, and keep responses concise and businesslike.",
+    casual_conversational: "Use relaxed, natural language, allow for organic conversation flow, ask questions in a friendly manner, and create a comfortable, informal atmosphere."
   }
+
+  const interviewTypeContext = {
+    phone_screening: "Focus on getting to know the candidate's background, motivations, and cultural fit. Keep questions broad and exploratory.",
+    technical_screen: "Dive deep into technical concepts, problem-solving approaches, and hands-on experience. Ask for specific examples and technical details.",
+    hiring_manager: "Explore leadership experiences, past challenges, and role-specific scenarios. Ask about decision-making processes and team dynamics.",
+    cultural_fit: "Understand work styles, team preferences, values alignment, and interpersonal skills. Focus on how they collaborate and handle workplace situations."
+  }
+
+  const styleInstruction = baseStyleInstructions[communicationStyle as keyof typeof baseStyleInstructions]
+  const typeContext = interviewTypeContext[interviewType as keyof typeof interviewTypeContext]
+  
+  return `${styleInstruction} ${typeContext}`
 }
 
 // Helper function to get decision-specific guidance

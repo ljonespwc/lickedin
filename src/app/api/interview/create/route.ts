@@ -10,11 +10,11 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { difficulty, persona, questionCount } = await request.json()
+    const { difficulty, interviewType, voiceGender, communicationStyle, questionCount } = await request.json()
 
-    if (!difficulty || !persona) {
+    if (!difficulty || !interviewType || !voiceGender || !communicationStyle) {
       return NextResponse.json(
-        { error: 'Difficulty and persona are required' },
+        { error: 'Difficulty, interview type, voice gender, and communication style are required' },
         { status: 400 }
       )
     }
@@ -117,8 +117,11 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         resume_id: resumeData.id,
         job_description_id: jobData.id,
-        persona,
+        persona: communicationStyle, // Map to legacy field for backward compatibility
         difficulty_level: difficulty,
+        interview_type: interviewType,
+        voice_gender: voiceGender,
+        communication_style: communicationStyle,
         question_count: questionCount || 5,
         status: 'pending'
       })
@@ -135,47 +138,71 @@ export async function POST(request: NextRequest) {
 
     // Generate personalized interview questions using OpenAI
     try {
-      const difficultyMap = {
-        softball: "easy and encouraging",
-        medium: "standard professional level",
-        hard: "challenging and detailed",
-        hard_as_fck: "extremely difficult and technical"
+      // Map 10-point difficulty scale to descriptive levels
+      const getDifficultyDescription = (level: string): string => {
+        const numLevel = parseInt(level) || 5
+        if (numLevel <= 2) return "easy and encouraging, basic level questions suitable for entry-level candidates"
+        if (numLevel <= 5) return "standard professional level with moderate complexity and clear expectations"
+        if (numLevel <= 8) return "challenging and detailed, requiring specific examples and deep technical knowledge"
+        return "extremely difficult and technical, expert-level depth with complex problem-solving scenarios"
       }
 
-      const personaMap = {
-        michael_scott: "friendly and slightly humorous but professional",
-        professional: "standard corporate and formal",
-        friendly_mentor: "supportive and encouraging",
-        tech_lead: "technical and detail-oriented"
+      // Legacy support for old difficulty strings
+      const difficultyMap = {
+        softball: "easy and encouraging, basic level questions",
+        medium: "standard professional level with moderate complexity", 
+        hard: "challenging and detailed, requiring specific examples",
+        hard_as_fck: "extremely difficult and technical, expert-level depth"
+      }
+
+      const interviewTypeMap = {
+        phone_screening: "initial screening focused on cultural fit, basic qualifications, and motivation",
+        technical_screen: "technical assessment emphasizing coding skills, problem-solving, and technical architecture",
+        hiring_manager: "role-specific deep-dive covering past experiences, leadership situations, and job-specific scenarios",
+        cultural_fit: "team dynamics, company values alignment, work style preferences, and interpersonal skills"
+      }
+
+      const communicationStyleMap = {
+        corporate_professional: "formal business tone, structured questions, professional language",
+        casual_conversational: "relaxed, natural conversation style, friendly approach, informal language"
       }
 
       const questionPrompt = `
 Generate ${questionCount || 5} personalized interview questions based on the following context:
 
-RESUME:
+CANDIDATE BACKGROUND:
 ${resumeData.parsed_content?.substring(0, 1500) || 'No resume content available'}
 
-JOB DESCRIPTION:
+JOB REQUIREMENTS:
 ${jobData.job_content?.substring(0, 1500) || 'No job description available'}
 
-DIFFICULTY LEVEL: ${difficultyMap[difficulty as keyof typeof difficultyMap] || 'medium'}
-INTERVIEWER PERSONA: ${personaMap[persona as keyof typeof personaMap] || 'professional'}
+INTERVIEW CONFIGURATION:
+- DIFFICULTY: ${difficultyMap[difficulty as keyof typeof difficultyMap] || getDifficultyDescription(difficulty)}
+- INTERVIEW TYPE: ${interviewTypeMap[interviewType as keyof typeof interviewTypeMap]}
+- COMMUNICATION STYLE: ${communicationStyleMap[communicationStyle as keyof typeof communicationStyleMap]}
 
 Requirements:
-- Questions should be ${difficultyMap[difficulty as keyof typeof difficultyMap] || 'medium'} in nature
-- Style should match a ${personaMap[persona as keyof typeof personaMap] || 'professional'} interviewer
-- Mix behavioral, technical, and situational questions based on the role
-- Questions should be relevant to both the candidate's background and the job requirements
-- Include follow-up points that the interviewer should look for in responses
+- Questions should be ${difficultyMap[difficulty as keyof typeof difficultyMap] || getDifficultyDescription(difficulty)}
+- Focus on ${interviewTypeMap[interviewType as keyof typeof interviewTypeMap]}
+- Use ${communicationStyleMap[communicationStyle as keyof typeof communicationStyleMap]}
+- Tailor questions to match both the candidate's experience and job requirements
+- Include specific follow-up points that probe deeper into each response
+- Ensure questions align with the interview type focus area
+
+QUESTION TYPE DISTRIBUTION:
+${interviewType === 'technical_screen' ? '- 60% technical/problem-solving, 30% behavioral, 10% situational' : 
+  interviewType === 'phone_screening' ? '- 50% cultural fit, 30% motivation, 20% basic qualifications' :
+  interviewType === 'hiring_manager' ? '- 50% role-specific experience, 30% leadership/scenarios, 20% technical' :
+  '- 40% cultural fit, 40% team dynamics, 20% work style preferences'}
 
 Return in JSON format:
 {
   "questions": [
     {
       "text": "question text",
-      "type": "behavioral|technical|situational",
+      "type": "behavioral|technical|situational|cultural",
       "expectedPoints": ["key point 1", "key point 2", "key point 3"],
-      "followUp": "optional follow-up question"
+      "followUp": "specific follow-up question to probe deeper"
     }
   ]
 }
@@ -186,7 +213,7 @@ Return in JSON format:
         messages: [
           {
             role: "system",
-            content: `You are an expert interviewer who creates personalized interview questions. Your questions should match the specified difficulty level and interviewer persona while being relevant to the candidate's background and the job requirements.`
+            content: `You are an expert interviewer who creates personalized interview questions. Your questions must perfectly match the specified difficulty level, interview type focus, and communication style. You understand how to tailor questions based on interview context - technical screens emphasize problem-solving, phone screens focus on cultural fit, hiring manager rounds dive deep into experience, and cultural fit interviews explore team dynamics.`
           },
           {
             role: "user",

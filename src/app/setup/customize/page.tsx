@@ -54,13 +54,6 @@ const SetupCustomize = () => {
     return "hard_as_fck"                     // 9-10: Hard as F*ck
   }
 
-  // TODO: Backend integration needed:
-  // 1. Update /api/interview/create to accept interviewType, voiceGender, and communicationStyle parameters
-  // 2. Modify question generation logic to consider interview type and communication style
-  // 3. Update database schema to store interview type, voice gender, and communication style in interview_sessions table
-  // 4. Adjust AI prompts based on interview type (e.g., technical questions for technical_screen) and communication style
-  // 5. Research LayerCode voice configuration options for male/female voice selection
-  // 6. Integrate communication style into AI personality prompts (formal vs casual vs supportive etc.)
   
   const interviewTypes = [
     {
@@ -132,9 +125,9 @@ const SetupCustomize = () => {
         credentials: 'include',
         body: JSON.stringify({
           difficulty: difficultyValue,
-          interviewType: interviewType, // TODO: Backend needs to handle interview type in question generation
-          voiceGender: voiceGender, // TODO: Backend needs to pass voice gender to LayerCode voice configuration
-          communicationStyle: communicationStyle, // TODO: Backend needs to integrate communication style into AI prompts
+          interviewType: interviewType,
+          voiceGender: voiceGender,
+          communicationStyle: communicationStyle,
           questionCount: 5
         }),
       })
