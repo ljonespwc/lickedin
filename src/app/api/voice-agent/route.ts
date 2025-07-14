@@ -869,8 +869,6 @@ export async function POST(request: NextRequest) {
       // Stream the response back to LayerCode
       stream.tts(response)
       
-      console.log('💬 Continuing closing conversation')
-      
     } catch (error) {
       console.error('OpenAI completion error:', error)
       stream.tts("I apologize, but I'm having some technical difficulties. Let's continue with your interview.")
