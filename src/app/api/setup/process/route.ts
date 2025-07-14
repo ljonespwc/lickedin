@@ -9,9 +9,15 @@ function validateJobContent(content: string): { isValid: boolean; reason?: strin
     return { isValid: false, reason: 'Content too short (less than 100 characters)' }
   }
   
-  // Simple LinkedIn validation - check for "About this job" section
+  // Simple LinkedIn validation - check for job description section
   if (content.toLowerCase().includes('linkedin.com') || content.toLowerCase().includes('linkedin')) {
-    if (!content.toLowerCase().includes('about this job') && !content.toLowerCase().includes('about the job')) {
+    const hasJobSection = content.toLowerCase().includes('about this job') || 
+                         content.toLowerCase().includes('about the job') ||
+                         content.toLowerCase().includes('about the role') ||
+                         content.toLowerCase().includes('about this role') ||
+                         content.toLowerCase().includes('about the position')
+    
+    if (!hasJobSection) {
       return { isValid: false, reason: 'Content appears to be incomplete or not a job posting (insufficient job-related keywords)' }
     }
   }
