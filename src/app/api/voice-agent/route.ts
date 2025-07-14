@@ -447,9 +447,9 @@ async function analyzeConversationAndDecide(
       turn.turn_number > lastMainQuestionTurn
     ).length
 
-    // Force progression rules
-    const MAX_FOLLOWUPS_PER_QUESTION = 2
-    const MAX_TOTAL_INTERVIEWER_TURNS = 18 // Allow 5 questions + 2 follow-ups each + closing turns
+    // Phase 2: Enhanced force progression rules
+    const MAX_FOLLOWUPS_PER_QUESTION = 3 // Increased from 2 to 3 for more natural flow
+    const MAX_TOTAL_INTERVIEWER_TURNS = 18 // Allow 5 questions + 3 follow-ups each + closing turns
     const totalQuestions = questions.length
     
     const totalInterviewerTurns = recentConversation.filter(turn => 
@@ -457,6 +457,14 @@ async function analyzeConversationAndDecide(
     ).length
 
     console.log('📊 Questions:', mainQuestionsAsked, '/', totalQuestions, '| Follow-ups:', followUpsSinceLastMain, '| Turns:', totalInterviewerTurns)
+
+    // Phase 2 Safety Net: Force first main question if we've been stuck too long
+    if (mainQuestionsAsked === 0 && totalInterviewerTurns >= 3) {
+      return {
+        action: 'next_question',
+        reasoning: `Safety net: ${totalInterviewerTurns} turns without main question - forcing first main question`
+      }
+    }
 
     // Safety net: if we've had too many interviewer turns, end the interview
     if (totalInterviewerTurns >= MAX_TOTAL_INTERVIEWER_TURNS) {
@@ -466,11 +474,24 @@ async function analyzeConversationAndDecide(
       }
     }
 
-    // Deterministic introduction detection: if no main questions have been asked yet, show introduction
+    // Phase 1 Fix: Deterministic introduction and first question logic
     if (usedQuestionIds.size === 0) {
-      return {
-        action: 'introduction',
-        reasoning: 'No main questions asked yet - showing introduction'
+      // Check if we've already shown introduction
+      const hasIntroduction = recentConversation.some(turn => 
+        turn.speaker === 'interviewer' && turn.message_type === 'transition' && turn.turn_number === 1
+      )
+      
+      if (!hasIntroduction) {
+        return {
+          action: 'introduction',
+          reasoning: 'First turn - showing introduction'
+        }
+      } else {
+        // Safety net: If we've shown introduction but haven't asked any main questions, force first main question
+        return {
+          action: 'next_question',
+          reasoning: 'Introduction shown but no main questions asked - forcing first main question'
+        }
       }
     }
 
@@ -529,19 +550,21 @@ ${conversationSummary}
 CANDIDATE'S LATEST RESPONSE:
 ${currentResponse}
 
-MAIN QUESTIONS ASKED SO FAR: ${mainQuestionsAsked} out of ${totalQuestions}
-FOLLOW-UPS SINCE LAST MAIN QUESTION: ${followUpsSinceLastMain} (max: ${MAX_FOLLOWUPS_PER_QUESTION})
+PROGRESS STATUS:
+- MAIN QUESTIONS ASKED: ${mainQuestionsAsked} out of ${totalQuestions}
+- FOLLOW-UPS SINCE LAST MAIN QUESTION: ${followUpsSinceLastMain} (max: ${MAX_FOLLOWUPS_PER_QUESTION})
 
-Analyze the candidate's response and decide:
-1. "introduction" - if no main questions have been asked yet (first turn)
-2. "recovery" - if the response was cut off, incomplete, or didn't address the question
-3. "follow_up" - if the response needs clarification or more depth (but you haven't hit the follow-up limit)
-4. "next_question" - if the response is sufficient OR you've had enough follow-ups on this topic
-5. "end_interview" - if all main questions have been thoroughly covered
+DECISION RULES (Phase 3: Improved Clarity):
+1. "recovery" - ONLY if response was cut off, incomplete, or completely didn't address the question
+2. "follow_up" - If response is reasonable but could use 1-2 clarifying questions (max ${MAX_FOLLOWUPS_PER_QUESTION} total)
+3. "next_question" - If response is sufficient OR you've asked ${MAX_FOLLOWUPS_PER_QUESTION} follow-ups OR candidate gave good examples
+4. "end_interview" - If all ${totalQuestions} main questions have been thoroughly covered
+
+IMPORTANT: Favor "next_question" to maintain interview pace. Good responses deserve to move forward.
 
 Respond with JSON only:
 {
-  "action": "introduction|recovery|follow_up|next_question|end_interview",
+  "action": "recovery|follow_up|next_question|end_interview",
   "reasoning": "Brief explanation of your decision"
 }`
 
@@ -564,10 +587,25 @@ Respond with JSON only:
     const response = completion.choices[0]?.message?.content || '{}'
     const decision = JSON.parse(response)
     
-    return {
+    const finalDecision = {
       action: decision.action || 'follow_up',
       reasoning: decision.reasoning || 'Default follow-up decision'
     }
+    
+    // Phase 4: Comprehensive logging
+    console.log('🤖 LLM Decision:', {
+      input: {
+        mainQuestionsAsked,
+        totalQuestions,
+        followUpsSinceLastMain,
+        totalInterviewerTurns,
+        currentResponseLength: currentResponse?.length || 0
+      },
+      output: finalDecision,
+      rawResponse: response
+    })
+    
+    return finalDecision
   } catch (error) {
     console.error('Error in decision engine:', error)
     return {
@@ -673,6 +711,14 @@ export async function POST(request: NextRequest) {
         decision = await analyzeConversationAndDecide(sessionContext, recentConversation, text || '')
       }
       
+      // Phase 4: Log decision execution
+      console.log('⚡ Decision Execution:', {
+        sessionId: interviewSessionId,
+        decision: decision,
+        hasQuestions: sessionContext?.interview_questions?.length || 0,
+        conversationLength: recentConversation.length
+      })
+      
       // Build conversation history for context
       const conversationHistory: Array<{role: 'user' | 'assistant', content: string}> = recentConversation.map(turn => ({
         role: turn.speaker === 'interviewer' ? 'assistant' as const : 'user' as const,
@@ -722,11 +768,25 @@ export async function POST(request: NextRequest) {
         
         const nextQuestion = sortedQuestions[usedQuestionIds.size]
         
+        // Phase 4: Enhanced logging for question selection
+        console.log('🎯 Question Selection:', {
+          usedQuestionIds: Array.from(usedQuestionIds),
+          nextQuestionIndex: usedQuestionIds.size,
+          totalQuestions: sortedQuestions.length,
+          nextQuestion: nextQuestion ? {
+            id: nextQuestion.id,
+            order: nextQuestion.question_order,
+            text: nextQuestion.question_text.substring(0, 100) + '...'
+          } : null
+        })
+        
         if (nextQuestion) {
           // Override LLM response with exact question from database
           response = nextQuestion.question_text
           relatedMainQuestionId = nextQuestion.id
           console.log(`✅ Asking Q${nextQuestion.question_order}: ${nextQuestion.question_text.substring(0, 50)}...`)
+        } else {
+          console.log('⚠️  No next question found - all questions may have been asked')
         }
       }
       
@@ -769,20 +829,33 @@ export async function POST(request: NextRequest) {
         // relatedMainQuestionId already set above for main questions
         // For follow-ups and closing, it remains null
         
+        const conversationEntry = {
+          session_id: interviewSessionId,
+          turn_number: nextTurnNumber,
+          speaker: 'interviewer',
+          message_text: response,
+          message_type: messageType,
+          related_main_question_id: relatedMainQuestionId,
+          word_count: response.split(' ').length
+        }
+        
+        // Phase 4: Log storage details
+        console.log('💾 Storing conversation:', {
+          action: decision.action,
+          messageType,
+          relatedMainQuestionId,
+          responseLength: response.length,
+          turnNumber: nextTurnNumber
+        })
+        
         const insertResult = await supabase
           .from('interview_conversation')
-          .insert({
-            session_id: interviewSessionId,
-            turn_number: nextTurnNumber,
-            speaker: 'interviewer',
-            message_text: response,
-            message_type: messageType,
-            related_main_question_id: relatedMainQuestionId,
-            word_count: response.split(' ').length
-          })
+          .insert(conversationEntry)
         
         if (insertResult.error) {
-          console.error('Error storing interviewer response:', insertResult.error)
+          console.error('❌ Error storing interviewer response:', insertResult.error)
+        } else {
+          console.log('✅ Conversation stored successfully')
         }
       }
       
