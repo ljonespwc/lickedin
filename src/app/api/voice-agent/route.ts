@@ -59,6 +59,7 @@ console.log('Voice Agent initialized with:', {
 // Helper function to fetch session context from database
 async function fetchSessionContext(sessionId: string): Promise<SessionContext | null> {
   try {
+    // Get session basic info first
     const { data: session, error: sessionError } = await supabase
       .from('interview_sessions')
       .select(`
@@ -68,18 +69,8 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
         interview_type,
         voice_gender,
         communication_style,
-        resumes (
-          parsed_content
-        ),
-        job_descriptions (
-          job_content
-        ),
-        interview_questions (
-          id,
-          question_text,
-          question_order,
-          question_type
-        )
+        resume_id,
+        job_description_id
       `)
       .eq('id', sessionId)
       .single()
@@ -89,7 +80,62 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
       return null
     }
 
-    return session
+    // Get resume data
+    const { data: resumeData, error: resumeError } = await supabase
+      .from('resumes')
+      .select('parsed_content')
+      .eq('id', session.resume_id)
+      .single()
+
+    if (resumeError) {
+      console.error('Error fetching resume:', resumeError)
+    }
+
+    // Get job description data
+    const { data: jobData, error: jobError } = await supabase
+      .from('job_descriptions')
+      .select('job_content')
+      .eq('id', session.job_description_id)
+      .single()
+
+    if (jobError) {
+      console.error('Error fetching job description:', jobError)
+    }
+
+    // Get interview questions
+    const { data: questionsData, error: questionsError } = await supabase
+      .from('interview_questions')
+      .select('id, question_text, question_order, question_type')
+      .eq('session_id', sessionId)
+      .order('question_order', { ascending: true })
+
+    if (questionsError) {
+      console.error('Error fetching questions:', questionsError)
+    }
+
+    // Transform the data into the expected format
+    const sessionContext: SessionContext = {
+      id: session.id,
+      persona: session.persona,
+      difficulty_level: session.difficulty_level,
+      interview_type: session.interview_type,
+      voice_gender: session.voice_gender,
+      communication_style: session.communication_style,
+      interview_questions: questionsData || [],
+      resumes: resumeData ? [{ parsed_content: resumeData.parsed_content }] : [],
+      job_descriptions: jobData ? [{ job_content: jobData.job_content }] : []
+    }
+
+    console.log('✅ Session context loaded successfully:', {
+      sessionId,
+      hasResume: sessionContext.resumes.length > 0,
+      hasJobDescription: sessionContext.job_descriptions.length > 0,
+      questionCount: sessionContext.interview_questions.length,
+      resumeLength: sessionContext.resumes[0]?.parsed_content?.length || 0,
+      jobLength: sessionContext.job_descriptions[0]?.job_content?.length || 0
+    })
+
+    return sessionContext
   } catch (error) {
     console.error('Exception in fetchSessionContext:', error)
     return null
