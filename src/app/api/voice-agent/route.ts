@@ -209,6 +209,78 @@ CORE INSTRUCTIONS:
 CURRENT CONTEXT: You are conducting a personalized ${interviewType} interview based on the candidate's resume and the specific job requirements above.`
 }
 
+// Helper function to detect response quality issues
+function detectResponseQualityIssues(
+  currentResponse: string,
+  recentConversation: ConversationTurn[]
+): { needsRecovery: boolean; reason: string } {
+  if (!currentResponse) {
+    return { needsRecovery: false, reason: 'No response provided' }
+  }
+
+  const response = currentResponse.trim()
+  const wordCount = response.split(/\s+/).filter(word => word.length > 0).length
+
+  // Check for incomplete responses (very short)
+  if (wordCount < 5) {
+    return { needsRecovery: true, reason: 'Response too short (< 5 words)' }
+  }
+
+  // Check for cutoff indicators - simplified patterns
+  const cutoffPatterns = [
+    /\band\s*$/i,
+    /\bbut\s*$/i,
+    /\bso\s*$/i,
+    /\bbecause\s*$/i,
+    /\bwhen\s*$/i,
+    /\bif\s*$/i,
+    /\bthen\s*$/i,
+    /\.\.\.\s*$/,
+    /\,\s*$/
+  ]
+
+  const hasCutoffIndicator = cutoffPatterns.some(pattern => pattern.test(response))
+  if (hasCutoffIndicator) {
+    return { needsRecovery: true, reason: 'Response appears to be cut off mid-sentence' }
+  }
+
+  // Check for non-answers
+  const nonAnswerPatterns = [
+    /^(i don't know|idk|no idea|not sure|pass|skip|next|dunno|beats me|couldn't say|no clue|haven't thought about it|good question|that's a good question)\.?\s*$/i,
+    /^(lol|haha|hehe|funny|joke|kidding|just kidding|jk|whatever|random|meh|shrug)\.?\s*$/i,
+    /^(okay|fine|sure|yeah|yep|right|correct|exactly)\.?\s*$/i
+  ]
+
+  const isNonAnswer = nonAnswerPatterns.some(pattern => pattern.test(response))
+  if (isNonAnswer) {
+    return { needsRecovery: true, reason: 'Response is a non-answer or evasive' }
+  }
+
+  // Check if previous interviewer response mentioned cutoff/recovery
+  const lastInterviewerResponse = recentConversation
+    .slice()
+    .reverse()
+    .find(turn => turn.speaker === 'interviewer')
+
+  if (lastInterviewerResponse) {
+    const recoveryIndicators = [
+      /cut off|cutoff|interrupted|continue|finish|complete|saying/i,
+      /sounds like|seems like|appears/i,
+      /what was that|repeat|again|rephrase/i
+    ]
+
+    const wasRecoveryAttempt = recoveryIndicators.some(pattern => 
+      pattern.test(lastInterviewerResponse.message_text)
+    )
+
+    if (wasRecoveryAttempt && wordCount < 10) {
+      return { needsRecovery: true, reason: 'Previous recovery attempt, still incomplete response' }
+    }
+  }
+
+  return { needsRecovery: false, reason: 'Response appears complete' }
+}
+
 // Helper function to get communication style instructions
 function getCommunicationStyleInstructions(communicationStyle: string, interviewType: string) {
   const baseStyleInstructions = {
@@ -231,7 +303,7 @@ function getCommunicationStyleInstructions(communicationStyle: string, interview
 
 // Helper function to get decision-specific guidance
 function getDecisionGuidance(
-  action: 'introduction' | 'follow_up' | 'next_question' | 'end_interview', 
+  action: 'introduction' | 'recovery' | 'follow_up' | 'next_question' | 'end_interview', 
   sessionContext: SessionContext | null, 
   recentConversation: ConversationTurn[] = []
 ): string {
@@ -253,6 +325,20 @@ function getDecisionGuidance(
       - Keep it concise (1-2 sentences) and natural for voice
       
       Example framework: "Hi! I'm [Name/Persona], and I'm excited to conduct your [interview_type] interview with [company] today!"`
+    case 'recovery':
+      return `DECISION: The candidate's response was incomplete, cut off, or didn't address the question. Give them a chance to recover.
+      
+      Recovery scenarios:
+      - Incomplete response (< 10 words or cut off mid-sentence)
+      - Non-answer ("I don't know", "pass", evasive response)
+      - Off-topic or silly answer that doesn't engage with the question
+      
+      Recovery approaches:
+      - For cutoffs: "I think you were saying something about [topic]... please continue"
+      - For non-answers: "I'd love to hear more about your experience with [topic]"
+      - For off-topic: "Let me rephrase - I'm curious about [specific aspect]"
+      
+      Keep it encouraging and give them a clear path to provide a better response.`
     case 'follow_up':
       return "DECISION: Ask a follow-up question to get more depth on the current topic. Probe for specific examples, challenges, or outcomes."
     case 'next_question':
@@ -283,7 +369,7 @@ async function analyzeConversationAndDecide(
   sessionContext: SessionContext | null,
   recentConversation: ConversationTurn[],
   currentResponse: string
-): Promise<{ action: 'introduction' | 'follow_up' | 'next_question' | 'end_interview', reasoning: string }> {
+): Promise<{ action: 'introduction' | 'recovery' | 'follow_up' | 'next_question' | 'end_interview', reasoning: string }> {
   try {
     const questions = sessionContext?.interview_questions || []
     const mainQuestions = questions
@@ -342,6 +428,23 @@ async function analyzeConversationAndDecide(
       }
     }
 
+    // Check for response quality issues that need recovery
+    const qualityCheck = detectResponseQualityIssues(currentResponse, recentConversation)
+    if (qualityCheck.needsRecovery) {
+      // Count recent recovery attempts to prevent infinite loops
+      const recentRecoveryAttempts = recentConversation
+        .slice(-4) // Last 4 turns
+        .filter(turn => turn.speaker === 'interviewer' && turn.message_type === 'follow_up')
+        .length
+
+      if (recentRecoveryAttempts < 2) {
+        return {
+          action: 'recovery',
+          reasoning: `Recovery needed: ${qualityCheck.reason}`
+        }
+      }
+    }
+
     // If we've hit the follow-up limit, move to next question
     if (followUpsSinceLastMain >= MAX_FOLLOWUPS_PER_QUESTION) {
       if (mainQuestionsAsked >= totalQuestions) {
@@ -385,13 +488,14 @@ FOLLOW-UPS SINCE LAST MAIN QUESTION: ${followUpsSinceLastMain} (max: ${MAX_FOLLO
 
 Analyze the candidate's response and decide:
 1. "introduction" - if no main questions have been asked yet (first turn)
-2. "follow_up" - if the response needs clarification or more depth (but you haven't hit the follow-up limit)
-3. "next_question" - if the response is sufficient OR you've had enough follow-ups on this topic
-4. "end_interview" - if all main questions have been thoroughly covered
+2. "recovery" - if the response was cut off, incomplete, or didn't address the question
+3. "follow_up" - if the response needs clarification or more depth (but you haven't hit the follow-up limit)
+4. "next_question" - if the response is sufficient OR you've had enough follow-ups on this topic
+5. "end_interview" - if all main questions have been thoroughly covered
 
 Respond with JSON only:
 {
-  "action": "introduction|follow_up|next_question|end_interview",
+  "action": "introduction|recovery|follow_up|next_question|end_interview",
   "reasoning": "Brief explanation of your decision"
 }`
 
@@ -516,7 +620,7 @@ export async function POST(request: NextRequest) {
     // Generate AI response
     try {
       // Use decision engine to determine next action
-      let decision: { action: 'introduction' | 'follow_up' | 'next_question' | 'end_interview', reasoning: string } = { action: 'follow_up', reasoning: 'Default behavior' }
+      let decision: { action: 'introduction' | 'recovery' | 'follow_up' | 'next_question' | 'end_interview', reasoning: string } = { action: 'follow_up', reasoning: 'Default behavior' }
       
       // Use decision engine for all cases (including first turn)
       if (sessionContext && recentConversation.length >= 0) {
@@ -613,7 +717,8 @@ export async function POST(request: NextRequest) {
       if (interviewSessionId && response) {
         const messageType = decision.action === 'end_interview' ? 'closing' : 
                            decision.action === 'next_question' ? 'main_question' : 
-                           decision.action === 'introduction' ? 'transition' : 'follow_up'
+                           decision.action === 'introduction' ? 'transition' : 
+                           decision.action === 'recovery' ? 'follow_up' : 'follow_up'
         
         // relatedMainQuestionId already set above for main questions
         // For follow-ups and closing, it remains null
