@@ -231,13 +231,28 @@ function getCommunicationStyleInstructions(communicationStyle: string, interview
 
 // Helper function to get decision-specific guidance
 function getDecisionGuidance(
-  action: 'follow_up' | 'next_question' | 'end_interview', 
+  action: 'introduction' | 'follow_up' | 'next_question' | 'end_interview', 
   sessionContext: SessionContext | null, 
   recentConversation: ConversationTurn[] = []
 ): string {
   const questions = sessionContext?.interview_questions || []
   
   switch (action) {
+    case 'introduction':
+      // Extract company name from job description for personalization
+      const jobContent = sessionContext?.job_descriptions?.[0]?.job_content || ''
+      const companyNameMatch = jobContent.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/)?.[1] || 'the company'
+      
+      return `DECISION: Provide a warm, personalized introduction based on your communication style and interview type. 
+      
+      Include:
+      - Brief personal introduction as the interviewer
+      - Reference to the company: "${companyNameMatch}"
+      - Mention the interview type: "${sessionContext?.interview_type || 'interview'}"
+      - Set the tone based on your communication style
+      - Keep it concise (1-2 sentences) and natural for voice
+      
+      Example framework: "Hi! I'm [Name/Persona], and I'm excited to conduct your [interview_type] interview with [company] today!"`
     case 'follow_up':
       return "DECISION: Ask a follow-up question to get more depth on the current topic. Probe for specific examples, challenges, or outcomes."
     case 'next_question':
@@ -268,7 +283,7 @@ async function analyzeConversationAndDecide(
   sessionContext: SessionContext | null,
   recentConversation: ConversationTurn[],
   currentResponse: string
-): Promise<{ action: 'follow_up' | 'next_question' | 'end_interview', reasoning: string }> {
+): Promise<{ action: 'introduction' | 'follow_up' | 'next_question' | 'end_interview', reasoning: string }> {
   try {
     const questions = sessionContext?.interview_questions || []
     const mainQuestions = questions
@@ -319,11 +334,11 @@ async function analyzeConversationAndDecide(
       }
     }
 
-    // If this is the very first conversation turn, start with first main question
-    if (recentConversation.length === 0) {
+    // Deterministic introduction detection: if no main questions have been asked yet, show introduction
+    if (usedQuestionIds.size === 0) {
       return {
-        action: 'next_question',
-        reasoning: 'Starting interview with first main question'
+        action: 'introduction',
+        reasoning: 'No main questions asked yet - showing introduction'
       }
     }
 
@@ -369,13 +384,14 @@ MAIN QUESTIONS ASKED SO FAR: ${mainQuestionsAsked} out of ${totalQuestions}
 FOLLOW-UPS SINCE LAST MAIN QUESTION: ${followUpsSinceLastMain} (max: ${MAX_FOLLOWUPS_PER_QUESTION})
 
 Analyze the candidate's response and decide:
-1. "follow_up" - if the response needs clarification or more depth (but you haven't hit the follow-up limit)
-2. "next_question" - if the response is sufficient OR you've had enough follow-ups on this topic
-3. "end_interview" - if all main questions have been thoroughly covered
+1. "introduction" - if no main questions have been asked yet (first turn)
+2. "follow_up" - if the response needs clarification or more depth (but you haven't hit the follow-up limit)
+3. "next_question" - if the response is sufficient OR you've had enough follow-ups on this topic
+4. "end_interview" - if all main questions have been thoroughly covered
 
 Respond with JSON only:
 {
-  "action": "follow_up|next_question|end_interview",
+  "action": "introduction|follow_up|next_question|end_interview",
   "reasoning": "Brief explanation of your decision"
 }`
 
@@ -500,18 +516,11 @@ export async function POST(request: NextRequest) {
     // Generate AI response
     try {
       // Use decision engine to determine next action
-      let decision: { action: 'follow_up' | 'next_question' | 'end_interview', reasoning: string } = { action: 'follow_up', reasoning: 'Default behavior' }
+      let decision: { action: 'introduction' | 'follow_up' | 'next_question' | 'end_interview', reasoning: string } = { action: 'follow_up', reasoning: 'Default behavior' }
       
-      // Special case: if this is the very first interviewer response, start with main question
-      const hasInterviewerResponses = recentConversation.some(turn => turn.speaker === 'interviewer')
-      
-      if (!hasInterviewerResponses && sessionContext?.interview_questions?.length) {
-        decision = {
-          action: 'next_question',
-          reasoning: 'First interviewer response - starting with first main question'
-        }
-      } else if (sessionContext && text) {
-        decision = await analyzeConversationAndDecide(sessionContext, recentConversation, text)
+      // Use decision engine for all cases (including first turn)
+      if (sessionContext && recentConversation.length >= 0) {
+        decision = await analyzeConversationAndDecide(sessionContext, recentConversation, text || '')
       }
       
       // Build conversation history for context
@@ -603,7 +612,8 @@ export async function POST(request: NextRequest) {
       // Store interviewer response in conversation
       if (interviewSessionId && response) {
         const messageType = decision.action === 'end_interview' ? 'closing' : 
-                           decision.action === 'next_question' ? 'main_question' : 'follow_up'
+                           decision.action === 'next_question' ? 'main_question' : 
+                           decision.action === 'introduction' ? 'transition' : 'follow_up'
         
         // relatedMainQuestionId already set above for main questions
         // For follow-ups and closing, it remains null

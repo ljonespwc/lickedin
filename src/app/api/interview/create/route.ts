@@ -170,10 +170,10 @@ export async function POST(request: NextRequest) {
 Generate ${questionCount || 5} personalized interview questions based on the following context:
 
 CANDIDATE BACKGROUND:
-${resumeData.parsed_content?.substring(0, 1500) || 'No resume content available'}
+${resumeData.parsed_content || 'No resume content available'}
 
 JOB REQUIREMENTS:
-${jobData.job_content?.substring(0, 1500) || 'No job description available'}
+${jobData.job_content || 'No job description available'}
 
 INTERVIEW CONFIGURATION:
 - DIFFICULTY: ${difficultyMap[difficulty as keyof typeof difficultyMap] || getDifficultyDescription(difficulty)}
