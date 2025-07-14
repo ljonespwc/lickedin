@@ -9,12 +9,11 @@ function validateJobContent(content: string): { isValid: boolean; reason?: strin
     return { isValid: false, reason: 'Content too short (less than 100 characters)' }
   }
   
-  if (content.toLowerCase().includes('sign in') || content.toLowerCase().includes('linkedin')) {
-    return { isValid: false, reason: 'LinkedIn login/redirect page detected' }
-  }
-  
-  if (content.includes('We\u2019re signing you in') || content.includes('Your California Privacy Choices')) {
-    return { isValid: false, reason: 'LinkedIn authentication page detected' }
+  // Simple LinkedIn validation - check for "About this job" section
+  if (content.toLowerCase().includes('linkedin.com') || content.toLowerCase().includes('linkedin')) {
+    if (!content.toLowerCase().includes('about this job') && !content.toLowerCase().includes('about the job')) {
+      return { isValid: false, reason: 'Content appears to be incomplete or not a job posting (insufficient job-related keywords)' }
+    }
   }
   
   // Check for job-related keywords - require multiple matches for better validation
@@ -192,8 +191,58 @@ export async function POST(request: NextRequest) {
         if (response.ok) {
           const html = await response.text()
           
-          // Clean up the HTML content more thoroughly
-          jobContent = html
+          // Check if this is a LinkedIn job posting URL
+          const isLinkedInJob = jobUrl.includes('linkedin.com/jobs')
+          
+          if (isLinkedInJob) {
+            // LinkedIn-specific parsing: extract "About the job" content
+            console.log('LinkedIn job detected - extracting job description section')
+            
+            // Look for job description content patterns
+            const jobDescriptionPatterns = [
+              /About the job([\s\S]*?)(?=Show more|Show less|Similar jobs|$)/i,
+              /Job description([\s\S]*?)(?=Show more|Show less|Similar jobs|$)/i,
+              /About The Role([\s\S]*?)(?=About You|You Might Thrive|What You'll|Why You Should|$)/i,
+              /About the role([\s\S]*?)(?=About you|You might thrive|What you'll|Why you should|$)/i
+            ]
+            
+            let extractedContent = ''
+            for (const pattern of jobDescriptionPatterns) {
+              const match = html.match(pattern)
+              if (match && match[1].trim()) {
+                extractedContent = match[1].trim()
+                break
+              }
+            }
+            
+            // If no specific pattern found, try to extract main content section
+            if (!extractedContent) {
+              // Remove navigation and login elements, keep job content
+              const cleanHtml = html
+                .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+                .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+                .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+              
+              // Extract text and look for job content after company name
+              const textContent = cleanHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
+              
+              // Try to find job content after role title
+              const roleMatch = textContent.match(/(?:About The Role|About the role|Job description|About the job)([\s\S]*?)(?:About You|You Might Thrive|What You'll|Why You Should|Similar jobs|$)/i)
+              if (roleMatch) {
+                extractedContent = roleMatch[1].trim()
+              }
+            }
+            
+            jobContent = extractedContent || html
+          } else {
+            // Non-LinkedIn: use existing general cleaning
+            jobContent = html
+          }
+          
+          // Apply general cleaning to all content
+          jobContent = jobContent
             // Remove script and style tags completely
             .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
             .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -206,7 +255,7 @@ export async function POST(request: NextRequest) {
             // Remove LinkedIn-specific artifacts
             .replace(/\b(getDfd|lazyloader|tracking|impressionTracking|ingraphTracking|appDetection|pemTracking)\b[^;]*;?/g, '')
             // Remove common navigation/footer text
-            .replace(/Skip to main content|Join now|Sign in|LinkedIn|Privacy Policy|Cookie Policy/gi, '')
+            .replace(/Skip to main content|Join now|Sign in|Privacy Policy|Cookie Policy/gi, '')
             // Clean up whitespace
             .replace(/\s+/g, ' ')
             .replace(/\n\s*\n/g, '\n')
