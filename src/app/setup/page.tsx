@@ -8,6 +8,7 @@ import type { User } from '@supabase/supabase-js'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Progress } from "@/components/ui/progress"
 import { Upload, FileText, Link, CheckCircle } from "lucide-react"
 import Image from 'next/image'
@@ -18,10 +19,18 @@ const Setup = () => {
   const [resumeFile, setResumeFile] = useState<File | null>(null)
   const [resumeText, setResumeText] = useState<string>('')
   const [jobUrl, setJobUrl] = useState('')
+  const [jobText, setJobText] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [processingStep, setProcessingStep] = useState(0)
   const [isComplete, setIsComplete] = useState(false)
   const [error, setError] = useState<string>('')
+  const [validationResults, setValidationResults] = useState<{
+    isValid: boolean
+    reason?: string
+    contentPreview?: string
+    scrapingError?: string
+    source?: string
+  } | null>(null)
 
   // Check authentication
   useEffect(() => {
@@ -51,6 +60,7 @@ const Setup = () => {
     "Analyzing your background and job requirements...",
     "Resume parsed successfully",
     "Extracting job requirements...",
+    "Validating job description quality...",
     "Setup complete - ready for customization"
   ]
 
@@ -91,7 +101,7 @@ const Setup = () => {
   })
 
   const handleFetchJobDetails = async () => {
-    if (!resumeFile || !jobUrl) return
+    if (!resumeFile || (!jobUrl && !jobText)) return
     
     // Double-check authentication before making API call
     const { data: { session } } = await supabase.auth.getSession()
@@ -113,6 +123,7 @@ const Setup = () => {
       const formData = new FormData()
       formData.append('resume', resumeFile)
       formData.append('jobUrl', jobUrl)
+      formData.append('jobText', jobText)
       formData.append('resumeText', resumeText)
 
       // Call API to process resume and job URL
@@ -130,7 +141,12 @@ const Setup = () => {
         throw new Error(errorData.error || 'Failed to process files')
       }
 
-      await response.json()
+      const responseData = await response.json()
+      
+      // Store validation results from API response
+      if (responseData.jobValidation) {
+        setValidationResults(responseData.jobValidation)
+      }
 
       // Simulate processing steps for better UX
       const interval = setInterval(() => {
@@ -232,23 +248,80 @@ const Setup = () => {
                 </div>
                 
                 <div className="space-y-4">
-                  <Input
-                    placeholder="https://company.com/jobs/123"
-                    value={jobUrl}
-                    onChange={(e) => setJobUrl(e.target.value)}
-                    className="h-12"
-                  />
-                  <p className="text-sm text-muted-foreground">Paste job URL here</p>
+                  {/* Option 1: URL */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Option 1: Paste Job URL</label>
+                    <Input
+                      placeholder="https://company.com/jobs/123"
+                      value={jobUrl}
+                      onChange={(e) => {
+                        setJobUrl(e.target.value)
+                        if (e.target.value && jobText) {
+                          setJobText('') // Clear text if URL is entered
+                        }
+                        setValidationResults(null) // Clear validation when input changes
+                      }}
+                      className="h-12"
+                      disabled={!!jobText}
+                    />
+                  </div>
                   
+                  {/* OR Divider */}
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">OR</span>
+                    </div>
+                  </div>
+                  
+                  {/* Option 2: Manual Text */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Option 2: Paste Job Description</label>
+                    <Textarea
+                      placeholder="Paste the full job description here..."
+                      value={jobText}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        if (value.length <= 5000) {
+                          setJobText(value)
+                          if (value && jobUrl) {
+                            setJobUrl('') // Clear URL if text is entered
+                          }
+                          setValidationResults(null) // Clear validation when input changes
+                        }
+                      }}
+                      className="min-h-[120px] resize-none"
+                      disabled={!!jobUrl}
+                    />
+                    <div className="text-xs text-muted-foreground text-right">
+                      {jobText.length}/5000 characters
+                    </div>
+                  </div>
+                  
+                  {/* Success indicators */}
                   {jobUrl && (
-                    <Button 
-                      onClick={handleFetchJobDetails}
-                      className="w-full"
-                      disabled={!resumeFile || isProcessing}
-                    >
-                      Fetch Job Details
-                    </Button>
+                    <div className="flex items-center space-x-2 text-green-600">
+                      <CheckCircle size={16} />
+                      <span className="text-sm">Job URL ready for processing</span>
+                    </div>
                   )}
+                  
+                  {jobText && (
+                    <div className="flex items-center space-x-2 text-green-600">
+                      <CheckCircle size={16} />
+                      <span className="text-sm">Job description ready ({jobText.length} characters)</span>
+                    </div>
+                  )}
+                  
+                  <Button 
+                    onClick={handleFetchJobDetails}
+                    className="w-full"
+                    disabled={!resumeFile || !(jobUrl || jobText) || isProcessing || (isComplete && validationResults?.isValid)}
+                  >
+                    {jobText ? 'Process Job Description' : 'Fetch Job Details'}
+                  </Button>
                 </div>
               </div>
             </div>
@@ -282,6 +355,31 @@ const Setup = () => {
               {isProcessing && (
                 <Progress value={(processingStep + 1) / processingSteps.length * 100} className="mt-4" />
               )}
+              
+              {/* Validation Results - Only show for warnings/errors */}
+              {validationResults && isComplete && !validationResults.isValid && (
+                <div className="mt-4 p-4 rounded-lg border">
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2 text-amber-600">
+                      <div className="w-4 h-4 border-2 border-amber-600 rounded-full flex items-center justify-center">
+                        <div className="w-2 h-2 bg-amber-600 rounded-full"></div>
+                      </div>
+                      <span className="text-sm font-medium">Job description needs attention</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground ml-6">
+                      {validationResults.reason}
+                    </p>
+                    {validationResults.scrapingError && (
+                      <p className="text-xs text-muted-foreground ml-6">
+                        Scraping error: {validationResults.scrapingError}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground ml-6">
+                      Please re-enter the job description to continue.
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -290,7 +388,7 @@ const Setup = () => {
         <div className="flex justify-center">
           <Button 
             size="lg" 
-            disabled={!isComplete}
+            disabled={!isComplete || (validationResults ? !validationResults.isValid : false)}
             className="px-8"
             onClick={() => router.push('/setup/customize')}
           >

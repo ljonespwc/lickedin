@@ -3,16 +3,49 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { parsePDF } from '@/lib/pdf-parser'
 
+// Validate job description content quality
+function validateJobContent(content: string): { isValid: boolean; reason?: string } {
+  if (!content || content.length < 100) {
+    return { isValid: false, reason: 'Content too short (less than 100 characters)' }
+  }
+  
+  if (content.toLowerCase().includes('sign in') || content.toLowerCase().includes('linkedin')) {
+    return { isValid: false, reason: 'LinkedIn login/redirect page detected' }
+  }
+  
+  if (content.includes('We\u2019re signing you in') || content.includes('Your California Privacy Choices')) {
+    return { isValid: false, reason: 'LinkedIn authentication page detected' }
+  }
+  
+  // Check for job-related keywords - require multiple matches for better validation
+  const jobKeywords = [
+    /\b(role|position|job|career)\b/i,                    // Job titles
+    /\b(responsibilities|duties|tasks)\b/i,               // Job functions  
+    /\b(requirements|qualifications|skills|experience)\b/i, // Job criteria
+    /\b(team|company|organization|department)\b/i,        // Work environment
+    /\b(salary|benefits|compensation|remote|office)\b/i   // Job conditions
+  ]
+  
+  const matchedCategories = jobKeywords.filter(regex => regex.test(content)).length
+  
+  if (matchedCategories < 2) {
+    return { isValid: false, reason: 'Content appears to be incomplete or not a job posting (insufficient job-related keywords)' }
+  }
+  
+  return { isValid: true }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const resumeFile = formData.get('resume') as File
     const jobUrl = formData.get('jobUrl') as string
+    const jobText = formData.get('jobText') as string
     const resumeText = formData.get('resumeText') as string
 
-    if (!resumeFile || !jobUrl) {
+    if (!resumeFile || (!jobUrl && !jobText)) {
       return NextResponse.json(
-        { error: 'Resume file and job URL are required' },
+        { error: 'Resume file and either job URL or job description text are required' },
         { status: 400 }
       )
     }
@@ -130,51 +163,78 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Step 2: Scrape and analyze job description
+    // Step 2: Get job description content (either from manual text or URL scraping)
     let jobContent = ''
+    let scrapingError = ''
     
-    try {
-      // For now, we'll use a simple approach to extract job info
-      // In production, you'd want a more robust scraping solution
-      const response = await fetch(jobUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; LickedIn-Interviews/1.0)'
-        }
-      })
-      
-      if (response.ok) {
-        const html = await response.text()
+    if (jobText && jobText.trim()) {
+      // Use manual job description text (no scraping needed)
+      jobContent = jobText.trim()
+      console.log('Using manual job description text')
+    } else if (jobUrl) {
+      // Scrape job description from URL
+      try {
+        // Use realistic browser headers to avoid bot detection
+        const response = await fetch(jobUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+          },
+          // Add timeout to prevent hanging
+          signal: AbortSignal.timeout(10000) // 10 second timeout
+        })
         
-        // Clean up the HTML content more thoroughly
-        jobContent = html
-          // Remove script and style tags completely
-          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-          // Remove HTML tags
-          .replace(/<[^>]*>/g, ' ')
-          // Remove JavaScript artifacts and function definitions
-          .replace(/function\s+\w+\s*\([^)]*\)\s*\{[^}]*\}/g, '')
-          // Remove window object assignments
-          .replace(/window\.[\w.]+\s*=\s*[^;]+;/g, '')
-          // Remove common web artifacts
-          .replace(/\b(getDfd|lazyloader|tracking|impressionTracking|ingraphTracking|appDetection|pemTracking)\b[^;]*;?/g, '')
-          // Clean up whitespace
-          .replace(/\s+/g, ' ')
-          .replace(/\n\s*\n/g, '\n')
-          .trim()
+        if (response.ok) {
+          const html = await response.text()
+          
+          // Clean up the HTML content more thoroughly
+          jobContent = html
+            // Remove script and style tags completely
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            // Remove HTML tags but preserve spaces
+            .replace(/<[^>]*>/g, ' ')
+            // Remove JavaScript artifacts and function definitions
+            .replace(/function\s+\w+\s*\([^)]*\)\s*\{[^}]*\}/g, '')
+            // Remove window object assignments
+            .replace(/window\.[\w.]+\s*=\s*[^;]+;/g, '')
+            // Remove LinkedIn-specific artifacts
+            .replace(/\b(getDfd|lazyloader|tracking|impressionTracking|ingraphTracking|appDetection|pemTracking)\b[^;]*;?/g, '')
+            // Remove common navigation/footer text
+            .replace(/Skip to main content|Join now|Sign in|LinkedIn|Privacy Policy|Cookie Policy/gi, '')
+            // Clean up whitespace
+            .replace(/\s+/g, ' ')
+            .replace(/\n\s*\n/g, '\n')
+            .trim()
+        } else {
+          scrapingError = `HTTP ${response.status}: ${response.statusText}`
+          jobContent = `Job posting from ${jobUrl} (scraping failed: ${scrapingError})`
+        }
+      } catch (error) {
+        console.error('Job scraping error:', error)
+        if (error instanceof Error) {
+          scrapingError = error.message
+        } else {
+          scrapingError = 'Unknown scraping error'
+        }
+        jobContent = `Job posting from ${jobUrl} (scraping failed: ${scrapingError})`
       }
-    } catch (error) {
-      console.error('Job scraping error:', error)
-      // Continue with limited info if scraping fails
-      jobContent = `Job posting from ${jobUrl}`
     }
 
-    // Step 3: Store job description
+    // Step 3: Validate job content quality
+    const validation = validateJobContent(jobContent)
+    
+    // Step 4: Store job description (even if validation fails, for debugging)
     const { data: jobData, error: jobError } = await supabase
       .from('job_descriptions')
       .insert({
         user_id: user.id,
-        url: jobUrl,
+        url: jobUrl || 'Manual text input',
         job_content: jobContent.substring(0, 10000) // Increased limit for cleaned content
       })
       .select()
@@ -188,12 +248,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Step 4: Return success - questions will be generated later during interview creation
+    // Step 5: Return success with validation status
     return NextResponse.json({
       success: true,
       resumeId: resumeData.id,
       jobDescriptionId: jobData.id,
-      message: 'Resume and job description processed successfully. Questions will be generated during interview setup.'
+      jobValidation: {
+        isValid: validation.isValid,
+        reason: validation.reason,
+        contentPreview: jobContent.substring(0, 200),
+        scrapingError: scrapingError || null,
+        source: jobText ? 'manual_text' : 'url_scraping'
+      },
+      message: validation.isValid 
+        ? `Resume and job description processed successfully${jobText ? ' (manual text)' : ' (URL scraping)'}. Questions will be generated during interview setup.`
+        : `Resume processed successfully. Job description may need review: ${validation.reason}`
     })
 
   } catch (error) {
