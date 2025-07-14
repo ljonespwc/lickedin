@@ -803,7 +803,7 @@ export async function POST(request: NextRequest) {
         console.log(`🎯 Closing check: ${closingTurns} existing turns, candidate response: "${text}", signals end: ${candidateSignalsEnd}`)
 
         // Bulletproof termination - check BEFORE adding this turn
-        if (candidateSignalsEnd || closingTurns >= 4) {
+        if (candidateSignalsEnd || closingTurns >= 8) {
           console.log('🏁 ENDING INTERVIEW:', candidateSignalsEnd ? 'Natural end signal detected' : `${closingTurns + 1} closing turns would exceed limit`)
           
           // Send custom completion event before ending stream
