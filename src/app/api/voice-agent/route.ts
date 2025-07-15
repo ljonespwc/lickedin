@@ -820,25 +820,70 @@ export async function POST(request: NextRequest) {
       
       // Check termination BEFORE storing/streaming response
       if (decision.action === 'end_interview') {
-        // Simple closing turn counter (from existing conversation)
+        // Count existing closing turns
         const closingTurns = recentConversation.filter(turn => 
           turn.speaker === 'interviewer' && turn.message_type === 'closing'
         ).length
 
-        // Expanded natural end signals
-        const candidateSignalsEnd = text && /^(no|nope|i'm good|that's all|thanks|thank you|great|sounds good|perfect|awesome|excellent|wonderful|good to go|all set|i'm all set|nothing else|no more questions|i think that's it|that covers it|i'm satisfied|looks good|sounds great|you too|you as well|likewise|same to you|goodbye|bye)[\s\.\!\?]*$/i.test(text.trim())
+        // Check if candidate asked a question (simple question mark detection)
+        const candidateAskedQuestion = text && text.trim().includes('?')
 
-        console.log(`🎯 Closing check: ${closingTurns} existing turns, candidate response: "${text}", signals end: ${candidateSignalsEnd}`)
+        console.log(`🎯 Closing check: ${closingTurns} existing turns, candidate response: "${text}", asked question: ${candidateAskedQuestion}`)
 
-        // Bulletproof termination - check BEFORE adding this turn
-        if (candidateSignalsEnd || closingTurns >= 8) {
-          console.log('🏁 ENDING INTERVIEW:', candidateSignalsEnd ? 'Natural end signal detected' : `${closingTurns + 1} closing turns would exceed limit`)
+        // New closing logic: if candidate responds without a question in closing phase, end interview
+        if (closingTurns > 0 && !candidateAskedQuestion) {
+          console.log('🏁 ENDING INTERVIEW: Candidate responded without question in closing phase')
           
-          // Send custom completion event before ending stream
+          // Generate final goodbye response first
+          const finalGoodbye = "Thanks so much for your time today, Lance! It was great getting to know you. We'll be in touch soon with next steps. Take care!"
+          
+          // Store final goodbye in conversation
+          if (interviewSessionId) {
+            const finalGoodbyeEntry = {
+              session_id: interviewSessionId,
+              turn_number: nextTurnNumber,
+              speaker: 'interviewer',
+              message_text: finalGoodbye,
+              message_type: 'closing',
+              related_main_question_id: null,
+              word_count: finalGoodbye.split(' ').length
+            }
+            
+            await supabase
+              .from('interview_conversation')
+              .insert(finalGoodbyeEntry)
+          }
+          
+          // Send final goodbye transcription
+          stream.data({
+            type: 'agent_transcription',
+            text: finalGoodbye,
+            timestamp: Date.now()
+          })
+          
+          // Send TTS for final goodbye
+          stream.tts(finalGoodbye)
+          
+          // Send completion event
           stream.data({
             type: 'interview_complete',
             message: 'Interview has ended',
-            reason: candidateSignalsEnd ? 'natural_end_signal' : 'closing_turn_limit',
+            reason: 'natural_closing_completion',
+            timestamp: Date.now()
+          })
+          
+          stream.end()
+          return
+        }
+
+        // Continue if candidate asked a question, but check closing turn limit
+        if (closingTurns >= 8) {
+          console.log('🏁 ENDING INTERVIEW: Maximum closing turns reached')
+          
+          stream.data({
+            type: 'interview_complete',
+            message: 'Interview has ended',
+            reason: 'closing_turn_limit',
             timestamp: Date.now()
           })
           
