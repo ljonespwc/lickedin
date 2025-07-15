@@ -209,6 +209,47 @@ The interview system now features sophisticated conversation flow with personali
 
 This resolves the core interview flow issues and provides a polished, professional interview completion experience.
 
+## Recent Major Achievement: Session Persistence & Natural Closing Logic (July 15, 2025)
+
+### 🎉 **Database-Based Session Mapping & Intelligent Closing - COMPLETED**
+**Status**: ✅ Fully implemented and tested successfully
+
+**Problems Solved**: 
+1. **Session Mapping Loss**: Interviews were losing context mid-conversation due to serverless function restarts, causing AI to restart from Q1
+2. **Extended Goodbye Loops**: Interviews continued with unnecessary farewell exchanges instead of ending naturally when candidates were satisfied
+
+**Technical Solutions Implemented**:
+
+#### 1. **Database Session Persistence**
+- **Added**: `layercode_session_id TEXT` column to `interview_sessions` table
+- **Updated**: Voice-auth endpoint to store LayerCode session ID in database during authorization
+- **Updated**: Voice-agent endpoint to lookup interview sessions using LayerCode session ID from database
+- **Removed**: Fragile in-memory sessionMapping dependency
+- **Result**: ✅ Session mapping now survives serverless function restarts
+
+#### 2. **Natural Closing Logic**
+- **Replaced**: Complex regex pattern matching with simple question mark detection (`text.includes('?')`)
+- **Implemented**: Two-phase closing logic:
+  - If candidate asks question in closing phase → Continue conversation (up to 8 turns max)
+  - If candidate responds without question → Generate final goodbye + terminate immediately
+- **Added**: Automatic final goodbye generation with proper conversation storage
+- **Result**: ✅ Natural conversation endings without extended goodbye loops
+
+**Key Technical Flow**:
+1. **Authorization**: `voice-auth` stores LayerCode session ID in database
+2. **Voice Processing**: `voice-agent` looks up interview session using LayerCode session ID
+3. **Closing Detection**: Simple question mark detection determines continuation vs termination
+4. **Natural Ending**: Final goodbye generated automatically when candidate signals satisfaction
+
+**Test Results**:
+- ✅ Session mapping persists throughout entire conversation
+- ✅ All 5 main questions asked in proper order with appropriate follow-ups
+- ✅ Natural conversation flow with intelligent closing detection
+- ✅ Clean termination when candidate expresses satisfaction
+- ✅ No more session loss errors or extended goodbye loops
+
+This implementation provides robust session persistence and natural conversation endings, creating a professional interview experience that feels authentically human.
+
 ## Recent Major Achievement: Modern Interview Customization System (July 13, 2025)
 
 ### 🎨 **Complete Frontend & Backend Customization Overhaul - COMPLETED**
