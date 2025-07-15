@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sessionMapping } from '../session-mapping'
-// Note: Supabase imports available for future authentication integration
-// import { createServerClient } from '@supabase/ssr'
-// import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,13 +49,21 @@ export async function POST(request: NextRequest) {
 
     const layercodeData = await layercodeResponse.json()
     
-    // Store the session mapping if LayerCode returned a session ID
+    // Store the LayerCode session ID in the database
     if (layercodeData.session_id && interviewSessionId) {
-      sessionMapping.set(layercodeData.session_id, interviewSessionId)
-      console.log('✅ Session mapping stored:', {
-        layercodeSessionId: layercodeData.session_id,
-        interviewSessionId: interviewSessionId
-      })
+      const { error: updateError } = await supabase
+        .from('interview_sessions')
+        .update({ layercode_session_id: layercodeData.session_id })
+        .eq('id', interviewSessionId)
+      
+      if (updateError) {
+        console.error('❌ Error storing LayerCode session ID:', updateError)
+      } else {
+        console.log('✅ LayerCode session ID stored in database:', {
+          layercodeSessionId: layercodeData.session_id,
+          interviewSessionId: interviewSessionId
+        })
+      }
     }
     
     // Return exactly what LayerCode API returns for React SDK compatibility

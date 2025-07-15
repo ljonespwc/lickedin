@@ -50,6 +50,7 @@ CREATE TABLE interview_sessions (
   question_count INTEGER NOT NULL DEFAULT 5,
   status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'in_progress', 'paused', 'completed', 'abandoned'
   overall_score DECIMAL(5,2), -- 0-100 score
+  layercode_session_id TEXT, -- LayerCode session ID for voice integration mapping
   started_at TIMESTAMP WITH TIME ZONE,
   completed_at TIMESTAMP WITH TIME ZONE,
   total_duration_seconds INTEGER,

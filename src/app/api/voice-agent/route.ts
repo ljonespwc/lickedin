@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { streamResponse, verifySignature } from '@layercode/node-server-sdk'
 import { createClient } from '@supabase/supabase-js'
-import { sessionMapping } from '../session-mapping'
 
 // Type definitions
 interface ConversationTurn {
@@ -654,10 +653,39 @@ export async function POST(request: NextRequest) {
     const layercodeSessionId = session_id || session_context?.sessionId
     
     // Look up our interview session ID using the LayerCode session ID
-    const interviewSessionId = sessionMapping.get(layercodeSessionId || '')
+    let interviewSessionId: string | null = null
     
-    if (!interviewSessionId) {
-      console.error('No interview session mapping found for LayerCode session:', layercodeSessionId)
+    if (layercodeSessionId) {
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('interview_sessions')
+        .select('id')
+        .eq('layercode_session_id', layercodeSessionId)
+        .single()
+      
+      if (sessionError || !sessionData) {
+        console.error('❌ No interview session found for LayerCode session:', layercodeSessionId, sessionError)
+        
+        // Send error response and end stream
+        stream.data({
+          type: 'error',
+          message: 'Session not found - please restart the interview',
+          timestamp: Date.now()
+        })
+        stream.end()
+        return
+      } else {
+        interviewSessionId = sessionData.id
+        console.log('✅ Found interview session:', interviewSessionId, 'for LayerCode session:', layercodeSessionId)
+      }
+    } else {
+      console.error('❌ No LayerCode session ID provided')
+      stream.data({
+        type: 'error',
+        message: 'No session ID provided',
+        timestamp: Date.now()
+      })
+      stream.end()
+      return
     }
     
     // Fetch session context if available
