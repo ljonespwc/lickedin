@@ -110,14 +110,18 @@ const Setup = () => {
     }
     
     // Get session and access token (same as working pages)
+    console.log('🔍 About to call supabase.auth.getSession()...')
     const { data: { session } } = await supabase.auth.getSession()
+    console.log('✅ Got session:', !!session)
     
     if (!session?.user) {
+      console.log('❌ No session user, redirecting')
       router.push('/')
       return
     }
 
     const accessToken = session.access_token
+    console.log('✅ Got access token:', !!accessToken)
     
     console.log('🚀 Starting processing...')
     setIsProcessing(true)
