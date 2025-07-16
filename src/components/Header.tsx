@@ -3,32 +3,35 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getMostRecentInterview } from '@/lib/interview-utils'
+import { handleSmartResultsNavigation, hasCompletedInterviews } from '@/lib/interview-utils'
 import { handleSignOut } from '@/lib/auth-utils'
 import { Button } from "@/components/ui/button"
-import { FileText } from "lucide-react"
+import { FileText, BarChart3 } from "lucide-react"
 import Image from 'next/image'
 import type { User } from '@supabase/supabase-js'
 
 interface HeaderProps {
-  currentSessionId?: string
+  currentSessionId?: string // Keep for potential future use
 }
 
 export const Header = ({ currentSessionId }: HeaderProps) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _ = currentSessionId // Acknowledge unused prop
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
-  const [mostRecentInterviewId, setMostRecentInterviewId] = useState<string | null>(null)
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isLoadingResults, setIsLoadingResults] = useState(false)
+  const [hasInterviews, setHasInterviews] = useState(false)
 
-  // Load user and recent interview
+  // Load user authentication state and check for interviews
   useEffect(() => {
     const loadUserData = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       setUser(session?.user ?? null)
       
       if (session?.user) {
-        const recentInterviewId = await getMostRecentInterview(session.user.id)
-        setMostRecentInterviewId(recentInterviewId)
+        const hasInterviewsResult = await hasCompletedInterviews(session.user.id)
+        setHasInterviews(hasInterviewsResult)
       }
     }
     
@@ -38,10 +41,10 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null)
       if (session?.user) {
-        const recentInterviewId = await getMostRecentInterview(session.user.id)
-        setMostRecentInterviewId(recentInterviewId)
+        const hasInterviewsResult = await hasCompletedInterviews(session.user.id)
+        setHasInterviews(hasInterviewsResult)
       } else {
-        setMostRecentInterviewId(null)
+        setHasInterviews(false)
       }
     })
 
@@ -57,10 +60,7 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
       // Use the proper auth-utils function that clears localStorage
       const success = await handleSignOut(router, setUser)
       
-      if (success) {
-        // Clear local state
-        setMostRecentInterviewId(null)
-      } else {
+      if (!success) {
         // Reset state on error
         setIsSigningOut(false)
       }
@@ -75,10 +75,36 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
     router.push('/')
   }
 
-  const handleLatestResults = () => {
-    if (mostRecentInterviewId) {
-      router.push(`/results/${mostRecentInterviewId}`)
+  const handleSmartResults = async () => {
+    if (!user || isLoadingResults) return
+    
+    setIsLoadingResults(true)
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        router.push('/')
+        return
+      }
+
+      const result = await handleSmartResultsNavigation(user.id, session.access_token)
+      
+      if (result.success && result.sessionId) {
+        router.push(`/results/${result.sessionId}`)
+      } else {
+        // Don't show alert, just update the hasInterviews state
+        setHasInterviews(result.hasInterviews)
+      }
+    } catch (error) {
+      console.error('Error handling smart results:', error)
+      // Don't show alert, just log the error
+    } finally {
+      setIsLoadingResults(false)
     }
+  }
+
+  const handleDashboard = () => {
+    router.push('/dashboard')
   }
 
   return (
@@ -101,21 +127,35 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
         </div>
         
         <div className="flex items-center space-x-4">
-          {user?.email && (
-            <span className="text-sm text-muted-foreground">{user.email}</span>
-          )}
-          
-          {mostRecentInterviewId && mostRecentInterviewId !== currentSessionId && (
+          {user && (
             <Button 
               type="button"
               variant="ghost" 
               size="sm"
-              onClick={handleLatestResults}
+              onClick={handleDashboard}
+              className="flex items-center gap-2"
+            >
+              <BarChart3 size={16} />
+              Dashboard
+            </Button>
+          )}
+          
+          {user && hasInterviews && (
+            <Button 
+              type="button"
+              variant="ghost" 
+              size="sm"
+              onClick={handleSmartResults}
+              disabled={isLoadingResults}
               className="flex items-center gap-2"
             >
               <FileText size={16} />
-              Latest Results
+              {isLoadingResults ? 'Loading...' : 'Latest Results'}
             </Button>
+          )}
+          
+          {user?.email && (
+            <span className="text-sm text-muted-foreground">{user.email}</span>
           )}
           
           {user && (
