@@ -29,7 +29,7 @@ const Setup = () => {
     scrapingError?: string
     source?: string
   } | null>(null)
-  const [session, setSession] = useState<any>(null)
+  const [session, setSession] = useState<{ user: { id: string }; access_token: string } | null>(null)
 
   // Check authentication
   useEffect(() => {
