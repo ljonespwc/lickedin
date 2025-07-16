@@ -3,18 +3,16 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { Header } from '@/components/Header'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { User, Flame, ArrowLeft, Briefcase } from "lucide-react"
-import Image from 'next/image'
 
 const SetupCustomize = () => {
   const router = useRouter()
-  const [user, setUser] = useState<SupabaseUser | null>(null)
   const [difficulty, setDifficulty] = useState<number[]>([1])
   const [interviewType, setInterviewType] = useState('')
   const [voiceGender, setVoiceGender] = useState('')
@@ -25,7 +23,6 @@ const SetupCustomize = () => {
   useEffect(() => {
     const getUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
       
       if (!session?.user) {
         router.push('/')
@@ -35,8 +32,7 @@ const SetupCustomize = () => {
     getUser()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session?.user) {
         router.push('/')
       }
@@ -149,26 +145,7 @@ const SetupCustomize = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <Image 
-              src="/lickedin-logo.png" 
-              alt="LickedIn Logo" 
-              width={83} 
-              height={40} 
-              className="h-10"
-            />
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-muted-foreground">{user?.email}</span>
-            <Button variant="outline" onClick={() => supabase.auth.signOut()}>
-              Sign Out
-            </Button>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="mb-8">

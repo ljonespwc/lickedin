@@ -1,6 +1,472 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import OpenAI from 'openai'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
+
+// Types for analysis
+interface ConversationTurn {
+  turn_number: number
+  speaker: 'interviewer' | 'candidate'
+  message_text: string
+  message_type: 'main_question' | 'follow_up' | 'response' | 'transition' | 'closing'
+  related_main_question_id?: string
+  word_count?: number
+}
+
+interface InterviewContext {
+  interview_type: string
+  communication_style: string
+  difficulty_level: string
+  resume_content: string
+  job_content: string
+}
+
+interface ResponseAnalysis {
+  response_id: string
+  question_text: string
+  response_text: string
+  quality_score: number
+  strengths: string[]
+  weaknesses: string[]
+  improvement_suggestions: string[]
+  keyword_alignment: string[]
+  missed_opportunities: string[]
+}
+
+// Helper function to analyze individual response quality
+async function analyzeResponseQuality(
+  questionText: string,
+  responseText: string,
+  context: InterviewContext
+): Promise<ResponseAnalysis> {
+  const prompt = `You are an expert interview coach analyzing a candidate's response. 
+
+INTERVIEW CONTEXT:
+- Interview Type: ${context.interview_type}
+- Communication Style: ${context.communication_style}
+- Difficulty Level: ${context.difficulty_level}
+
+CANDIDATE'S RESUME:
+${context.resume_content}
+
+JOB REQUIREMENTS:
+${context.job_content}
+
+INTERVIEW QUESTION:
+${questionText}
+
+CANDIDATE'S RESPONSE:
+${responseText}
+
+Please provide a comprehensive analysis of this response. Consider:
+1. How well does it answer the question?
+2. Does it demonstrate relevant skills from their resume?
+3. How well does it align with the job requirements?
+4. Are there specific examples and concrete details?
+5. Is the communication style appropriate for the interview type?
+
+Respond with JSON only:
+{
+  "quality_score": 0-100,
+  "strengths": ["strength1", "strength2"],
+  "weaknesses": ["weakness1", "weakness2"],
+  "improvement_suggestions": ["suggestion1", "suggestion2"],
+  "keyword_alignment": ["keyword1", "keyword2"],
+  "missed_opportunities": ["opportunity1", "opportunity2"]
+}`
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert interview coach. Respond only with valid JSON."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 800
+    })
+
+    const response = completion.choices[0]?.message?.content || '{}'
+    const analysis = JSON.parse(response)
+    
+    return {
+      response_id: '',
+      question_text: questionText,
+      response_text: responseText,
+      quality_score: analysis.quality_score || 75,
+      strengths: analysis.strengths || [],
+      weaknesses: analysis.weaknesses || [],
+      improvement_suggestions: analysis.improvement_suggestions || [],
+      keyword_alignment: analysis.keyword_alignment || [],
+      missed_opportunities: analysis.missed_opportunities || []
+    }
+  } catch (error) {
+    console.error('Error analyzing response:', error)
+    return {
+      response_id: '',
+      question_text: questionText,
+      response_text: responseText,
+      quality_score: 75,
+      strengths: ['Response provided'],
+      weaknesses: ['Could use more specific examples'],
+      improvement_suggestions: ['Add concrete examples and metrics'],
+      keyword_alignment: [],
+      missed_opportunities: []
+    }
+  }
+}
+
+// Helper function to analyze resume utilization
+async function analyzeResumeUtilization(
+  resumeContent: string,
+  conversation: ConversationTurn[],
+  context: InterviewContext
+): Promise<{
+  skills_mentioned: string[]
+  skills_missed: string[]
+  experiences_mentioned: string[]
+  experiences_missed: string[]
+  utilization_score: number
+  missed_opportunities: string[]
+}> {
+  const candidateResponses = conversation
+    .filter(turn => turn.speaker === 'candidate')
+    .map(turn => turn.message_text)
+    .join('\n')
+
+  const prompt = `You are an expert career coach analyzing how well a candidate utilized their resume during an interview.
+
+INTERVIEW CONTEXT:
+- Interview Type: ${context.interview_type}
+- Communication Style: ${context.communication_style}
+
+CANDIDATE'S RESUME:
+${resumeContent}
+
+CANDIDATE'S INTERVIEW RESPONSES:
+${candidateResponses}
+
+Analyze how effectively the candidate used their resume content during the interview. Consider:
+1. Which skills from their resume were mentioned vs. omitted?
+2. Which work experiences were referenced vs. missed?
+3. What stories or achievements could they have shared but didn't?
+4. How well did they tailor their resume content to the interview type?
+
+Respond with JSON only:
+{
+  "skills_mentioned": ["skill1", "skill2"],
+  "skills_missed": ["skill3", "skill4"],
+  "experiences_mentioned": ["experience1", "experience2"],
+  "experiences_missed": ["experience3", "experience4"],
+  "utilization_score": 0-100,
+  "missed_opportunities": ["opportunity1", "opportunity2"]
+}`
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert career coach. Respond only with valid JSON."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 600
+    })
+
+    const response = completion.choices[0]?.message?.content || '{}'
+    const analysis = JSON.parse(response)
+    
+    return {
+      skills_mentioned: analysis.skills_mentioned || [],
+      skills_missed: analysis.skills_missed || [],
+      experiences_mentioned: analysis.experiences_mentioned || [],
+      experiences_missed: analysis.experiences_missed || [],
+      utilization_score: analysis.utilization_score || 70,
+      missed_opportunities: analysis.missed_opportunities || []
+    }
+  } catch (error) {
+    console.error('Error analyzing resume utilization:', error)
+    return {
+      skills_mentioned: [],
+      skills_missed: [],
+      experiences_mentioned: [],
+      experiences_missed: [],
+      utilization_score: 70,
+      missed_opportunities: []
+    }
+  }
+}
+
+// Helper function to analyze job fit
+async function analyzeJobFit(
+  jobContent: string,
+  conversation: ConversationTurn[],
+  context: InterviewContext
+): Promise<{
+  requirements_covered: string[]
+  requirements_missed: string[]
+  keyword_matches: string[]
+  fit_score: number
+  gap_analysis: string[]
+}> {
+  const candidateResponses = conversation
+    .filter(turn => turn.speaker === 'candidate')
+    .map(turn => turn.message_text)
+    .join('\n')
+
+  const prompt = `You are an expert talent acquisition specialist analyzing how well a candidate's interview responses align with job requirements.
+
+INTERVIEW CONTEXT:
+- Interview Type: ${context.interview_type}
+- Communication Style: ${context.communication_style}
+
+JOB DESCRIPTION:
+${jobContent}
+
+CANDIDATE'S INTERVIEW RESPONSES:
+${candidateResponses}
+
+Analyze how well the candidate's responses align with the job requirements. Consider:
+1. Which job requirements were directly addressed?
+2. Which key requirements were not covered?
+3. What job-relevant keywords did they use?
+4. How well do they fit the role based on their responses?
+5. What are the main gaps between their responses and job needs?
+
+Respond with JSON only:
+{
+  "requirements_covered": ["requirement1", "requirement2"],
+  "requirements_missed": ["requirement3", "requirement4"],
+  "keyword_matches": ["keyword1", "keyword2"],
+  "fit_score": 0-100,
+  "gap_analysis": ["gap1", "gap2"]
+}`
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert talent acquisition specialist. Respond only with valid JSON."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 600
+    })
+
+    const response = completion.choices[0]?.message?.content || '{}'
+    const analysis = JSON.parse(response)
+    
+    return {
+      requirements_covered: analysis.requirements_covered || [],
+      requirements_missed: analysis.requirements_missed || [],
+      keyword_matches: analysis.keyword_matches || [],
+      fit_score: analysis.fit_score || 75,
+      gap_analysis: analysis.gap_analysis || []
+    }
+  } catch (error) {
+    console.error('Error analyzing job fit:', error)
+    return {
+      requirements_covered: [],
+      requirements_missed: [],
+      keyword_matches: [],
+      fit_score: 75,
+      gap_analysis: []
+    }
+  }
+}
+
+// Helper function to store AI analysis results in database
+async function storeAnalysisResults(
+  supabaseClient: SupabaseClient,
+  sessionId: string,
+  aiAnalysis: {
+    response_analyses: ResponseAnalysis[]
+    resume_analysis: {
+      skills_mentioned: string[]
+      skills_missed: string[]
+      experiences_mentioned: string[]
+      experiences_missed: string[]
+      utilization_score: number
+      missed_opportunities: string[]
+    }
+    job_fit_analysis: {
+      requirements_covered: string[]
+      requirements_missed: string[]
+      keyword_matches: string[]
+      fit_score: number
+      gap_analysis: string[]
+    }
+    coaching_feedback: {
+      overall_feedback: string
+      strengths: string[]
+      areas_for_improvement: string[]
+      suggested_next_steps: string[]
+      communication_score: number
+      content_score: number
+      confidence_score: number
+    }
+  }
+) {
+  try {
+    const { error } = await supabaseClient
+      .from('interview_feedback')
+      .upsert({
+        session_id: sessionId,
+        overall_feedback: aiAnalysis.coaching_feedback.overall_feedback,
+        strengths: aiAnalysis.coaching_feedback.strengths,
+        areas_for_improvement: aiAnalysis.coaching_feedback.areas_for_improvement,
+        suggested_next_steps: aiAnalysis.coaching_feedback.suggested_next_steps,
+        confidence_score: aiAnalysis.coaching_feedback.confidence_score,
+        communication_score: aiAnalysis.coaching_feedback.communication_score,
+        content_score: aiAnalysis.coaching_feedback.content_score,
+        response_analyses: aiAnalysis.response_analyses,
+        resume_analysis: aiAnalysis.resume_analysis,
+        job_fit_analysis: aiAnalysis.job_fit_analysis,
+        ai_analysis_completed_at: new Date().toISOString(),
+        ai_analysis_version: 1
+      }, {
+        onConflict: 'session_id'
+      })
+
+    if (error) {
+      console.error('Error storing analysis results:', error)
+    } else {
+      console.log('✅ AI analysis results cached successfully for session:', sessionId)
+    }
+  } catch (error) {
+    console.error('Exception storing analysis results:', error)
+  }
+}
+
+// Helper function to generate overall coaching feedback
+async function generateCoachingFeedback(
+  conversation: ConversationTurn[],
+  context: InterviewContext,
+  responseAnalyses: ResponseAnalysis[],
+  resumeAnalysis: {
+    utilization_score: number
+    missed_opportunities: string[]
+  },
+  jobFitAnalysis: {
+    fit_score: number
+    gap_analysis: string[]
+  }
+): Promise<{
+  overall_feedback: string
+  strengths: string[]
+  areas_for_improvement: string[]
+  suggested_next_steps: string[]
+  communication_score: number
+  content_score: number
+  confidence_score: number
+}> {
+  const candidateResponses = conversation
+    .filter(turn => turn.speaker === 'candidate')
+    .map(turn => turn.message_text)
+    .join('\n')
+
+  const prompt = `You are an expert interview coach providing comprehensive feedback to a candidate.
+
+INTERVIEW CONTEXT:
+- Interview Type: ${context.interview_type}
+- Communication Style: ${context.communication_style}
+- Difficulty Level: ${context.difficulty_level}
+
+CONVERSATION SUMMARY:
+${candidateResponses}
+
+RESPONSE ANALYSIS SUMMARY:
+Average Quality Score: ${responseAnalyses.reduce((sum, r) => sum + r.quality_score, 0) / responseAnalyses.length}
+Key Strengths: ${responseAnalyses.flatMap(r => r.strengths).join(', ')}
+Key Weaknesses: ${responseAnalyses.flatMap(r => r.weaknesses).join(', ')}
+
+RESUME UTILIZATION:
+Utilization Score: ${resumeAnalysis.utilization_score}/100
+Missed Opportunities: ${resumeAnalysis.missed_opportunities.join(', ')}
+
+JOB FIT ANALYSIS:
+Fit Score: ${jobFitAnalysis.fit_score}/100
+Gap Analysis: ${jobFitAnalysis.gap_analysis.join(', ')}
+
+Provide comprehensive coaching feedback considering the interview type and style. Be encouraging but honest about areas for improvement.
+
+Respond with JSON only:
+{
+  "overall_feedback": "Comprehensive paragraph about overall performance",
+  "strengths": ["strength1", "strength2", "strength3"],
+  "areas_for_improvement": ["area1", "area2", "area3"],
+  "suggested_next_steps": ["step1", "step2", "step3"],
+  "communication_score": 0-100,
+  "content_score": 0-100,
+  "confidence_score": 0-100
+}`
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert interview coach. Respond only with valid JSON."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 800
+    })
+
+    const response = completion.choices[0]?.message?.content || '{}'
+    const analysis = JSON.parse(response)
+    
+    return {
+      overall_feedback: analysis.overall_feedback || 'Great job completing your interview!',
+      strengths: analysis.strengths || [],
+      areas_for_improvement: analysis.areas_for_improvement || [],
+      suggested_next_steps: analysis.suggested_next_steps || [],
+      communication_score: analysis.communication_score || 75,
+      content_score: analysis.content_score || 75,
+      confidence_score: analysis.confidence_score || 75
+    }
+  } catch (error) {
+    console.error('Error generating coaching feedback:', error)
+    return {
+      overall_feedback: 'Great job completing your interview!',
+      strengths: [],
+      areas_for_improvement: [],
+      suggested_next_steps: [],
+      communication_score: 75,
+      content_score: 75,
+      confidence_score: 75
+    }
+  }
+}
 
 export async function GET(
   request: NextRequest,
@@ -69,10 +535,14 @@ export async function GET(
       )
     }
 
-    // Get interview session
+    // Get interview session with related data
     const { data: session, error: sessionError } = await supabase
       .from('interview_sessions')
-      .select('*')
+      .select(`
+        *,
+        resumes!inner(parsed_content),
+        job_descriptions!inner(job_content)
+      `)
       .eq('id', sessionId)
       .eq('user_id', user.id)
       .single()
@@ -84,7 +554,7 @@ export async function GET(
       )
     }
 
-    // Get interview feedback
+    // Get interview feedback (check for cached analysis first)
     const { data: feedback } = await supabase
       .from('interview_feedback')
       .select('*')
@@ -155,9 +625,130 @@ export async function GET(
       })))
     }
 
+    // Check for cached AI analysis first, then generate if needed
+    let aiAnalysis = null
+    
+    // Check if we have cached analysis
+    const hasCachedAnalysis = feedback?.ai_analysis_completed_at && 
+                             feedback?.response_analyses && 
+                             feedback?.resume_analysis && 
+                             feedback?.job_fit_analysis
+    
+    if (hasCachedAnalysis) {
+      console.log('✅ Using cached AI analysis for session:', sessionId)
+      
+      // Reconstruct aiAnalysis from cached data
+      aiAnalysis = {
+        response_analyses: feedback.response_analyses,
+        resume_analysis: feedback.resume_analysis,
+        job_fit_analysis: feedback.job_fit_analysis,
+        coaching_feedback: {
+          overall_feedback: feedback.overall_feedback,
+          strengths: feedback.strengths,
+          areas_for_improvement: feedback.areas_for_improvement,
+          suggested_next_steps: feedback.suggested_next_steps,
+          communication_score: feedback.communication_score,
+          content_score: feedback.content_score,
+          confidence_score: feedback.confidence_score
+        }
+      }
+    } else if (conversation && conversation.length > 0) {
+      console.log('🔄 Generating fresh AI analysis for session:', sessionId)
+      
+      const interviewContext: InterviewContext = {
+        interview_type: session.interview_type,
+        communication_style: session.communication_style,
+        difficulty_level: session.difficulty_level,
+        resume_content: session.resumes?.parsed_content || '',
+        job_content: session.job_descriptions?.job_content || ''
+      }
+
+      // Group conversation into Q&A pairs for analysis
+      const qaPairs = []
+      let currentQuestion = null
+      let candidateResponses = []
+
+      for (const turn of conversation) {
+        if (turn.speaker === 'interviewer' && (turn.message_type === 'main_question' || turn.message_type === 'follow_up')) {
+          if (currentQuestion && candidateResponses.length > 0) {
+            qaPairs.push({
+              question: currentQuestion,
+              responses: candidateResponses
+            })
+          }
+          currentQuestion = turn
+          candidateResponses = []
+        } else if (turn.speaker === 'candidate' && turn.message_type === 'response') {
+          candidateResponses.push(turn)
+        }
+      }
+      
+      if (currentQuestion && candidateResponses.length > 0) {
+        qaPairs.push({
+          question: currentQuestion,
+          responses: candidateResponses
+        })
+      }
+
+      // Analyze each Q&A pair
+      const responseAnalyses = []
+      for (const pair of qaPairs) {
+        const combinedResponse = pair.responses.map(r => r.message_text).join(' ')
+        const analysis = await analyzeResponseQuality(
+          pair.question.message_text,
+          combinedResponse,
+          interviewContext
+        )
+        analysis.response_id = pair.question.related_main_question_id || `turn_${pair.question.turn_number}`
+        responseAnalyses.push(analysis)
+      }
+
+      // Analyze resume utilization
+      const resumeAnalysis = await analyzeResumeUtilization(
+        interviewContext.resume_content,
+        conversation,
+        interviewContext
+      )
+
+      // Analyze job fit
+      const jobFitAnalysis = await analyzeJobFit(
+        interviewContext.job_content,
+        conversation,
+        interviewContext
+      )
+
+      // Generate overall coaching feedback
+      const coachingFeedback = await generateCoachingFeedback(
+        conversation,
+        interviewContext,
+        responseAnalyses,
+        resumeAnalysis,
+        jobFitAnalysis
+      )
+
+      aiAnalysis = {
+        response_analyses: responseAnalyses,
+        resume_analysis: resumeAnalysis,
+        job_fit_analysis: jobFitAnalysis,
+        coaching_feedback: coachingFeedback
+      }
+      
+      // Store the analysis results in the database for future use
+      await storeAnalysisResults(supabase, sessionId, aiAnalysis)
+    }
+
+    // Transform conversation data for the response
+    const enhancedResponses = transformedResponses.map((response, index) => {
+      const analysis = aiAnalysis?.response_analyses?.[index]
+      return {
+        ...response,
+        analysis: analysis || null
+      }
+    })
+
     return NextResponse.json({
       session,
-      feedback: feedback || {
+      feedback: aiAnalysis?.coaching_feedback || feedback || {
         overall_feedback: "Great job on completing your interview! You showed good communication skills and provided thoughtful responses.",
         strengths: ["Clear communication", "Good examples", "Professional demeanor"],
         areas_for_improvement: ["More specific metrics", "Company research", "Technical depth"],
@@ -170,7 +761,8 @@ export async function GET(
         communication_score: 82,
         content_score: 74
       },
-      responses: transformedResponses
+      responses: enhancedResponses,
+      ai_analysis: aiAnalysis
     })
 
   } catch (error) {

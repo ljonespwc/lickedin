@@ -3,12 +3,24 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { Header } from '@/components/Header'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { BarChart3, MessageSquare, Award, AlertTriangle, Lightbulb } from "lucide-react"
-import Image from 'next/image'
-import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { BarChart3, MessageSquare, Lightbulb, User, Target, Brain, TrendingUp, CheckCircle, XCircle, Star } from "lucide-react"
+
+interface ResponseAnalysis {
+  response_id: string
+  question_text: string
+  response_text: string
+  quality_score: number
+  strengths: string[]
+  weaknesses: string[]
+  improvement_suggestions: string[]
+  keyword_alignment: string[]
+  missed_opportunities: string[]
+}
 
 interface InterviewResults {
   session: {
@@ -16,6 +28,9 @@ interface InterviewResults {
     overall_score: number
     status: string
     completed_at: string
+    interview_type: string
+    communication_style: string
+    difficulty_level: string
   }
   feedback: {
     overall_feedback: string
@@ -33,7 +48,35 @@ interface InterviewResults {
     }
     score: number
     feedback: string
+    analysis: ResponseAnalysis | null
   }>
+  ai_analysis: {
+    response_analyses: ResponseAnalysis[]
+    resume_analysis: {
+      skills_mentioned: string[]
+      skills_missed: string[]
+      experiences_mentioned: string[]
+      experiences_missed: string[]
+      utilization_score: number
+      missed_opportunities: string[]
+    }
+    job_fit_analysis: {
+      requirements_covered: string[]
+      requirements_missed: string[]
+      keyword_matches: string[]
+      fit_score: number
+      gap_analysis: string[]
+    }
+    coaching_feedback: {
+      overall_feedback: string
+      strengths: string[]
+      areas_for_improvement: string[]
+      suggested_next_steps: string[]
+      communication_score: number
+      content_score: number
+      confidence_score: number
+    }
+  } | null
 }
 
 const Results = () => {
@@ -43,14 +86,12 @@ const Results = () => {
   
   const [results, setResults] = useState<InterviewResults | null>(null)
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<SupabaseUser | null>(null)
 
   useEffect(() => {
     const loadResults = async () => {
       try {
         // Get session and access token
         const { data: { session } } = await supabase.auth.getSession()
-        setUser(session?.user ?? null)
         
         if (!session?.user) {
           router.push('/')
@@ -72,6 +113,7 @@ const Results = () => {
         
         const data = await response.json()
         setResults(data)
+        
         setLoading(false)
       } catch (error) {
         console.error('Error loading results:', error)
@@ -109,207 +151,416 @@ const Results = () => {
     )
   }
 
+  // Helper function to get interview type display name
+  const getInterviewTypeDisplay = (type: string) => {
+    const typeMap = {
+      'phone_screening': 'Phone Screening',
+      'technical_screen': 'Technical Screen',
+      'hiring_manager': 'Hiring Manager',
+      'cultural_fit': 'Cultural Fit'
+    }
+    return typeMap[type as keyof typeof typeMap] || type
+  }
+
+  // Helper function to get communication style display name
+  const getCommunicationStyleDisplay = (style: string) => {
+    const styleMap = {
+      'corporate_professional': 'Corporate Professional',
+      'casual_conversational': 'Casual Conversational'
+    }
+    return styleMap[style as keyof typeof styleMap] || style
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <Image 
-              src="/lickedin-logo.png" 
-              alt="LickedIn Logo" 
-              width={83} 
-              height={40} 
-              className="h-10"
-            />
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-muted-foreground">{user?.email}</span>
-            <Button variant="outline" onClick={() => supabase.auth.signOut()}>
-              Sign Out
-            </Button>
-          </div>
-        </div>
-      </header>
+      <Header currentSessionId={sessionId} />
 
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Celebration Header */}
         <div className="text-center mb-8">
           <div className="text-4xl mb-2">🎉</div>
           <h1 className="text-2xl font-semibold text-foreground">Interview Complete!</h1>
+          <p className="text-muted-foreground mt-2">
+            {getInterviewTypeDisplay(results.session.interview_type)} • {getCommunicationStyleDisplay(results.session.communication_style)} • Level {results.session.difficulty_level}
+          </p>
         </div>
 
-        {/* Overall Performance */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <BarChart3 className="text-primary" size={20} />
-              <span>Overall Performance</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center mb-6">
-              <div className="text-4xl font-bold text-foreground mb-2">
-                {results.session.overall_score || 78}/100
-              </div>
-              <div className="text-muted-foreground">Score</div>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Communication:</span>
-                <span className="text-sm font-semibold">
-                  {results.feedback?.communication_score || 82}/100
-                </span>
-              </div>
-              <Progress value={results.feedback?.communication_score || 82} className="h-2" />
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Content:</span>
-                <span className="text-sm font-semibold">
-                  {results.feedback?.content_score || 74}/100
-                </span>
-              </div>
-              <Progress value={results.feedback?.content_score || 74} className="h-2" />
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Confidence:</span>
-                <span className="text-sm font-semibold">
-                  {results.feedback?.confidence_score || 80}/100
-                </span>
-              </div>
-              <Progress value={results.feedback?.confidence_score || 80} className="h-2" />
-            </div>
-          </CardContent>
-        </Card>
+        {/* Tabbed Interface */}
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <BarChart3 size={16} />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="conversation" className="flex items-center gap-2">
+              <MessageSquare size={16} />
+              Conversation
+            </TabsTrigger>
+            <TabsTrigger value="skills" className="flex items-center gap-2">
+              <User size={16} />
+              Skills & Experience
+            </TabsTrigger>
+            <TabsTrigger value="job-fit" className="flex items-center gap-2">
+              <Target size={16} />
+              Job Fit
+            </TabsTrigger>
+            <TabsTrigger value="coaching" className="flex items-center gap-2">
+              <Brain size={16} />
+              Coaching
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Question-by-Question Breakdown */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <MessageSquare className="text-primary" size={20} />
-              <span>Question-by-Question Breakdown</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {results.responses && results.responses.length > 0 ? (
-              results.responses.map((response, index) => (
-                <div key={index} className="border rounded-lg p-4 space-y-2">
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            {/* Overall Performance */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <BarChart3 className="text-primary" size={20} />
+                  <span>Overall Performance</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center mb-6">
+                  <div className="text-4xl font-bold text-foreground mb-2">
+                    {Math.round((results.feedback?.communication_score + results.feedback?.content_score + results.feedback?.confidence_score) / 3) || 78}/100
+                  </div>
+                  <div className="text-muted-foreground">Overall Score</div>
+                </div>
+                
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">
-                      Q{response.question.question_order}: &quot;{response.question.question_text}&quot;
-                    </span>
-                    <span className="font-bold text-primary">
-                      {response.score || 75}/100
+                    <span className="text-sm font-medium">Communication:</span>
+                    <span className="text-sm font-semibold">
+                      {results.feedback?.communication_score || 82}/100
                     </span>
                   </div>
+                  <Progress value={results.feedback?.communication_score || 82} className="h-2" />
                   
-                  <div className="flex items-start space-x-2">
-                    {(response.score || 75) >= 80 ? (
-                      <Award className="text-green-600 mt-0.5" size={16} />
-                    ) : (
-                      <AlertTriangle className="text-yellow-500 mt-0.5" size={16} />
-                    )}
-                    <span className="text-sm text-muted-foreground">
-                      {response.feedback || "Good structure and clear examples"}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Content:</span>
+                    <span className="text-sm font-semibold">
+                      {results.feedback?.content_score || 74}/100
                     </span>
                   </div>
+                  <Progress value={results.feedback?.content_score || 74} className="h-2" />
                   
-                  <div className="flex items-start space-x-2">
-                    <Lightbulb className="text-primary mt-0.5" size={16} />
-                    <span className="text-sm text-muted-foreground">
-                      Try to mention specific metrics next time
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Confidence:</span>
+                    <span className="text-sm font-semibold">
+                      {results.feedback?.confidence_score || 80}/100
                     </span>
+                  </div>
+                  <Progress value={results.feedback?.confidence_score || 80} className="h-2" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Key Insights */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Lightbulb className="text-primary" size={20} />
+                  <span>Key Insights</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {results.feedback?.overall_feedback || "Great job completing your interview!"}
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-medium text-green-600 mb-2 flex items-center gap-2">
+                      <CheckCircle size={16} />
+                      Strengths
+                    </h4>
+                    <ul className="space-y-1">
+                      {results.feedback?.strengths?.map((strength, index) => (
+                        <li key={index} className="text-sm text-muted-foreground">• {strength}</li>
+                      )) || [
+                        <li key="1" className="text-sm text-muted-foreground">• Clear communication</li>,
+                        <li key="2" className="text-sm text-muted-foreground">• Good examples</li>
+                      ]}
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-medium text-yellow-600 mb-2 flex items-center gap-2">
+                      <TrendingUp size={16} />
+                      Areas for Improvement
+                    </h4>
+                    <ul className="space-y-1">
+                      {results.feedback?.areas_for_improvement?.map((area, index) => (
+                        <li key={index} className="text-sm text-muted-foreground">• {area}</li>
+                      )) || [
+                        <li key="1" className="text-sm text-muted-foreground">• More specific examples</li>,
+                        <li key="2" className="text-sm text-muted-foreground">• Company research</li>
+                      ]}
+                    </ul>
                   </div>
                 </div>
-              ))
-            ) : (
-              // Placeholder data if no responses available
-              [
-                {
-                  id: "Q1",
-                  text: "Tell me about yourself",
-                  score: 85,
-                  feedback: "Good structure and clear examples",
-                  tip: "Try to mention specific metrics next time",
-                  status: "good"
-                },
-                {
-                  id: "Q2", 
-                  text: "Why do you want this role?",
-                  score: 72,
-                  feedback: "Answer was too generic",
-                  tip: "Research the company's recent projects",
-                  status: "warning"
-                }
-              ].map((question) => (
-                <div key={question.id} className="border rounded-lg p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{question.id}: &quot;{question.text}&quot;</span>
-                    <span className="font-bold text-primary">{question.score}/100</span>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Conversation Analysis Tab */}
+          <TabsContent value="conversation" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <MessageSquare className="text-primary" size={20} />
+                  <span>Conversation Analysis</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {results.responses && results.responses.length > 0 ? (
+                  results.responses.map((response, index) => (
+                    <div key={index} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">
+                          Q{response.question.question_order}: &quot;{response.question.question_text}&quot;
+                        </span>
+                        <span className="font-bold text-primary">
+                          {response.analysis?.quality_score || 75}/100
+                        </span>
+                      </div>
+                      
+                      {response.analysis && (
+                        <>
+                          {response.analysis.strengths.length > 0 && (
+                            <div className="flex items-start space-x-2">
+                              <CheckCircle className="text-green-600 mt-0.5" size={16} />
+                              <div>
+                                <div className="text-sm font-medium text-green-600 mb-1">Strengths</div>
+                                <ul className="text-sm text-muted-foreground space-y-1">
+                                  {response.analysis.strengths.map((strength, i) => (
+                                    <li key={i}>• {strength}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {response.analysis.improvement_suggestions.length > 0 && (
+                            <div className="flex items-start space-x-2">
+                              <Lightbulb className="text-primary mt-0.5" size={16} />
+                              <div>
+                                <div className="text-sm font-medium text-primary mb-1">Improvement Suggestions</div>
+                                <ul className="text-sm text-muted-foreground space-y-1">
+                                  {response.analysis.improvement_suggestions.map((suggestion, i) => (
+                                    <li key={i}>• {suggestion}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">No conversation data available</p>
                   </div>
-                  
-                  <div className="flex items-start space-x-2">
-                    {question.status === "good" ? (
-                      <Award className="text-green-600 mt-0.5" size={16} />
-                    ) : (
-                      <AlertTriangle className="text-yellow-500 mt-0.5" size={16} />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Skills & Experience Tab */}
+          <TabsContent value="skills" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <User className="text-primary" size={20} />
+                  <span>Resume Utilization</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {results.ai_analysis?.resume_analysis ? (
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-foreground mb-2">
+                        {results.ai_analysis.resume_analysis.utilization_score}/100
+                      </div>
+                      <div className="text-muted-foreground">Resume Utilization Score</div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h4 className="font-medium text-green-600 mb-3 flex items-center gap-2">
+                          <CheckCircle size={16} />
+                          Skills Mentioned
+                        </h4>
+                        <div className="space-y-2">
+                          {results.ai_analysis.resume_analysis.skills_mentioned.map((skill, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span className="text-sm">{skill}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-medium text-yellow-600 mb-3 flex items-center gap-2">
+                          <XCircle size={16} />
+                          Skills Missed
+                        </h4>
+                        <div className="space-y-2">
+                          {results.ai_analysis.resume_analysis.skills_missed.map((skill, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                              <span className="text-sm">{skill}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {results.ai_analysis.resume_analysis.missed_opportunities.length > 0 && (
+                      <div>
+                        <h4 className="font-medium text-primary mb-3 flex items-center gap-2">
+                          <Lightbulb size={16} />
+                          Missed Opportunities
+                        </h4>
+                        <ul className="space-y-2">
+                          {results.ai_analysis.resume_analysis.missed_opportunities.map((opportunity, index) => (
+                            <li key={index} className="text-sm text-muted-foreground">• {opportunity}</li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
-                    <span className="text-sm text-muted-foreground">{question.feedback}</span>
                   </div>
-                  
-                  <div className="flex items-start space-x-2">
-                    <Lightbulb className="text-primary mt-0.5" size={16} />
-                    <span className="text-sm text-muted-foreground">{question.tip}</span>
+                ) : (
+                  <div className="text-center py-8">
+                    <User className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">Analysis in progress...</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Job Fit Tab */}
+          <TabsContent value="job-fit" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Target className="text-primary" size={20} />
+                  <span>Job Fit Analysis</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {results.ai_analysis?.job_fit_analysis ? (
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-foreground mb-2">
+                        {results.ai_analysis.job_fit_analysis.fit_score}/100
+                      </div>
+                      <div className="text-muted-foreground">Job Fit Score</div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h4 className="font-medium text-green-600 mb-3 flex items-center gap-2">
+                          <CheckCircle size={16} />
+                          Requirements Covered
+                        </h4>
+                        <div className="space-y-2">
+                          {results.ai_analysis.job_fit_analysis.requirements_covered.map((req, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span className="text-sm">{req}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-medium text-red-600 mb-3 flex items-center gap-2">
+                          <XCircle size={16} />
+                          Requirements Missed
+                        </h4>
+                        <div className="space-y-2">
+                          {results.ai_analysis.job_fit_analysis.requirements_missed.map((req, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                              <span className="text-sm">{req}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {results.ai_analysis.job_fit_analysis.gap_analysis.length > 0 && (
+                      <div>
+                        <h4 className="font-medium text-primary mb-3 flex items-center gap-2">
+                          <TrendingUp size={16} />
+                          Gap Analysis
+                        </h4>
+                        <ul className="space-y-2">
+                          {results.ai_analysis.job_fit_analysis.gap_analysis.map((gap, index) => (
+                            <li key={index} className="text-sm text-muted-foreground">• {gap}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Target className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">Analysis in progress...</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Coaching Tab */}
+          <TabsContent value="coaching" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Brain className="text-primary" size={20} />
+                  <span>Personalized Coaching</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="font-medium mb-3 flex items-center gap-2">
+                      <Star className="text-primary" size={16} />
+                      Recommended Next Steps
+                    </h4>
+                    <ul className="space-y-2">
+                      {results.feedback?.suggested_next_steps?.map((step, index) => (
+                        <li key={index} className="flex items-start space-x-2">
+                          <span className="text-primary mt-1">•</span>
+                          <span className="text-sm">{step}</span>
+                        </li>
+                      )) || [
+                        <li key="1" className="flex items-start space-x-2">
+                          <span className="text-primary mt-1">•</span>
+                          <span className="text-sm">Practice answering with specific examples</span>
+                        </li>,
+                        <li key="2" className="flex items-start space-x-2">
+                          <span className="text-primary mt-1">•</span>
+                          <span className="text-sm">Research the company&apos;s values and mission</span>
+                        </li>
+                      ]}
+                    </ul>
                   </div>
                 </div>
-              ))
-            )}
-            
-            <div className="text-center pt-2">
-              <Button variant="ghost" className="text-primary hover:text-primary/90">
-                View All Questions
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recommended Next Steps */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <span>🚀</span>
-              <span>Recommended Next Steps</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {results.feedback?.suggested_next_steps && results.feedback.suggested_next_steps.length > 0 ? (
-                results.feedback.suggested_next_steps.map((step, index) => (
-                  <li key={index} className="flex items-start space-x-2">
-                    <span className="text-muted-foreground">•</span>
-                    <span className="text-sm">{step}</span>
-                  </li>
-                ))
-              ) : (
-                // Default suggestions
-                [
-                  "Practice answering with specific examples",
-                  "Research the company's values and mission",
-                  "Try a &quot;Hard&quot; difficulty interview next"
-                ].map((step, index) => (
-                  <li key={index} className="flex items-start space-x-2">
-                    <span className="text-muted-foreground">•</span>
-                    <span className="text-sm">{step}</span>
-                  </li>
-                ))
-              )}
-            </ul>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-4 justify-center">
+        <div className="flex flex-wrap gap-4 justify-center mt-8">
           <Button 
             variant="outline"
             onClick={() => router.push('/setup/customize')}

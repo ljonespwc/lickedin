@@ -3,11 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { Header } from '@/components/Header'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, Calendar, ExternalLink } from "lucide-react"
-import Image from 'next/image'
 import {
   Table,
   TableBody,
@@ -35,7 +34,6 @@ interface DashboardData {
 
 const Dashboard = () => {
   const router = useRouter()
-  const [user, setUser] = useState<SupabaseUser | null>(null)
   const [data, setDashboardData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -44,7 +42,6 @@ const Dashboard = () => {
       try {
         // Get session and access token
         const { data: { session } } = await supabase.auth.getSession()
-        setUser(session?.user ?? null)
         
         if (!session?.user) {
           router.push('/')
@@ -66,6 +63,7 @@ const Dashboard = () => {
         
         const dashboardData = await response.json()
         setDashboardData(dashboardData)
+        
         setLoading(false)
       } catch (error) {
         console.error('Error loading dashboard:', error)
@@ -114,26 +112,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <Image 
-              src="/lickedin-logo.png" 
-              alt="LickedIn Logo" 
-              width={83} 
-              height={40} 
-              className="h-10"
-            />
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-muted-foreground">{user?.email}</span>
-            <Button variant="outline" onClick={() => supabase.auth.signOut()}>
-              Sign Out
-            </Button>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Welcome Message */}

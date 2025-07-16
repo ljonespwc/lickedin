@@ -95,6 +95,12 @@ CREATE TABLE interview_feedback (
   confidence_score DECIMAL(5,2), -- How confident the user seemed
   communication_score DECIMAL(5,2), -- How well they communicated
   content_score DECIMAL(5,2), -- Quality of their answers
+  -- AI Analysis Caching Fields (Added 2025-07-15)
+  response_analyses JSONB, -- Cached AI analysis results for individual Q&A pairs
+  resume_analysis JSONB, -- Cached AI analysis of resume utilization
+  job_fit_analysis JSONB, -- Cached AI analysis of job requirement alignment
+  ai_analysis_completed_at TIMESTAMP WITH TIME ZONE, -- Timestamp when AI analysis was completed and cached
+  ai_analysis_version INTEGER DEFAULT 1, -- Version number for AI analysis schema compatibility
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -108,6 +114,7 @@ CREATE INDEX idx_interview_conversation_session_id ON interview_conversation(ses
 CREATE INDEX idx_interview_conversation_turn_number ON interview_conversation(session_id, turn_number);
 CREATE INDEX idx_interview_conversation_main_question ON interview_conversation(related_main_question_id);
 CREATE INDEX idx_interview_feedback_session_id ON interview_feedback(session_id);
+CREATE INDEX idx_interview_feedback_ai_analysis_completed ON interview_feedback(session_id, ai_analysis_completed_at);
 
 -- Row Level Security Policies
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;

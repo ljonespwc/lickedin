@@ -4,12 +4,11 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { Header } from '@/components/Header'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Mic, Settings } from "lucide-react"
-import Image from 'next/image'
-import type { User as SupabaseUser } from '@supabase/supabase-js'
 import Confetti from 'react-confetti'
 // Dynamic import to avoid SSR issues with LayerCode
 const VoiceIntegration = dynamic(() => import('@/components/VoiceIntegration').then(mod => ({ default: mod.VoiceIntegration })), {
@@ -48,7 +47,6 @@ const InterviewSession = () => {
   // const [questions] = useState<Question[]>([]) // TODO: Load and use questions
   // const [currentQuestionText, setCurrentQuestionText] = useState('')
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<SupabaseUser | null>(null)
   
   // Interview completion state
   const [showConfetti, setShowConfetti] = useState(false)
@@ -142,7 +140,6 @@ const InterviewSession = () => {
       try {
         // Get session and access token
         const { data: { session } } = await supabase.auth.getSession()
-        setUser(session?.user ?? null)
         
         if (!session?.user) {
           router.push('/')
@@ -324,33 +321,19 @@ const InterviewSession = () => {
       {/* Voice Integration - client-side only */}
       <VoiceIntegration onVoiceData={handleVoiceData} interviewSessionId={sessionId} />
       
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <Image 
-              src="/lickedin-logo.png" 
-              alt="LickedIn Logo" 
-              width={83} 
-              height={40} 
-              className="h-10"
-            />
-          </div>
-          <div className="flex items-center space-x-4">
-            {/* Voice Status Indicator */}
-            {voiceData.status && (
-              <div className="flex items-center space-x-2 px-3 py-1 bg-muted/30 rounded-full">
-                <div className={`w-2 h-2 rounded-full ${voiceData.status === 'connected' ? 'bg-green-500' : 'bg-yellow-500'} animate-pulse`}></div>
-                <span className="text-xs text-muted-foreground">Voice: {voiceData.status}</span>
-              </div>
-            )}
-            <span className="text-sm text-muted-foreground">{user?.email}</span>
-            <Button variant="outline" onClick={() => supabase.auth.signOut()}>
-              Sign Out
-            </Button>
+      <Header currentSessionId={sessionId} />
+      
+      {/* Voice Status Indicator - moved below header */}
+      {voiceData.status && (
+        <div className="max-w-7xl mx-auto px-6 py-2">
+          <div className="flex justify-end">
+            <div className="flex items-center space-x-2 px-3 py-1 bg-muted/30 rounded-full">
+              <div className={`w-2 h-2 rounded-full ${voiceData.status === 'connected' ? 'bg-green-500' : 'bg-yellow-500'} animate-pulse`}></div>
+              <span className="text-xs text-muted-foreground">Voice: {voiceData.status}</span>
+            </div>
           </div>
         </div>
-      </header>
+      )}
       
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Header */}

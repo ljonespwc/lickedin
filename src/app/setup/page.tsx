@@ -4,18 +4,16 @@ import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDropzone } from 'react-dropzone'
 import { supabase } from '@/lib/supabase'
-import type { User } from '@supabase/supabase-js'
+import { Header } from '@/components/Header'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Progress } from "@/components/ui/progress"
 import { Upload, FileText, Link, CheckCircle } from "lucide-react"
-import Image from 'next/image'
 
 const Setup = () => {
   const router = useRouter()
-  const [user, setUser] = useState<User | null>(null)
   const [resumeFile, setResumeFile] = useState<File | null>(null)
   const [resumeText, setResumeText] = useState<string>('')
   const [jobUrl, setJobUrl] = useState('')
@@ -36,7 +34,6 @@ const Setup = () => {
   useEffect(() => {
     const getUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
       
       if (!session?.user) {
         router.push('/')
@@ -46,8 +43,7 @@ const Setup = () => {
     getUser()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session?.user) {
         router.push('/')
       }
@@ -101,7 +97,9 @@ const Setup = () => {
   })
 
   const handleFetchJobDetails = async () => {
-    if (!resumeFile || (!jobUrl && !jobText)) return
+    if (!resumeFile || (!jobUrl && !jobText)) {
+      return
+    }
     
     // Double-check authentication before making API call
     const { data: { session } } = await supabase.auth.getSession()
@@ -170,26 +168,7 @@ const Setup = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <Image 
-              src="/lickedin-logo.png" 
-              alt="LickedIn Logo" 
-              width={83} 
-              height={40} 
-              className="h-10"
-            />
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-muted-foreground">{user?.email}</span>
-            <Button variant="outline" onClick={() => supabase.auth.signOut()}>
-              Sign Out
-            </Button>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="mb-8">
@@ -316,6 +295,7 @@ const Setup = () => {
                   )}
                   
                   <Button 
+                    type="button"
                     onClick={handleFetchJobDetails}
                     className="w-full"
                     disabled={!resumeFile || !(jobUrl || jobText) || isProcessing || (isComplete && validationResults?.isValid)}

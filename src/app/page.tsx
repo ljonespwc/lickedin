@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { Header } from '@/components/Header'
 import type { User } from '@supabase/supabase-js'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -27,7 +28,7 @@ export default function Home() {
     getSession()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null)
     })
 
@@ -60,10 +61,6 @@ export default function Home() {
     }
   }
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    setMessage('Signed out successfully!')
-  }
 
   const handleStartInterview = () => {
     router.push('/setup')
@@ -73,26 +70,7 @@ export default function Home() {
     // Authenticated - show main landing page
     return (
       <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b bg-card">
-          <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            <div className="flex items-center">
-              <Image 
-                src="/lickedin-logo.png" 
-                alt="LickedIn Logo" 
-                width={83} 
-                height={40} 
-                className="h-10"
-              />
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">{user.email}</span>
-              <Button variant="outline" onClick={handleSignOut}>
-                Sign Out
-              </Button>
-            </div>
-          </div>
-        </header>
+        <Header />
         
         <div className="max-w-4xl mx-auto px-6 py-16">
           <Card className="text-center">
