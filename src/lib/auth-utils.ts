@@ -43,10 +43,9 @@ export async function handleSignOut(
 
     console.log('✅ Successfully signed out from Supabase')
 
-    // Small delay to ensure auth state propagates
-    await new Promise(resolve => setTimeout(resolve, 100))
-
-    console.log('🔄 Sign out complete, auth state should trigger redirect...')
+    // SIMPLE: Just redirect to home page immediately
+    console.log('🔄 Redirecting to home page...')
+    window.location.href = '/'
     
     return true
   } catch (error) {
