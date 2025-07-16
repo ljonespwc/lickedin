@@ -97,7 +97,16 @@ const Setup = () => {
   })
 
   const handleFetchJobDetails = async () => {
+    console.log('🔵 Fetch Job Details button clicked')
+    console.log('Resume file:', !!resumeFile)
+    console.log('Job URL:', !!jobUrl)
+    console.log('Job text:', !!jobText)
+    console.log('Is processing:', isProcessing)
+    console.log('Is complete:', isComplete)
+    console.log('Validation results:', validationResults)
+    
     if (!resumeFile || (!jobUrl && !jobText)) {
+      console.log('❌ Missing required fields')
       return
     }
     
@@ -160,7 +169,8 @@ const Setup = () => {
         })
       }, 1500)
 
-    } catch {
+    } catch (error) {
+      console.error('Fetch job details error:', error)
       setError('Failed to process files. Please try again.')
       setIsProcessing(false)
     }
@@ -300,7 +310,7 @@ const Setup = () => {
                     className="w-full"
                     disabled={!resumeFile || !(jobUrl || jobText) || isProcessing || (isComplete && validationResults?.isValid)}
                   >
-                    {jobText ? 'Process Job Description' : 'Fetch Job Details'}
+                    {isProcessing ? 'Processing...' : (jobText ? 'Process Job Description' : 'Fetch Job Details')}
                   </Button>
                 </div>
               </div>
