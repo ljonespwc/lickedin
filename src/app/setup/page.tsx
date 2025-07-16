@@ -98,42 +98,18 @@ const Setup = () => {
 
   const handleFetchJobDetails = async () => {
     console.log('🔵 Fetch Job Details button clicked')
-    console.log('Resume file:', !!resumeFile)
-    console.log('Job URL:', !!jobUrl)
-    console.log('Job text:', !!jobText)
-    console.log('Is processing:', isProcessing)
-    console.log('Is complete:', isComplete)
-    console.log('Validation results:', validationResults)
-    
-    // Check if button should be disabled
-    const shouldBeDisabled = !resumeFile || !(jobUrl || jobText) || isProcessing || (isComplete && validationResults?.isValid)
-    console.log('🚫 Button should be disabled:', shouldBeDisabled)
-    
-    if (shouldBeDisabled) {
-      console.log('❌ Button is disabled, should not proceed')
-      return
-    }
     
     if (!resumeFile || (!jobUrl && !jobText)) {
       console.log('❌ Missing required fields')
       return
     }
     
-    // Double-check authentication before making API call
-    console.log('🔐 Checking authentication...')
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (!session?.user) {
-      console.log('❌ No user session found')
-      setError('Please sign in to continue')
+    if (isProcessing) {
+      console.log('❌ Already processing, skipping')
       return
     }
     
-    console.log('✅ User authenticated:', session.user.email)
-    
-    // Get the access token to pass in headers
-    const accessToken = session.access_token
-    console.log('🔑 Access token:', accessToken ? 'Present' : 'Missing')
+    // Skip auth check - page already verified user is authenticated
     
     console.log('🚀 Starting processing...')
     setIsProcessing(true)
@@ -142,55 +118,37 @@ const Setup = () => {
     
     try {
       // Create form data for file upload
-      console.log('📝 Creating form data...')
       const formData = new FormData()
       formData.append('resume', resumeFile)
       formData.append('jobUrl', jobUrl)
       formData.append('jobText', jobText)
       formData.append('resumeText', resumeText)
-      console.log('📄 Form data created with:', {
-        resumeFile: resumeFile.name,
-        jobUrl: jobUrl,
-        jobText: jobText ? `${jobText.length} chars` : 'none',
-        resumeText: resumeText ? `${resumeText.length} chars` : 'none'
-      })
 
       // Call API to process resume and job URL
-      console.log('🌐 Calling API /api/setup/process...')
       const response = await fetch('/api/setup/process', {
         method: 'POST',
         body: formData,
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
+        credentials: 'include'
       })
       
-      console.log('📡 API response status:', response.status, response.statusText)
+      console.log('📡 API response:', response.status, response.statusText)
 
       if (!response.ok) {
-        console.log('❌ API response not ok:', response.status)
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        console.log('❌ Error data:', errorData)
         throw new Error(errorData.error || 'Failed to process files')
       }
 
-      console.log('✅ API response ok, parsing JSON...')
       const responseData = await response.json()
-      console.log('📊 Response data:', responseData)
       
       // Store validation results from API response
       if (responseData.jobValidation) {
-        console.log('✅ Setting validation results:', responseData.jobValidation)
         setValidationResults(responseData.jobValidation)
       }
 
       // Simulate processing steps for better UX
-      console.log('⏳ Starting processing steps simulation...')
       const interval = setInterval(() => {
         setProcessingStep(prev => {
           const newStep = prev < processingSteps.length - 1 ? prev + 1 : prev
-          console.log(`📈 Processing step: ${newStep}/${processingSteps.length - 1}`)
           
           if (newStep >= processingSteps.length - 1) {
             console.log('✅ Processing complete!')
