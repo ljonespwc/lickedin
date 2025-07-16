@@ -4,6 +4,8 @@ import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('📊 Dashboard API called')
+    
     // Get authentication token
     const authHeader = request.headers.get('authorization')
     let accessToken: string | null = null
@@ -11,6 +13,8 @@ export async function GET(request: NextRequest) {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       accessToken = authHeader.substring(7)
     }
+
+    console.log('🔐 Auth token present:', !!accessToken)
 
     // Create Supabase client
     const cookieStore = await cookies()
@@ -58,13 +62,18 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken || undefined)
     
     if (authError || !user) {
+      console.log('❌ Authentication failed:', authError?.message)
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       )
     }
 
+    console.log('✅ User authenticated:', user.email)
+
     // Get interview sessions for stats
+    console.log('🔍 Fetching interview sessions for user:', user.id)
+    
     const { data: sessions, error: sessionsError } = await supabase
       .from('interview_sessions')
       .select(`
@@ -81,7 +90,7 @@ export async function GET(request: NextRequest) {
       .order('completed_at', { ascending: false })
 
     if (sessionsError) {
-      console.error('Sessions fetch error:', sessionsError)
+      console.error('❌ Sessions fetch error:', sessionsError)
       return NextResponse.json(
         { error: 'Failed to load dashboard data' },
         { status: 500 }
@@ -89,6 +98,7 @@ export async function GET(request: NextRequest) {
     }
 
     const completedSessions = sessions || []
+    console.log('📈 Found completed sessions:', completedSessions.length)
 
     // Calculate stats
     const totalInterviews = completedSessions.length
@@ -138,14 +148,23 @@ export async function GET(request: NextRequest) {
       };
     })
 
-    return NextResponse.json({
+    const result = {
       stats: {
         totalInterviews,
         averageScore,
         bestScore
       },
       recentInterviews
+    }
+
+    console.log('📊 Dashboard response:', {
+      totalInterviews,
+      averageScore,
+      bestScore,
+      recentInterviewsCount: recentInterviews.length
     })
+
+    return NextResponse.json(result)
 
   } catch (error) {
     console.error('Dashboard fetch error:', error)

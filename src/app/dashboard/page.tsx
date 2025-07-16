@@ -50,23 +50,40 @@ const Dashboard = () => {
 
         const accessToken = session.access_token
         
+        // Add timeout to prevent endless loading
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+        
         const response = await fetch('/api/dashboard', {
           headers: {
             'Authorization': `Bearer ${accessToken}`
           },
-          credentials: 'include'
+          credentials: 'include',
+          signal: controller.signal
         })
         
+        clearTimeout(timeoutId)
+        
         if (!response.ok) {
-          throw new Error('Failed to load dashboard')
+          throw new Error(`Dashboard API error: ${response.status} ${response.statusText}`)
         }
         
         const dashboardData = await response.json()
         setDashboardData(dashboardData)
         
-        setLoading(false)
       } catch (error) {
         console.error('Error loading dashboard:', error)
+        // Set empty data on error so UI shows "No interviews yet"
+        setDashboardData({
+          stats: {
+            totalInterviews: 0,
+            averageScore: 0,
+            bestScore: 0
+          },
+          recentInterviews: []
+        })
+      } finally {
+        // Always set loading to false
         setLoading(false)
       }
     }

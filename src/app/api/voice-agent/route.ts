@@ -27,7 +27,6 @@ interface InterviewQuestion {
 
 interface SessionContext {
   id: string
-  persona: string // DEPRECATED: Legacy field
   difficulty_level: string
   interview_type: string
   voice_gender: string
@@ -63,7 +62,6 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
       .from('interview_sessions')
       .select(`
         id,
-        persona,
         difficulty_level,
         interview_type,
         voice_gender,
@@ -115,7 +113,6 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
     // Transform the data into the expected format
     const sessionContext: SessionContext = {
       id: session.id,
-      persona: session.persona,
       difficulty_level: session.difficulty_level,
       interview_type: session.interview_type,
       voice_gender: session.voice_gender,
@@ -725,6 +722,9 @@ export async function POST(request: NextRequest) {
           console.error('Error storing user message:', insertResult.error)
         }
         
+        // Mark interview as started on first candidate response
+        await markInterviewStarted(interviewSessionId)
+        
         nextTurnNumber++
       }
     }
@@ -872,6 +872,11 @@ export async function POST(request: NextRequest) {
             timestamp: Date.now()
           })
           
+          // Mark interview as completed in database
+          if (interviewSessionId) {
+            await markInterviewCompleted(interviewSessionId)
+          }
+          
           stream.end()
           return
         }
@@ -886,6 +891,11 @@ export async function POST(request: NextRequest) {
             reason: 'closing_turn_limit',
             timestamp: Date.now()
           })
+          
+          // Mark interview as completed in database
+          if (interviewSessionId) {
+            await markInterviewCompleted(interviewSessionId)
+          }
           
           stream.end()
           return
@@ -950,5 +960,89 @@ export async function POST(request: NextRequest) {
     // End the stream
     stream.end()
   })
+}
+
+// Helper function to mark interview as started (first candidate response)
+async function markInterviewStarted(interviewSessionId: string) {
+  try {
+    console.log(`🚀 Marking interview ${interviewSessionId} as started...`)
+    
+    // Check if interview is already marked as started
+    const { data: session, error: sessionError } = await supabase
+      .from('interview_sessions')
+      .select('id, started_at, status')
+      .eq('id', interviewSessionId)
+      .single()
+    
+    if (sessionError || !session) {
+      console.error('❌ Failed to get interview session for start tracking:', sessionError)
+      return
+    }
+    
+    // Only update if not already started
+    if (!session.started_at) {
+      const { error: updateError } = await supabase
+        .from('interview_sessions')
+        .update({
+          started_at: new Date().toISOString(),
+          status: 'in_progress'
+        })
+        .eq('id', interviewSessionId)
+      
+      if (updateError) {
+        console.error('❌ Failed to mark interview as started:', updateError)
+      } else {
+        console.log(`✅ Interview ${interviewSessionId} marked as started`)
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error marking interview as started:', error)
+  }
+}
+
+// Helper function to mark interview as completed
+async function markInterviewCompleted(interviewSessionId: string) {
+  try {
+    console.log(`📝 Marking interview ${interviewSessionId} as completed...`)
+    
+    // Get the interview session to calculate duration
+    const { data: session, error: sessionError } = await supabase
+      .from('interview_sessions')
+      .select('id, created_at, started_at')
+      .eq('id', interviewSessionId)
+      .single()
+    
+    if (sessionError || !session) {
+      console.error('❌ Failed to get interview session for completion:', sessionError)
+      return
+    }
+    
+    const now = new Date()
+    const completedAt = now.toISOString()
+    
+    // Calculate duration (use started_at if available, otherwise fall back to created_at)
+    const startTime = session.started_at || session.created_at
+    const durationSeconds = startTime ? Math.floor((now.getTime() - new Date(startTime).getTime()) / 1000) : null
+    
+    // Update interview session with completion data
+    const { error: updateError } = await supabase
+      .from('interview_sessions')
+      .update({
+        status: 'completed',
+        completed_at: completedAt,
+        total_duration_seconds: durationSeconds,
+        // Set started_at if it wasn't set earlier
+        started_at: session.started_at || session.created_at
+      })
+      .eq('id', interviewSessionId)
+    
+    if (updateError) {
+      console.error('❌ Failed to update interview session completion:', updateError)
+    } else {
+      console.log(`✅ Interview ${interviewSessionId} marked as completed (duration: ${durationSeconds}s)`)
+    }
+  } catch (error) {
+    console.error('❌ Error marking interview as completed:', error)
+  }
 }
 

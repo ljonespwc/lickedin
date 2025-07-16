@@ -115,14 +115,17 @@ export type Database = {
           user_id: string
           resume_id: string
           job_description_id: string
-          persona: string
           difficulty_level: string
+          interview_type: string
+          voice_gender: string
+          communication_style: string
           question_count: number
           status: string
           overall_score: number | null
           started_at: string | null
           completed_at: string | null
           total_duration_seconds: number | null
+          layercode_session_id: string | null
           created_at: string
           updated_at: string
         }
@@ -131,14 +134,17 @@ export type Database = {
           user_id: string
           resume_id: string
           job_description_id: string
-          persona?: string
           difficulty_level?: string
+          interview_type: string
+          voice_gender: string
+          communication_style: string
           question_count?: number
           status?: string
           overall_score?: number | null
           started_at?: string | null
           completed_at?: string | null
           total_duration_seconds?: number | null
+          layercode_session_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -147,14 +153,17 @@ export type Database = {
           user_id?: string
           resume_id?: string
           job_description_id?: string
-          persona?: string
           difficulty_level?: string
+          interview_type?: string
+          voice_gender?: string
+          communication_style?: string
           question_count?: number
           status?: string
           overall_score?: number | null
           started_at?: string | null
           completed_at?: string | null
           total_duration_seconds?: number | null
+          layercode_session_id?: string | null
           created_at?: string
           updated_at?: string
         }
