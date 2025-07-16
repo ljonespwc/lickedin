@@ -62,6 +62,44 @@ https://docs.layercode.com/api-reference/rest_api\
 **Impact**: Users experience interrupted speech recognition, affecting interview flow.
 **Status**: Identified but not resolved - requires LayerCode configuration adjustments.
 
+### 2. Supabase Session Hanging Issue - RESOLVED ✅
+**Issue**: Calling `supabase.auth.getSession()` in button handlers would sometimes hang indefinitely, causing buttons to become unresponsive.
+**Root Cause**: Race conditions, token refresh timing, or browser storage issues with concurrent `getSession()` calls.
+**Impact**: Users would click buttons (like "Fetch Job Details") and nothing would happen - the call would hang at the `getSession()` line.
+**Solution**: Cache the session from page-level authentication check instead of calling `getSession()` in button handlers.
+
+**Implementation Pattern** (use this for any page with hanging button issues):
+```typescript
+// Add session state to component
+const [session, setSession] = useState<{ user: { id: string }; access_token: string } | null>(null)
+
+// Store session in page-level auth check
+useEffect(() => {
+  const getUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) {
+      router.push('/')
+    } else {
+      setSession(session) // Cache session for button handlers
+    }
+  }
+  getUser()
+}, [router])
+
+// Use cached session in button handlers (no getSession() call)
+const handleButtonClick = async () => {
+  if (!session?.user) {
+    router.push('/')
+    return
+  }
+  const accessToken = session.access_token
+  // Make API call with Bearer token...
+}
+```
+
+**Files Fixed**: `/src/app/setup/page.tsx` and `/src/app/api/setup/process/route.ts`
+**Result**: Button works reliably without hanging - session is cached from page load instead of fetched on-demand.
+
 ## API Flow Documentation
 
 ### Setup Flow
