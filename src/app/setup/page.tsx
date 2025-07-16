@@ -109,6 +109,16 @@ const Setup = () => {
       return
     }
     
+    // Get session and access token (same as working pages)
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session?.user) {
+      router.push('/')
+      return
+    }
+
+    const accessToken = session.access_token
+    
     console.log('🚀 Starting processing...')
     setIsProcessing(true)
     setProcessingStep(0)
@@ -122,9 +132,12 @@ const Setup = () => {
       formData.append('jobText', jobText)
       formData.append('resumeText', resumeText)
 
-      // Call API to process resume and job URL
+      // Call API to process resume and job URL (same as working pages)
       const response = await fetch('/api/setup/process', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        },
         body: formData,
         credentials: 'include'
       })

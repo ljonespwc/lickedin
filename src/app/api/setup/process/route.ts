@@ -76,9 +76,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Use cookie-based authentication only
+    // Get authentication token (same as working endpoints)
+    const authHeader = request.headers.get('authorization')
+    let accessToken: string | null = null
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      accessToken = authHeader.substring(7)
+    }
 
-    // Create Supabase client
+    // Create Supabase client (same as working endpoints)
     const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -110,12 +116,18 @@ export async function POST(request: NextRequest) {
               path: '/'
             })
           },
+        },
+        // Set the access token if we have one (same as working endpoints)
+        global: {
+          headers: accessToken ? {
+            Authorization: `Bearer ${accessToken}`
+          } : {}
         }
       }
     )
 
-    // Get current user from cookie-based session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Get current user (same as working endpoints)
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken || undefined)
     
     if (authError || !user) {
       return NextResponse.json(
