@@ -109,16 +109,6 @@ const Setup = () => {
       return
     }
     
-    // Get session and access token for API authentication
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (!session?.user) {
-      router.push('/')
-      return
-    }
-
-    const accessToken = session.access_token
-    
     console.log('🚀 Starting processing...')
     setIsProcessing(true)
     setProcessingStep(0)
@@ -135,9 +125,6 @@ const Setup = () => {
       // Call API to process resume and job URL
       const response = await fetch('/api/setup/process', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
         body: formData,
         credentials: 'include'
       })

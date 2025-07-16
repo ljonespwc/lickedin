@@ -76,13 +76,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get authentication token from request headers
-    const authHeader = request.headers.get('authorization')
-    let accessToken: string | null = null
-    
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      accessToken = authHeader.substring(7)
-    }
+    // Use cookie-based authentication only
 
     // Create Supabase client
     const cookieStore = await cookies()
@@ -116,18 +110,12 @@ export async function POST(request: NextRequest) {
               path: '/'
             })
           },
-        },
-        // Set the access token if we have one
-        global: {
-          headers: accessToken ? {
-            Authorization: `Bearer ${accessToken}`
-          } : {}
         }
       }
     )
 
-    // Get current user using access token
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken || undefined)
+    // Get current user from cookie-based session
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     
     if (authError || !user) {
       return NextResponse.json(
