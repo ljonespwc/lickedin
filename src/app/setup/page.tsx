@@ -29,6 +29,7 @@ const Setup = () => {
     scrapingError?: string
     source?: string
   } | null>(null)
+  const [session, setSession] = useState<any>(null)
 
   // Check authentication
   useEffect(() => {
@@ -37,6 +38,8 @@ const Setup = () => {
       
       if (!session?.user) {
         router.push('/')
+      } else {
+        setSession(session) // Store session in state for button handler
       }
     }
     
@@ -46,6 +49,9 @@ const Setup = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session?.user) {
         router.push('/')
+        setSession(null)
+      } else {
+        setSession(session) // Update session state on auth changes
       }
     })
 
@@ -109,18 +115,23 @@ const Setup = () => {
       return
     }
     
-    // Get session and access token (same as working pages)
-    console.log('🔍 About to call supabase.auth.getSession()...')
-    const { data: { session } } = await supabase.auth.getSession()
-    console.log('✅ Got session:', !!session)
+    // Use stored session from page-level auth check (avoids hanging getSession() call)
+    console.log('🔍 Using stored session:', !!session)
     
     if (!session?.user) {
-      console.log('❌ No session user, redirecting')
+      console.log('❌ No stored session, redirecting')
+      setError('Authentication session expired. Please refresh the page.')
       router.push('/')
       return
     }
 
     const accessToken = session.access_token
+    if (!accessToken) {
+      console.log('❌ No access token available')
+      setError('Authentication token missing. Please refresh the page.')
+      return
+    }
+    
     console.log('✅ Got access token:', !!accessToken)
     
     console.log('🚀 Starting processing...')
