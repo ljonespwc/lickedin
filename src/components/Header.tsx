@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getMostRecentInterview } from '@/lib/interview-utils'
+import { handleSignOut } from '@/lib/auth-utils'
 import { Button } from "@/components/ui/button"
 import { FileText } from "lucide-react"
 import Image from 'next/image'
@@ -47,21 +48,22 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
     return () => subscription.unsubscribe()
   }, [])
 
-  const handleSignOut = async () => {
+  const handleSignOutClick = async () => {
     if (isSigningOut) return
     
     setIsSigningOut(true)
     
     try {
-      // Clear user state immediately
-      setUser(null)
-      setMostRecentInterviewId(null)
+      // Use the proper auth-utils function that clears localStorage
+      const success = await handleSignOut(router, setUser)
       
-      // Sign out from Supabase
-      await supabase.auth.signOut()
-      
-      // Navigate to home
-      router.push('/')
+      if (success) {
+        // Clear local state
+        setMostRecentInterviewId(null)
+      } else {
+        // Reset state on error
+        setIsSigningOut(false)
+      }
     } catch (error) {
       console.error('Sign out error:', error)
       // Reset state on error
@@ -120,7 +122,7 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
             <Button 
               type="button"
               variant="outline" 
-              onClick={handleSignOut}
+              onClick={handleSignOutClick}
               disabled={isSigningOut}
             >
               {isSigningOut ? 'Signing Out...' : 'Sign Out'}
