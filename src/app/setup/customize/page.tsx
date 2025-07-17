@@ -18,14 +18,17 @@ const SetupCustomize = () => {
   const [voiceGender, setVoiceGender] = useState('')
   const [communicationStyle, setCommunicationStyle] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+  const [session, setSession] = useState<{ user: { id: string }; access_token: string } | null>(null)
 
-  // Check authentication
+  // Check authentication and cache session
   useEffect(() => {
     const getUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       
       if (!session?.user) {
         router.push('/')
+      } else {
+        setSession(session) // Cache session for button handler
       }
     }
     
@@ -35,6 +38,9 @@ const SetupCustomize = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session?.user) {
         router.push('/')
+        setSession(null)
+      } else {
+        setSession(session) // Update cached session
       }
     })
 
@@ -99,9 +105,7 @@ const SetupCustomize = () => {
     const difficultyValue = getDifficultyFromSlider(difficulty[0])
     if (!difficultyValue || !interviewType || !voiceGender || !communicationStyle) return
 
-    // Get session and access token
-    const { data: { session } } = await supabase.auth.getSession()
-    
+    // Use cached session instead of calling getSession() to avoid hanging
     if (!session?.user) {
       router.push('/')
       return
