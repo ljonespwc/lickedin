@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     // Call LayerCode API to generate client_session_key
     const layercodeApiKey = process.env.LAYERCODE_API_KEY
-    const pipelineId = pipeline_id || process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID
+    const pipelineId = pipeline_id || process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_MALE // fallback to male pipeline
     
     if (!layercodeApiKey || !pipelineId) {
       throw new Error('Missing LayerCode configuration')

@@ -626,19 +626,38 @@ export async function POST(request: NextRequest) {
     return new Response('Bad Request', { status: 400 })
   }
   
-  // Verify webhook signature
+  // Verify webhook signature - try both male and female webhook secrets
   const signature = request.headers.get('layercode-signature')
   
-  if (signature && process.env.LAYERCODE_WEBHOOK_SECRET) {
-    const isValid = verifySignature({
-      payload: JSON.stringify(requestBody),
-      signature,
-      secret: process.env.LAYERCODE_WEBHOOK_SECRET
-    })
+  if (signature) {
+    const maleSecret = process.env.LAYERCODE_WEBHOOK_SECRET_MALE
+    const femaleSecret = process.env.LAYERCODE_WEBHOOK_SECRET_FEMALE
     
-    if (!isValid) {
-      console.error('Webhook signature invalid - rejecting request')
-      return new Response('Unauthorized', { status: 401 })
+    if (maleSecret || femaleSecret) {
+      const isValidMale = maleSecret ? verifySignature({
+        payload: JSON.stringify(requestBody),
+        signature,
+        secret: maleSecret
+      }) : false
+      
+      const isValidFemale = femaleSecret ? verifySignature({
+        payload: JSON.stringify(requestBody),
+        signature,
+        secret: femaleSecret
+      }) : false
+      
+      if (!isValidMale && !isValidFemale) {
+        console.error('Webhook signature invalid for both male and female secrets - rejecting request')
+        return new Response('Unauthorized', { status: 401 })
+      }
+      
+      // Log which pipeline was used for debugging
+      if (isValidMale) {
+        console.log('✅ Webhook verified with male pipeline secret')
+      }
+      if (isValidFemale) {
+        console.log('✅ Webhook verified with female pipeline secret')
+      }
     }
   }
   
