@@ -97,6 +97,7 @@ const InterviewSession = () => {
   }, [interviewCompleted])
 
   // Get pipeline ID based on voice gender
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getPipelineId = (voiceGender: string) => {
     const pipelineId = voiceGender === 'female' 
       ? process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_FEMALE!
@@ -110,6 +111,14 @@ const InterviewSession = () => {
     })
     
     return pipelineId
+  }
+
+  // TEMPORARY: Log environment variables for debugging
+  if (session) {
+    console.log('🔍 Environment variables check:', {
+      male: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_MALE,
+      female: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_FEMALE
+    })
   }
 
   // Create interviewer display info based on new customization fields
