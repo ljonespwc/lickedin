@@ -98,9 +98,18 @@ const InterviewSession = () => {
 
   // Get pipeline ID based on voice gender
   const getPipelineId = (voiceGender: string) => {
-    return voiceGender === 'female' 
+    const pipelineId = voiceGender === 'female' 
       ? process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_FEMALE!
       : process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_MALE!
+    
+    console.log('🔍 Pipeline selection:', { 
+      voiceGender, 
+      pipelineId,
+      maleEnv: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_MALE,
+      femaleEnv: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_FEMALE
+    })
+    
+    return pipelineId
   }
 
   // Create interviewer display info based on new customization fields
@@ -330,7 +339,7 @@ const InterviewSession = () => {
         <VoiceIntegration 
           onVoiceData={handleVoiceData} 
           interviewSessionId={sessionId}
-          pipelineId={getPipelineId(session.voice_gender)}
+          pipelineId="ude8007w"  // TEMPORARY: Test with original working pipeline
         />
       )}
       

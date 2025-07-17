@@ -100,6 +100,8 @@ const handleButtonClick = async () => {
 **Files Fixed**: `/src/app/setup/page.tsx` and `/src/app/api/setup/process/route.ts`
 **Result**: Button works reliably without hanging - session is cached from page load instead of fetched on-demand.
 
+**Additional Fix Applied**: Same session caching pattern implemented in `/src/app/setup/customize/page.tsx` to fix hanging "Start Interview" button (July 17, 2025).
+
 ## API Flow Documentation
 
 ### Setup Flow
