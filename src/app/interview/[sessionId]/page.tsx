@@ -97,7 +97,6 @@ const InterviewSession = () => {
   }, [interviewCompleted])
 
   // Get pipeline ID based on voice gender
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getPipelineId = (voiceGender: string) => {
     const pipelineId = voiceGender === 'female' 
       ? process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_FEMALE!
@@ -348,7 +347,7 @@ const InterviewSession = () => {
         <VoiceIntegration 
           onVoiceData={handleVoiceData} 
           interviewSessionId={sessionId}
-          pipelineId="ude8007w"  // TEMPORARY: Test with original working pipeline
+          pipelineId={getPipelineId(session.voice_gender)}
         />
       )}
       
