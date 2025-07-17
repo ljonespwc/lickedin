@@ -98,9 +98,9 @@ const InterviewSession = () => {
 
   // Get pipeline ID based on voice gender
   const getPipelineId = (voiceGender: string) => {
-    const pipelineId = voiceGender === 'female' 
-      ? process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_FEMALE!
-      : process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_MALE!
+    const pipelineId = voiceGender === 'male' 
+      ? process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_MALE!
+      : process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_FEMALE!
     
     console.log('🔍 Pipeline selection:', { 
       voiceGender, 
