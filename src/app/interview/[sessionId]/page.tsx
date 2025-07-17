@@ -81,7 +81,6 @@ const InterviewSession = () => {
   }) => {
     // Handle interview completion immediately
     if (data.interviewComplete && !interviewCompleted) {
-      console.log('🎉 Interview completion triggered by custom event')
       setInterviewCompleted(true)
       setShowConfetti(true)
     }
@@ -98,27 +97,11 @@ const InterviewSession = () => {
 
   // Get pipeline ID based on voice gender
   const getPipelineId = (voiceGender: string) => {
-    const pipelineId = voiceGender === 'male' 
+    return voiceGender === 'male' 
       ? process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_MALE!
       : process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_FEMALE!
-    
-    console.log('🔍 Pipeline selection:', { 
-      voiceGender, 
-      pipelineId,
-      maleEnv: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_MALE,
-      femaleEnv: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_FEMALE
-    })
-    
-    return pipelineId
   }
 
-  // TEMPORARY: Log environment variables for debugging
-  if (session) {
-    console.log('🔍 Environment variables check:', {
-      male: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_MALE,
-      female: process.env.NEXT_PUBLIC_LAYERCODE_PIPELINE_ID_FEMALE
-    })
-  }
 
   // Create interviewer display info based on new customization fields
   const getInterviewerInfo = () => {
@@ -252,7 +235,6 @@ const InterviewSession = () => {
 
     // Detect voice session end: connected -> disconnected (and not initial load)
     if (prevStatus === 'connected' && currentStatus === 'disconnected' && !interviewCompleted) {
-      console.log('🎉 Interview completed - voice session ended')
       setInterviewCompleted(true)
       setShowConfetti(true)
       

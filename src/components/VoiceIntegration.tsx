@@ -20,7 +20,6 @@ interface TranscriptionStreamProps extends VoiceIntegrationProps {
 }
 
 export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }: TranscriptionStreamProps) {
-  console.log('🔍 VoiceIntegration mounting with pipeline ID:', pipelineId)
   
   const hookData = useLayercodePipeline({
     pipelineId: pipelineId,
@@ -35,7 +34,6 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
       // Handle interview completion event - check BOTH patterns
       if (data.type === 'interview_complete' || 
           (data.type === 'response.data' && content?.type === 'interview_complete')) {
-        console.log('🎉 Received interview_complete event:', data)
         onVoiceData({ 
           interviewComplete: true,
           status: 'disconnected' // Force status to disconnected
@@ -58,9 +56,6 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
         onVoiceData({ 
           agentTranscription: text
         })
-      } else {
-        // Log unknown data types for debugging
-        console.log('LayerCode unknown data type:', data.type, 'content.type:', content?.type)
       }
     }
   })
