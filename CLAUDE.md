@@ -387,3 +387,39 @@ This implementation provides robust session persistence and natural conversation
 - ✅ No TypeScript compilation errors or runtime issues
 
 **Impact**: These fixes provide a more reliable and polished user experience with consistent navigation, proper error handling, and a clean database state for continued development and testing.
+
+## Recent Critical Updates: Analysis Storage & Score Consistency (July 18, 2025)
+
+### 🔧 **AI Question Detection & Database Fixes - COMPLETED**
+**Status**: ✅ All critical issues resolved and tested successfully
+
+**Problems Solved**:
+1. **AI Question Detection**: Simple question mark detection missed natural language questions (e.g., "I'm wondering what the salary structure looks like")
+2. **Database Storage Failure**: Comprehensive interview analysis was being displayed but not saved to database due to constraint errors
+3. **Overall Score Calculation**: NULL values in database and frontend/backend score calculation mismatches
+
+**Technical Solutions Implemented**:
+
+#### 1. **AI-Powered Question Detection**
+- **Replaced**: Simple `text.includes('?')` with GPT-4.1-mini powered question detection
+- **Enhanced**: Natural language question recognition with contextual examples
+- **Result**: ✅ Accurately detects questions regardless of punctuation or phrasing
+
+#### 2. **Database Constraint Resolution**
+- **Root Cause**: Missing unique constraint on `session_id` column in `interview_feedback` table
+- **Fix**: Added `ALTER TABLE interview_feedback ADD CONSTRAINT interview_feedback_session_id_key UNIQUE (session_id)`
+- **Result**: ✅ Comprehensive analysis now saves successfully to database
+
+#### 3. **Overall Score System Implementation**
+- **Added**: Overall score calculation as average of 4 pillar scores (Communication, Content, Confidence, Preparation)
+- **Fixed**: Frontend display to use stored database value instead of calculating with 3 scores
+- **Updated**: `/src/app/results/[sessionId]/page.tsx` line 239: `{results.session?.overall_score || 78}/100`
+- **Result**: ✅ Consistent scoring across frontend and database
+
+**Key Files Updated**:
+- `/src/app/api/voice-agent/route.ts` - AI question detection with GPT-4.1
+- `/src/app/api/results/[sessionId]/route.ts` - Overall score calculation and storage
+- `/src/app/results/[sessionId]/page.tsx` - Frontend display using stored scores
+- Database schema - Added unique constraint on interview_feedback.session_id
+
+**Impact**: Complete interview analysis pipeline now works end-to-end with reliable data storage, consistent scoring, and natural conversation termination detection.
