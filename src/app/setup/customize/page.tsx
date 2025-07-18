@@ -105,13 +105,26 @@ const SetupCustomize = () => {
     const difficultyValue = getDifficultyFromSlider(difficulty[0])
     if (!difficultyValue || !interviewType || !voiceGender || !communicationStyle) return
 
-    // Use cached session instead of calling getSession() to avoid hanging
-    if (!session?.user) {
+    let validSession = session
+    
+    // Check if cached session is valid and complete
+    if (!session?.user?.id || !session?.access_token) {
+      // Get fresh session if cached one is invalid
+      const { data: { session: freshSession } } = await supabase.auth.getSession()
+      if (!freshSession?.user) {
+        router.push('/')
+        return
+      }
+      validSession = freshSession
+    }
+
+    // At this point validSession is guaranteed to be valid
+    if (!validSession?.access_token) {
       router.push('/')
       return
     }
 
-    const accessToken = session.access_token
+    const accessToken = validSession.access_token
     setIsCreating(true)
 
     try {
