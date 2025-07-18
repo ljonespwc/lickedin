@@ -236,7 +236,7 @@ const Results = () => {
               <CardContent>
                 <div className="text-center mb-6">
                   <div className="text-4xl font-bold text-foreground mb-2">
-                    {Math.round((results.feedback?.communication_score + results.feedback?.content_score + results.feedback?.confidence_score) / 3) || 78}/100
+                    {results.session?.overall_score || 78}/100
                   </div>
                   <div className="text-muted-foreground">Overall Score</div>
                 </div>
