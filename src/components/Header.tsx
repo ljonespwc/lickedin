@@ -71,10 +71,6 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
     }
   }
 
-  const handleLogoClick = () => {
-    router.push('/')
-  }
-
   const handleSmartResults = async () => {
     if (!user || isLoadingResults) return
     
@@ -111,19 +107,13 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
     <header className="border-b bg-card">
       <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
         <div className="flex items-center">
-          <button 
-            type="button" 
-            onClick={handleLogoClick}
-            className="cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <Image 
-              src="/lickedin-logo.png" 
-              alt="LickedIn Logo" 
-              width={83} 
-              height={40} 
-              className="h-10"
-            />
-          </button>
+          <Image 
+            src="/lickedin-logo.png" 
+            alt="LickedIn Logo" 
+            width={83} 
+            height={40} 
+            className="h-10"
+          />
         </div>
         
         <div className="flex items-center space-x-4">
