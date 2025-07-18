@@ -363,10 +363,12 @@ function getDecisionGuidance(
       - Brief personal introduction as the interviewer
       - Reference to the company: "${companyNameMatch}"
       - Mention the interview type: "${sessionContext?.interview_type || 'interview'}"
+      - Let them know they'll have time to ask questions at the end
       - Set the tone based on your communication style
-      - Keep it concise (1-2 sentences) and natural for voice
+      - Keep it concise (2-3 sentences) and natural for voice
+      - End with a natural confirmation phrase like "Sound good?" or "How does that sound?" or "Ready to get started?"
       
-      Example framework: "Hi! I'm [Name/Persona], and I'm excited to conduct your [interview_type] interview with [company] today!"`
+      Example framework: "Hi! I'm [Name/Persona], and I'm excited to conduct your [interview_type] interview with [company] today! I'll be asking you a few questions, and you'll have time to ask me questions at the end. Sound good?"`
     case 'recovery':
       return `DECISION: The candidate's response was incomplete, cut off, or didn't address the question. Give them a chance to recover.
       
