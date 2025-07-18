@@ -445,7 +445,7 @@ async function analyzeConversationAndDecide(
 
     // Phase 2: Enhanced force progression rules
     const MAX_FOLLOWUPS_PER_QUESTION = 3 // Increased from 2 to 3 for more natural flow
-    const MAX_TOTAL_INTERVIEWER_TURNS = 18 // Allow 5 questions + 3 follow-ups each + closing turns
+    const MAX_TOTAL_INTERVIEWER_TURNS = 26 // Allow 8 questions + 3 follow-ups each + closing turns
     const totalQuestions = questions.length
     
     const totalInterviewerTurns = recentConversation.filter(turn => 
@@ -750,6 +750,64 @@ export async function POST(request: NextRequest) {
 
     // Generate AI response
     try {
+      // BULLETPROOF CLOSING CHECK: Check if we're in closing phase and candidate didn't ask a question
+      const existingClosingTurns = recentConversation.filter(turn => 
+        turn.speaker === 'interviewer' && turn.message_type === 'closing'
+      ).length
+      
+      const candidateAskedQuestion = text && text.trim().includes('?')
+      
+      // If we already have closing turns and candidate didn't ask a question, end immediately
+      if (existingClosingTurns > 0 && !candidateAskedQuestion) {
+        console.log('🏁 BULLETPROOF TERMINATION: Candidate responded without question in closing phase')
+        
+        // Generate final goodbye response
+        const finalGoodbye = "Thanks so much for your time today, Lance! It was great getting to know you. We'll be in touch soon with next steps. Take care!"
+        
+        // Store final goodbye in conversation
+        if (interviewSessionId) {
+          const finalGoodbyeEntry = {
+            session_id: interviewSessionId,
+            turn_number: nextTurnNumber,
+            speaker: 'interviewer',
+            message_text: finalGoodbye,
+            message_type: 'closing',
+            related_main_question_id: null,
+            word_count: finalGoodbye.split(' ').length
+          }
+          
+          await supabase
+            .from('interview_conversation')
+            .insert(finalGoodbyeEntry)
+        }
+        
+        // Send final goodbye transcription
+        stream.data({
+          type: 'agent_transcription',
+          text: finalGoodbye,
+          timestamp: Date.now()
+        })
+        
+        // Send TTS for final goodbye
+        stream.tts(finalGoodbye)
+        
+        // Send completion event
+        stream.data({
+          type: 'interview_complete',
+          message: 'Interview has ended',
+          reason: 'bulletproof_closing_completion',
+          timestamp: Date.now()
+        })
+        
+        // Mark interview as completed in database
+        if (interviewSessionId) {
+          await markInterviewCompleted(interviewSessionId)
+        }
+        
+        stream.end()
+        return
+      }
+      
       // Use decision engine to determine next action
       let decision: { action: 'introduction' | 'recovery' | 'follow_up' | 'next_question' | 'end_interview', reasoning: string } = { action: 'follow_up', reasoning: 'Default behavior' }
       
@@ -849,9 +907,9 @@ export async function POST(request: NextRequest) {
 
         console.log(`🎯 Closing check: ${closingTurns} existing turns, candidate response: "${text}", asked question: ${candidateAskedQuestion}`)
 
-        // New closing logic: if candidate responds without a question in closing phase, end interview
+        // Bulletproof closing logic: if candidate responds without a question in closing phase, end interview
         if (closingTurns > 0 && !candidateAskedQuestion) {
-          console.log('🏁 ENDING INTERVIEW: Candidate responded without question in closing phase')
+          console.log('🏁 ENDING INTERVIEW: Candidate responded without question in closing phase - BULLETPROOF TERMINATION')
           
           // Generate final goodbye response first
           const finalGoodbye = "Thanks so much for your time today, Lance! It was great getting to know you. We'll be in touch soon with next steps. Take care!"

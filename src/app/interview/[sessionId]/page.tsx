@@ -168,9 +168,10 @@ const InterviewSession = () => {
         
         const data = await response.json()
         setSession(data.session)
+        // Set total questions from session data
+        setTotalQuestions(data.session.question_count || 8)
         // TODO: Re-enable question loading when implementing question progression
         // setQuestions(data.questions)
-        // setTotalQuestions(data.questions.length)
         // setCurrentQuestionText(data.questions[0]?.question_text || '')
         setLoading(false)
       } catch (error) {
