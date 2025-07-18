@@ -750,6 +750,30 @@ export async function POST(request: NextRequest) {
 
     // Generate AI response
     try {
+      // SERVER-SIDE PROTECTION: Check if interview session is already completed
+      if (sessionContext) {
+        const { data: sessionCheck } = await supabase
+          .from('interview_sessions')
+          .select('status, completed_at')
+          .eq('id', sessionContext.id)
+          .single()
+        
+        if (sessionCheck?.status === 'completed' || sessionCheck?.completed_at) {
+          console.log('🚫 BLOCKING REQUEST: Interview session already completed')
+          
+          // Send termination message
+          stream.data({
+            type: 'interview_complete',
+            message: 'Interview session has already ended',
+            reason: 'session_already_completed',
+            timestamp: Date.now()
+          })
+          
+          stream.end()
+          return
+        }
+      }
+      
       // BULLETPROOF CLOSING CHECK: Check if we're in closing phase and candidate didn't ask a question
       const existingClosingTurns = recentConversation.filter(turn => 
         turn.speaker === 'interviewer' && turn.message_type === 'closing'

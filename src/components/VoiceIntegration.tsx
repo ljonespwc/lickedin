@@ -34,6 +34,16 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
       // Handle interview completion event - check BOTH patterns
       if (data.type === 'interview_complete' || 
           (data.type === 'response.data' && content?.type === 'interview_complete')) {
+        console.log('🏁 Interview complete event received - terminating LayerCode connection')
+        
+        // Terminate LayerCode pipeline connection
+        if (disconnect && typeof disconnect === 'function') {
+          console.log('🔌 Calling LayerCode disconnect method')
+          disconnect()
+        } else {
+          console.warn('⚠️ LayerCode disconnect method not available')
+        }
+        
         onVoiceData({ 
           interviewComplete: true,
           status: 'disconnected' // Force status to disconnected
@@ -63,8 +73,12 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
   const { 
     agentAudioAmplitude, 
     userAudioAmplitude,
-    status: voiceStatus
+    status: voiceStatus,
+    disconnect
   } = hookData
+  
+  // Debug: Log all available methods/properties
+  console.log('LayerCode hookData properties:', Object.keys(hookData))
 
   // Send audio/status updates to parent with throttling to reduce spam
   React.useEffect(() => {

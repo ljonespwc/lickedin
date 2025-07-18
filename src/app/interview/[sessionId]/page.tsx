@@ -325,8 +325,8 @@ const InterviewSession = () => {
         </div>
       )}
       
-      {/* Voice Integration - client-side only */}
-      {session && (
+      {/* Voice Integration - client-side only, disabled when interview is complete */}
+      {session && !interviewCompleted && (
         <VoiceIntegration 
           onVoiceData={handleVoiceData} 
           interviewSessionId={sessionId}
@@ -377,22 +377,28 @@ const InterviewSession = () => {
                 <div className="text-2xl">{interviewer.emoji}</div>
                 <h2 className="text-lg font-medium">{interviewer.name}</h2>
               </div>
-              {voiceData.agentAudioAmplitude > 0 && (
+              {interviewCompleted ? (
                 <div className="flex items-center space-x-2">
-                  <div className="flex space-x-1">
-                    {[...Array(3)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="w-1 bg-primary animate-pulse"
-                        style={{
-                          height: `${Math.max(8, voiceData.agentAudioAmplitude * 15)}px`,
-                          animationDelay: `${i * 0.1}s`
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-xs text-muted-foreground">Speaking...</span>
+                  <span className="text-xs text-red-500 font-medium">Interview Ended</span>
                 </div>
+              ) : (
+                voiceData.agentAudioAmplitude > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <div className="flex space-x-1">
+                      {[...Array(3)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="w-1 bg-primary animate-pulse"
+                          style={{
+                            height: `${Math.max(8, voiceData.agentAudioAmplitude * 15)}px`,
+                            animationDelay: `${i * 0.1}s`
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground">Speaking...</span>
+                  </div>
+                )
               )}
             </div>
             
@@ -416,22 +422,28 @@ const InterviewSession = () => {
                 <Mic className="text-primary" size={20} />
                 <h3 className="font-medium">Your Response</h3>
               </div>
-              {userSpeaking && (
+              {interviewCompleted ? (
                 <div className="flex items-center space-x-2">
-                  <div className="flex space-x-1">
-                    {[...Array(3)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="w-1 bg-blue-500 animate-pulse"
-                        style={{
-                          height: `${Math.max(8, voiceData.userAudioAmplitude * 15)}px`,
-                          animationDelay: `${i * 0.1}s`
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-xs text-muted-foreground">Speaking...</span>
+                  <span className="text-xs text-red-500 font-medium">Interview Ended</span>
                 </div>
+              ) : (
+                userSpeaking && (
+                  <div className="flex items-center space-x-2">
+                    <div className="flex space-x-1">
+                      {[...Array(3)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="w-1 bg-blue-500 animate-pulse"
+                          style={{
+                            height: `${Math.max(8, voiceData.userAudioAmplitude * 15)}px`,
+                            animationDelay: `${i * 0.1}s`
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground">Speaking...</span>
+                  </div>
+                )
               )}
             </div>
             
