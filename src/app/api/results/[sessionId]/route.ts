@@ -329,6 +329,15 @@ async function storeAnalysisResults(
       content_score: number
       confidence_score: number
     }
+    preparation_analysis: {
+      preparation_score: number
+      business_insights: string[]
+      solutions_proposed: string[]
+      problem_solving_approach: string
+      research_quality: string[]
+      strategic_thinking: string[]
+      missed_opportunities: string[]
+    }
   }
 ) {
   try {
@@ -343,6 +352,11 @@ async function storeAnalysisResults(
         confidence_score: aiAnalysis.coaching_feedback.confidence_score,
         communication_score: aiAnalysis.coaching_feedback.communication_score,
         content_score: aiAnalysis.coaching_feedback.content_score,
+        preparation_score: aiAnalysis.preparation_analysis.preparation_score,
+        business_insights: aiAnalysis.preparation_analysis.business_insights,
+        solutions_proposed: aiAnalysis.preparation_analysis.solutions_proposed,
+        problem_solving_approach: aiAnalysis.preparation_analysis.problem_solving_approach,
+        preparation_analysis: aiAnalysis.preparation_analysis,
         response_analyses: aiAnalysis.response_analyses,
         resume_analysis: aiAnalysis.resume_analysis,
         job_fit_analysis: aiAnalysis.job_fit_analysis,
@@ -464,6 +478,120 @@ Respond with JSON only:
       communication_score: 75,
       content_score: 75,
       confidence_score: 75
+    }
+  }
+}
+
+// Helper function to analyze preparation and problem-solving demonstration
+async function analyzePreparationAndProblemSolving(
+  conversation: ConversationTurn[],
+  context: InterviewContext,
+  resumeContent: string,
+  jobContent: string
+): Promise<{
+  preparation_score: number
+  business_insights: string[]
+  solutions_proposed: string[]
+  problem_solving_approach: string
+  research_quality: string[]
+  strategic_thinking: string[]
+  missed_opportunities: string[]
+}> {
+  // Filter for preparation-related responses (questions and follow-ups)
+  const allResponses = conversation
+    .filter(turn => turn.speaker === 'candidate')
+    .map(turn => turn.message_text)
+    .join('\n')
+
+  const preparationQuestions = conversation
+    .filter(turn => 
+      turn.speaker === 'interviewer' && 
+      (turn.message_text.includes('research') || 
+       turn.message_text.includes('challenge') || 
+       turn.message_text.includes('improvement') || 
+       turn.message_text.includes('priority') || 
+       turn.message_text.includes('opportunity'))
+    )
+    .map(turn => turn.message_text)
+    .join('\n')
+
+  const prompt = `You are an expert interviewer analyzing a candidate's preparation and problem-solving demonstration.
+
+INTERVIEW CONTEXT:
+- Interview Type: ${context.interview_type}
+- Communication Style: ${context.communication_style}
+- Difficulty Level: ${context.difficulty_level}
+
+CANDIDATE'S RESUME:
+${resumeContent}
+
+JOB REQUIREMENTS:
+${jobContent}
+
+PREPARATION-RELATED QUESTIONS ASKED:
+${preparationQuestions}
+
+CANDIDATE'S RESPONSES:
+${allResponses}
+
+Analyze how well the candidate demonstrated preparation and problem-solving abilities. Consider:
+1. Quality of company/role research shown
+2. Specific business insights or challenges identified
+3. Concrete solutions or improvements proposed
+4. Strategic thinking and proactive approach
+5. Depth of preparation beyond surface-level research
+6. Problem-solving methodology demonstrated
+
+Respond with JSON only:
+{
+  "preparation_score": 0-100,
+  "business_insights": ["insight1", "insight2"],
+  "solutions_proposed": ["solution1", "solution2"],
+  "problem_solving_approach": "description of their approach",
+  "research_quality": ["quality1", "quality2"],
+  "strategic_thinking": ["example1", "example2"],
+  "missed_opportunities": ["opportunity1", "opportunity2"]
+}`
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert interviewer evaluating preparation and problem-solving. Respond only with valid JSON."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 800
+    })
+
+    const response = completion.choices[0]?.message?.content || '{}'
+    const analysis = JSON.parse(response)
+    
+    return {
+      preparation_score: analysis.preparation_score || 70,
+      business_insights: analysis.business_insights || [],
+      solutions_proposed: analysis.solutions_proposed || [],
+      problem_solving_approach: analysis.problem_solving_approach || 'Limited problem-solving demonstration',
+      research_quality: analysis.research_quality || [],
+      strategic_thinking: analysis.strategic_thinking || [],
+      missed_opportunities: analysis.missed_opportunities || []
+    }
+  } catch (error) {
+    console.error('Error analyzing preparation and problem-solving:', error)
+    return {
+      preparation_score: 70,
+      business_insights: [],
+      solutions_proposed: [],
+      problem_solving_approach: 'Analysis unavailable',
+      research_quality: [],
+      strategic_thinking: [],
+      missed_opportunities: []
     }
   }
 }
@@ -632,7 +760,8 @@ export async function GET(
     const hasCachedAnalysis = feedback?.ai_analysis_completed_at && 
                              feedback?.response_analyses && 
                              feedback?.resume_analysis && 
-                             feedback?.job_fit_analysis
+                             feedback?.job_fit_analysis &&
+                             (feedback?.preparation_analysis || feedback?.preparation_score !== null)
     
     if (hasCachedAnalysis) {
       console.log('✅ Using cached AI analysis for session:', sessionId)
@@ -650,6 +779,15 @@ export async function GET(
           communication_score: feedback.communication_score,
           content_score: feedback.content_score,
           confidence_score: feedback.confidence_score
+        },
+        preparation_analysis: feedback.preparation_analysis || {
+          preparation_score: feedback.preparation_score || 70,
+          business_insights: feedback.business_insights || [],
+          solutions_proposed: feedback.solutions_proposed || [],
+          problem_solving_approach: feedback.problem_solving_approach || 'Analysis unavailable',
+          research_quality: [],
+          strategic_thinking: [],
+          missed_opportunities: []
         }
       }
     } else if (conversation && conversation.length > 0) {
@@ -717,6 +855,14 @@ export async function GET(
         interviewContext
       )
 
+      // Analyze preparation and problem-solving
+      const preparationAnalysis = await analyzePreparationAndProblemSolving(
+        conversation,
+        interviewContext,
+        interviewContext.resume_content,
+        interviewContext.job_content
+      )
+
       // Generate overall coaching feedback
       const coachingFeedback = await generateCoachingFeedback(
         conversation,
@@ -730,7 +876,8 @@ export async function GET(
         response_analyses: responseAnalyses,
         resume_analysis: resumeAnalysis,
         job_fit_analysis: jobFitAnalysis,
-        coaching_feedback: coachingFeedback
+        coaching_feedback: coachingFeedback,
+        preparation_analysis: preparationAnalysis
       }
       
       // Store the analysis results in the database for future use

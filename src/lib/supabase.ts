@@ -284,6 +284,16 @@ export type Database = {
           confidence_score: number | null
           communication_score: number | null
           content_score: number | null
+          preparation_score: number | null
+          business_insights: string[] | null
+          solutions_proposed: string[] | null
+          problem_solving_approach: string | null
+          response_analyses: unknown | null
+          resume_analysis: unknown | null
+          job_fit_analysis: unknown | null
+          preparation_analysis: unknown | null
+          ai_analysis_completed_at: string | null
+          ai_analysis_version: number | null
           created_at: string
         }
         Insert: {
@@ -296,6 +306,16 @@ export type Database = {
           confidence_score?: number | null
           communication_score?: number | null
           content_score?: number | null
+          preparation_score?: number | null
+          business_insights?: string[] | null
+          solutions_proposed?: string[] | null
+          problem_solving_approach?: string | null
+          response_analyses?: unknown | null
+          resume_analysis?: unknown | null
+          job_fit_analysis?: unknown | null
+          preparation_analysis?: unknown | null
+          ai_analysis_completed_at?: string | null
+          ai_analysis_version?: number | null
           created_at?: string
         }
         Update: {
@@ -308,6 +328,16 @@ export type Database = {
           confidence_score?: number | null
           communication_score?: number | null
           content_score?: number | null
+          preparation_score?: number | null
+          business_insights?: string[] | null
+          solutions_proposed?: string[] | null
+          problem_solving_approach?: string | null
+          response_analyses?: unknown | null
+          resume_analysis?: unknown | null
+          job_fit_analysis?: unknown | null
+          preparation_analysis?: unknown | null
+          ai_analysis_completed_at?: string | null
+          ai_analysis_version?: number | null
           created_at?: string
         }
       }

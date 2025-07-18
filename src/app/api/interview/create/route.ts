@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
         interview_type: interviewType,
         voice_gender: voiceGender,
         communication_style: communicationStyle,
-        question_count: questionCount || 5,
+        question_count: questionCount || 8,
         status: 'pending'
       })
       .select()
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
       }
 
       const questionPrompt = `
-Generate ${questionCount || 5} personalized interview questions based on the following context:
+Generate ${questionCount || 8} personalized interview questions based on the following context:
 
 CANDIDATE BACKGROUND:
 ${resumeData.parsed_content || 'No resume content available'}
@@ -187,19 +187,27 @@ Requirements:
 - Tailor questions to match both the candidate's experience and job requirements
 - Include specific follow-up points that probe deeper into each response
 - Ensure questions align with the interview type focus area
+- Include 2-3 "briefcase technique" questions that test preparation and problem-solving
 
-QUESTION TYPE DISTRIBUTION:
-${interviewType === 'technical_screen' ? '- 60% technical/problem-solving, 30% behavioral, 10% situational' : 
-  interviewType === 'phone_screening' ? '- 50% cultural fit, 30% motivation, 20% basic qualifications' :
-  interviewType === 'hiring_manager' ? '- 50% role-specific experience, 30% leadership/scenarios, 20% technical' :
-  '- 40% cultural fit, 40% team dynamics, 20% work style preferences'}
+QUESTION TYPE DISTRIBUTION (8 questions total):
+${interviewType === 'technical_screen' ? '- 3 technical/problem-solving questions\n- 2 behavioral questions\n- 1 situational question\n- 2 preparation/briefcase questions' : 
+  interviewType === 'phone_screening' ? '- 3 cultural fit questions\n- 2 motivation questions\n- 1 basic qualifications question\n- 2 preparation/briefcase questions' :
+  interviewType === 'hiring_manager' ? '- 3 role-specific experience questions\n- 2 leadership/scenarios questions\n- 1 technical question\n- 2 preparation/briefcase questions' :
+  '- 3 cultural fit questions\n- 2 team dynamics questions\n- 1 work style question\n- 2 preparation/briefcase questions'}
+
+BRIEFCASE TECHNIQUE QUESTIONS:
+Include 2-3 questions that test the candidate's preparation and problem-solving abilities:
+- "What specific challenges or opportunities do you see in this role/company based on your research?"
+- "If you were to start in this position, what would be your first priority and why?"
+- "What improvements or ideas do you have for [specific company/department area]?"
+- "Based on your research, what do you think are the biggest challenges facing [company/industry]?"
 
 Return in JSON format:
 {
   "questions": [
     {
       "text": "question text",
-      "type": "behavioral|technical|situational|cultural",
+      "type": "behavioral|technical|situational|cultural|preparation",
       "expectedPoints": ["key point 1", "key point 2", "key point 3"],
       "followUp": "specific follow-up question to probe deeper"
     }
