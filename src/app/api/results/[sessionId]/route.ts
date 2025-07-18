@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import OpenAI from 'openai'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -339,9 +340,25 @@ async function storeAnalysisResults(
       missed_opportunities: string[]
     }
   }
-) {
+): Promise<boolean> {
   try {
-    const { error } = await supabaseClient
+    console.log('🔄 Starting analysis storage for session:', sessionId)
+    
+    // Log the data being stored for debugging
+    console.log('📊 Analysis data summary:', {
+      sessionId,
+      hasResponseAnalyses: !!aiAnalysis.response_analyses,
+      responseAnalysesCount: aiAnalysis.response_analyses?.length || 0,
+      hasResumeAnalysis: !!aiAnalysis.resume_analysis,
+      hasJobFitAnalysis: !!aiAnalysis.job_fit_analysis,
+      hasCoachingFeedback: !!aiAnalysis.coaching_feedback,
+      hasPreparationAnalysis: !!aiAnalysis.preparation_analysis,
+      communicationScore: aiAnalysis.coaching_feedback?.communication_score,
+      contentScore: aiAnalysis.coaching_feedback?.content_score,
+      confidenceScore: aiAnalysis.coaching_feedback?.confidence_score
+    })
+
+    const { data, error } = await supabaseClient
       .from('interview_feedback')
       .upsert({
         session_id: sessionId,
@@ -367,12 +384,27 @@ async function storeAnalysisResults(
       })
 
     if (error) {
-      console.error('Error storing analysis results:', error)
+      console.error('❌ CRITICAL: Database write failed for session:', sessionId)
+      console.error('❌ Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      })
+      return false
     } else {
       console.log('✅ AI analysis results cached successfully for session:', sessionId)
+      console.log('✅ Database response:', data)
+      return true
     }
   } catch (error) {
-    console.error('Exception storing analysis results:', error)
+    console.error('❌ CRITICAL: Exception storing analysis results for session:', sessionId)
+    console.error('❌ Exception details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace'
+    })
+    return false
   }
 }
 
@@ -656,6 +688,15 @@ export async function GET(
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken || undefined)
     
+    // Debug authentication context
+    console.log('🔐 Authentication context:', {
+      sessionId,
+      hasAccessToken: !!accessToken,
+      hasUser: !!user,
+      userId: user?.id,
+      authError: authError?.message
+    })
+    
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -880,8 +921,25 @@ export async function GET(
         preparation_analysis: preparationAnalysis
       }
       
+      // Create service role client for database writes (bypasses RLS)
+      const serviceSupabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        }
+      )
+      
       // Store the analysis results in the database for future use
-      await storeAnalysisResults(supabase, sessionId, aiAnalysis)
+      const storageSuccess = await storeAnalysisResults(serviceSupabase, sessionId, aiAnalysis)
+      
+      if (!storageSuccess) {
+        console.error('⚠️ WARNING: Analysis generated but failed to save to database for session:', sessionId)
+        // Continue processing to show results to user, but log the failure
+      }
     }
 
     // Transform conversation data for the response
