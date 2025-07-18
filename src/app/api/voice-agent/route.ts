@@ -36,6 +36,64 @@ interface SessionContext {
   job_descriptions: { job_content: string }[]
 }
 
+// Helper function to detect if candidate asked a question using AI
+async function detectQuestionWithAI(candidateResponse: string): Promise<boolean> {
+  if (!candidateResponse || candidateResponse.trim().length === 0) {
+    return false
+  }
+
+  try {
+    const prompt = `You are analyzing whether a candidate's response contains a question during an interview closing phase.
+
+CANDIDATE RESPONSE: "${candidateResponse}"
+
+Determine if this response contains a question (explicit or implied). Consider these examples:
+
+QUESTIONS (return true):
+- "What's the salary range?"
+- "I'm wondering about the compensation structure."
+- "Could you tell me about the benefits?"
+- "I'd like to know more about the team."
+- "How about work-life balance?"
+- "I'm curious about remote work options."
+- "What about career growth opportunities?"
+- "I wanted to ask about the company culture."
+- "Can you share more about the role?"
+
+NOT QUESTIONS (return false):
+- "Thank you for your time."
+- "I'm excited about this opportunity."
+- "I look forward to hearing from you."
+- "This sounds like a great fit."
+- "I appreciate the conversation."
+
+Respond with only "true" or "false".`
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert at detecting questions in conversation. Respond only with 'true' or 'false'."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 5
+    })
+
+    const response = completion.choices[0]?.message?.content?.trim().toLowerCase()
+    return response === 'true'
+  } catch (error) {
+    console.error('Error detecting question with AI:', error)
+    // Fallback to simple question mark detection
+    return candidateResponse.includes('?')
+  }
+}
+
 // Initialize OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -928,10 +986,11 @@ export async function POST(request: NextRequest) {
           turn.speaker === 'interviewer' && turn.message_type === 'closing'
         ).length
 
-        // Check if candidate asked a question (simple question mark detection)
-        const candidateAskedQuestion = text && text.trim().includes('?')
+        // AI-powered question detection using GPT-4.1
+        const candidateAskedQuestion = await detectQuestionWithAI(text || '')
 
-        console.log(`🎯 Closing check: ${closingTurns} existing turns, candidate response: "${text}", asked question: ${candidateAskedQuestion}`)
+        console.log(`🎯 Closing check: ${closingTurns} existing turns, candidate response: "${text}"`)
+        console.log(`🔍 AI Question detection result: candidateAskedQuestion=${candidateAskedQuestion}`)
 
         // Bulletproof closing logic: if candidate responds without a question in closing phase, end interview
         if (closingTurns > 0 && !candidateAskedQuestion) {

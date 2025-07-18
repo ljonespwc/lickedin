@@ -83,6 +83,14 @@ export async function GET(
       )
     }
 
+    // Get actual question count from interview_questions table
+    const { data: questions } = await supabase
+      .from('interview_questions')
+      .select('id')
+      .eq('session_id', sessionId)
+
+    const actualQuestionCount = questions?.length || session.question_count
+
     // Get conversation progress
     const { data: conversation, error: conversationError } = await supabase
       .from('interview_conversation')
@@ -94,7 +102,7 @@ export async function GET(
       console.error('Conversation fetch error:', conversationError)
       return NextResponse.json({
         currentQuestion: 1,
-        totalQuestions: session.question_count,
+        totalQuestions: actualQuestionCount,
         progress: 20
       })
     }
@@ -108,7 +116,7 @@ export async function GET(
     // If 0 questions asked, we're on question 1
     // If 1 question asked, we're still on question 1 (until it's answered)
     const currentQuestion = Math.max(1, mainQuestionsAsked)
-    const totalQuestions = session.question_count
+    const totalQuestions = actualQuestionCount
     const progress = Math.round((mainQuestionsAsked / totalQuestions) * 100)
 
     return NextResponse.json({

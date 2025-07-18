@@ -99,8 +99,14 @@ export async function GET(
       )
     }
 
+    // Override session question_count with actual count from database
+    const actualQuestionCount = questions?.length || session.question_count
+    
     return NextResponse.json({
-      session,
+      session: {
+        ...session,
+        question_count: actualQuestionCount
+      },
       questions: questions || []
     })
 
