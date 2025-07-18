@@ -936,9 +936,23 @@ export async function GET(
       // Store the analysis results in the database for future use
       const storageSuccess = await storeAnalysisResults(serviceSupabase, sessionId, aiAnalysis)
       
-      if (!storageSuccess) {
+      if (storageSuccess) {
+        // Calculate and store overall score
+        const overallScore = Math.round((
+          aiAnalysis.coaching_feedback.communication_score +
+          aiAnalysis.coaching_feedback.content_score +
+          aiAnalysis.coaching_feedback.confidence_score +
+          aiAnalysis.preparation_analysis.preparation_score
+        ) / 4)
+        
+        await serviceSupabase
+          .from('interview_sessions')
+          .update({ overall_score: overallScore })
+          .eq('id', sessionId)
+          
+        console.log('✅ Overall score calculated and stored:', overallScore)
+      } else {
         console.error('⚠️ WARNING: Analysis generated but failed to save to database for session:', sessionId)
-        // Continue processing to show results to user, but log the failure
       }
     }
 
