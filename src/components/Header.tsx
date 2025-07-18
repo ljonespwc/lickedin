@@ -8,7 +8,7 @@ import { handleSignOut } from '@/lib/auth-utils'
 import { Button } from "@/components/ui/button"
 import { FileText, BarChart3 } from "lucide-react"
 import Image from 'next/image'
-import type { User } from '@supabase/supabase-js'
+import type { User, Session } from '@supabase/supabase-js'
 
 interface HeaderProps {
   currentSessionId?: string // Keep for potential future use
@@ -19,6 +19,7 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
   const _ = currentSessionId // Acknowledge unused prop
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [hasInterviews, setHasInterviews] = useState(false)
@@ -28,6 +29,7 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
     const loadUserData = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       setUser(session?.user ?? null)
+      setSession(session) // Cache session for button handlers
       
       if (session?.user) {
         const hasInterviewsResult = await hasCompletedInterviews(session.user.id)
@@ -40,6 +42,7 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null)
+      setSession(session) // Cache session for button handlers
       if (session?.user) {
         const hasInterviewsResult = await hasCompletedInterviews(session.user.id)
         setHasInterviews(hasInterviewsResult)
@@ -72,12 +75,12 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
   }
 
   const handleSmartResults = async () => {
-    if (!user || isLoadingResults) return
+    if (!user || !session || isLoadingResults) return
     
     setIsLoadingResults(true)
     
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      // Use cached session instead of calling getSession()
       if (!session?.access_token) {
         router.push('/')
         return
