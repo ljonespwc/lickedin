@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import type { Session } from '@supabase/supabase-js'
 import { Header } from '@/components/Header'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -95,45 +96,66 @@ const Results = () => {
   
   const [results, setResults] = useState<InterviewResults | null>(null)
   const [loading, setLoading] = useState(true)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [session, setSession] = useState<Session | null>(null) // Cache session to avoid hanging getSession() calls
+
+  const loadResults = useCallback(async (sessionToUse: Session) => {
+    try {
+      const accessToken = sessionToUse.access_token
+        
+      const response = await fetch(`/api/results/${sessionId}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        },
+        credentials: 'include'
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to load results')
+      }
+      
+      const data = await response.json()
+      setResults(data)
+      
+      setLoading(false)
+    } catch (error) {
+      console.error('Error loading results:', error)
+      setLoading(false)
+    }
+  }, [sessionId])
 
   useEffect(() => {
-    const loadResults = async () => {
-      try {
-        // Get session and access token
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (!session?.user) {
-          router.push('/')
-          return
-        }
-
-        const accessToken = session.access_token
-        
-        const response = await fetch(`/api/results/${sessionId}`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
-          credentials: 'include'
-        })
-        
-        if (!response.ok) {
-          throw new Error('Failed to load results')
-        }
-        
-        const data = await response.json()
-        setResults(data)
-        
-        setLoading(false)
-      } catch (error) {
-        console.error('Error loading results:', error)
-        setLoading(false)
+    const getUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.user) {
+        router.push('/')
+      } else {
+        setSession(session) // Cache session for API calls
+        loadResults(session)
       }
     }
-
+    
     if (sessionId) {
-      loadResults()
+      getUser()
     }
-  }, [sessionId, router])
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session?.user) {
+        router.push('/')
+        setSession(null)
+      } else {
+        setSession(session) // Update cached session
+        if (sessionId) {
+          loadResults(session)
+        }
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [sessionId, router, loadResults])
+
 
   if (loading) {
     return (

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import type { Session } from '@supabase/supabase-js'
 import { Header } from '@/components/Header'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,19 +37,40 @@ const Dashboard = () => {
   const router = useRouter()
   const [data, setDashboardData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [session, setSession] = useState<Session | null>(null) // Cache session to avoid hanging getSession() calls
 
   useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        // Get session and access token
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (!session?.user) {
-          router.push('/')
-          return
-        }
+    const getUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.user) {
+        router.push('/')
+      } else {
+        setSession(session) // Cache session for API calls
+        loadDashboard(session)
+      }
+    }
+    
+    getUser()
 
-        const accessToken = session.access_token
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session?.user) {
+        router.push('/')
+        setSession(null)
+      } else {
+        setSession(session) // Update cached session
+        loadDashboard(session)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
+
+  const loadDashboard = async (sessionToUse: Session) => {
+    try {
+      const accessToken = sessionToUse.access_token
         
         // Add timeout to prevent endless loading
         const controller = new AbortController()
@@ -87,9 +109,6 @@ const Dashboard = () => {
         setLoading(false)
       }
     }
-
-    loadDashboard()
-  }, [router])
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString)
