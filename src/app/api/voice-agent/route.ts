@@ -390,7 +390,7 @@ function getCommunicationStyleInstructions(communicationStyle: string, interview
 
   const interviewTypeContext = {
     phone_screening: "Focus on getting to know the candidate's background, motivations, and cultural fit. Keep questions broad and exploratory.",
-    technical_screen: "Dive deep into technical concepts, problem-solving approaches, and hands-on experience. Ask for specific examples and technical details.",
+    behavioral_interview: "Use the STAR method (Situation, Task, Action, Result) to explore past experiences. Ask 'Tell me about a time when...' questions and probe for specific examples, outcomes, and lessons learned.",
     hiring_manager: "Explore leadership experiences, past challenges, and role-specific scenarios. Ask about decision-making processes and team dynamics.",
     cultural_fit: "Understand work styles, team preferences, values alignment, and interpersonal skills. Focus on how they collaborate and handle workplace situations."
   }

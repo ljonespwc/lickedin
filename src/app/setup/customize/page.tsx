@@ -65,10 +65,10 @@ const SetupCustomize = () => {
       description: "Initial recruiter call"
     },
     {
-      id: "technical_screen", 
-      name: "Technical Screen",
-      emoji: "💻",
-      description: "Coding & technical skills"
+      id: "behavioral_interview", 
+      name: "Behavioral Interview",
+      emoji: "🧠",
+      description: "Past experiences & problem-solving"
     },
     {
       id: "hiring_manager",

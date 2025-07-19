@@ -111,7 +111,7 @@ const InterviewSession = () => {
 
     const interviewTypeMap = {
       phone_screening: { name: 'Phone Screener', emoji: '📞' },
-      technical_screen: { name: 'Technical Interviewer', emoji: '💻' },
+      behavioral_interview: { name: 'Behavioral Interviewer', emoji: '🧠' },
       hiring_manager: { name: 'Hiring Manager', emoji: '👔' },
       cultural_fit: { name: 'Culture Interviewer', emoji: '🤝' }
     }

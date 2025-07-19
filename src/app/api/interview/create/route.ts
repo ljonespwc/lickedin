@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
 
       const interviewTypeMap = {
         phone_screening: "initial screening focused on cultural fit, basic qualifications, and motivation",
-        technical_screen: "technical assessment focusing on role-specific skills, tools, methodologies, and problem-solving approaches relevant to the candidate's field",
+        behavioral_interview: "behavioral assessment using STAR method focusing on past experiences, problem-solving situations, leadership examples, and competency-based questions",
         hiring_manager: "role-specific deep-dive covering past experiences, leadership situations, and job-specific scenarios",
         cultural_fit: "team dynamics, company values alignment, work style preferences, and interpersonal skills"
       }
@@ -190,7 +190,7 @@ Requirements:
 - Include 2-3 "briefcase technique" questions that test preparation and problem-solving
 
 QUESTION TYPE DISTRIBUTION (8 questions total):
-${interviewType === 'technical_screen' ? '- 3 technical/problem-solving questions\n- 2 behavioral questions\n- 1 situational question\n- 2 preparation/briefcase questions' : 
+${interviewType === 'behavioral_interview' ? '- 3 STAR method behavioral questions\n- 2 situational/problem-solving questions\n- 1 leadership/teamwork question\n- 2 preparation/briefcase questions' : 
   interviewType === 'phone_screening' ? '- 3 cultural fit questions\n- 2 motivation questions\n- 1 basic qualifications question\n- 2 preparation/briefcase questions' :
   interviewType === 'hiring_manager' ? '- 3 role-specific experience questions\n- 2 leadership/scenarios questions\n- 1 technical question\n- 2 preparation/briefcase questions' :
   '- 3 cultural fit questions\n- 2 team dynamics questions\n- 1 work style question\n- 2 preparation/briefcase questions'}
@@ -222,14 +222,20 @@ Return in JSON format:
             role: "system",
             content: `You are an expert interviewer who creates personalized interview questions. Your questions must perfectly match the specified difficulty level, interview type focus, and communication style. 
 
-For technical screens, interpret "technical" based on the candidate's professional background and role level:
-- Marketing professionals: focus on MarTech, analytics, testing methodologies, tool selection, data interpretation, automation platforms
-- Engineering professionals: focus on coding, architecture, algorithms, system design  
-- Leadership roles: focus on technical decision-making, team technical guidance, tool evaluation, strategic technical choices
-- Sales professionals: focus on CRM systems, sales tools, process optimization, data analysis
-- Other roles: adapt technical focus to field-specific tools, methodologies, and problem-solving approaches
+For behavioral interviews, focus on the STAR method (Situation, Task, Action, Result):
+- Ask for specific examples from past experiences
+- Probe for measurable outcomes and results
+- Focus on competencies like leadership, problem-solving, teamwork, conflict resolution, adaptability
+- Include situational questions ("Tell me about a time when...")
+- Encourage detailed storytelling with concrete examples
+- Ask follow-up questions to understand decision-making processes
 
-You understand that technical competency varies by role - a marketing director's technical skills involve different tools and concepts than a software engineer's.`
+Structure behavioral questions to elicit comprehensive responses that demonstrate:
+- Problem identification and analysis skills
+- Decision-making processes and rationale
+- Communication and interpersonal abilities
+- Leadership and influence capabilities
+- Learning and adaptation from experiences`
           },
           {
             role: "user",
