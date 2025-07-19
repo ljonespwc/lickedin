@@ -447,13 +447,6 @@ const InterviewSession = () => {
               )}
             </div>
             
-            <div className="min-h-24 p-4 bg-muted/30 rounded-lg border text-muted-foreground text-sm mb-4">
-              {voiceData.userTranscription ? (
-                <span className="text-foreground">{voiceData.userTranscription}</span>
-              ) : (
-                <span className="italic">[Your voice transcription will appear here as you speak...]</span>
-              )}
-            </div>
             
           </CardContent>
         </Card>
