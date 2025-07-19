@@ -186,7 +186,7 @@ const Results = () => {
   const getInterviewTypeDisplay = (type: string) => {
     const typeMap = {
       'phone_screening': 'Phone Screening',
-      'technical_screen': 'Technical Screen',
+      'behavioral_interview': 'Behavioral Interview',
       'hiring_manager': 'Hiring Manager',
       'cultural_fit': 'Cultural Fit'
     }

@@ -72,6 +72,12 @@ Please provide a comprehensive analysis of this response. Consider:
 4. Are there specific examples and concrete details?
 5. Is the communication style appropriate for the interview type?
 
+For behavioral interviews specifically, also evaluate:
+- STAR structure: Does the response include Situation, Task, Action, and Result?
+- Specificity: Are examples concrete and detailed rather than vague generalizations?
+- Quantified outcomes: Are results measurable and impactful?
+- Learning/growth: Does the candidate show reflection and learning from experiences?
+
 Respond with JSON only:
 {
   "quality_score": 0-100,
@@ -88,7 +94,7 @@ Respond with JSON only:
       messages: [
         {
           role: "system",
-          content: "You are an expert interview coach. Respond only with valid JSON."
+          content: `You are an expert interview coach. For behavioral interviews, evaluate responses using STAR method criteria (Situation, Task, Action, Result). Look for specific examples, measurable outcomes, and clear problem-solving progression. Respond only with valid JSON.`
         },
         {
           role: "user",
@@ -460,6 +466,12 @@ Gap Analysis: ${jobFitAnalysis.gap_analysis.join(', ')}
 
 Provide comprehensive coaching feedback considering the interview type and style. Be encouraging but honest about areas for improvement.
 
+For behavioral interviews, specifically evaluate:
+- STAR methodology usage (Situation, Task, Action, Result structure)
+- Story quality and specificity of examples provided
+- Evidence of self-reflection and learning from experiences
+- Leadership and problem-solving demonstration through concrete examples
+
 Respond with JSON only:
 {
   "overall_feedback": "Comprehensive paragraph about overall performance",
@@ -477,7 +489,7 @@ Respond with JSON only:
       messages: [
         {
           role: "system",
-          content: "You are an expert interview coach. Respond only with valid JSON."
+          content: "You are an expert interview coach specializing in behavioral interview assessment. For behavioral interviews, focus on STAR methodology evaluation, story quality, and demonstration of competencies through specific examples. Respond only with valid JSON."
         },
         {
           role: "user",
