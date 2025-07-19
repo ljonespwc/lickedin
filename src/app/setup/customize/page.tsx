@@ -166,7 +166,7 @@ const SetupCustomize = () => {
 
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-foreground mb-2">Customize Your Interview</h1>
+          <h1 className="text-2xl font-semibold text-foreground mb-2">Setup Your Interview</h1>
           <p className="text-muted-foreground">Step 2 of 2: Customize</p>
         </div>
 
@@ -326,7 +326,7 @@ const SetupCustomize = () => {
             className="flex items-center space-x-2"
           >
             <ArrowLeft size={16} />
-            <span>Back to Setup</span>
+            <span>Back to Step 1</span>
           </Button>
           
           <Button 

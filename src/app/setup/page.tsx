@@ -400,7 +400,7 @@ const Setup = () => {
             className="px-8"
             onClick={() => router.push('/setup/customize')}
           >
-            Continue to Setup →
+            Continue to Step 2 →
           </Button>
         </div>
       </div>
