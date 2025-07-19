@@ -258,7 +258,7 @@ const Results = () => {
               <CardContent>
                 <div className="text-center mb-6">
                   <div className="text-4xl font-bold text-foreground mb-2">
-                    {results.session?.overall_score || 78}/100
+                    {results.session?.overall_score ? Math.round(Number(results.session.overall_score)) : 'N/A'}/100
                   </div>
                   <div className="text-muted-foreground">Overall Score</div>
                 </div>
@@ -267,26 +267,34 @@ const Results = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Communication:</span>
                     <span className="text-sm font-semibold">
-                      {results.feedback?.communication_score || 82}/100
+                      {results.feedback?.communication_score || results.ai_analysis?.coaching_feedback?.communication_score || 'N/A'}/100
                     </span>
                   </div>
-                  <Progress value={results.feedback?.communication_score || 82} className="h-2" />
+                  <Progress value={results.feedback?.communication_score || results.ai_analysis?.coaching_feedback?.communication_score || 0} className="h-2" />
                   
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Content:</span>
                     <span className="text-sm font-semibold">
-                      {results.feedback?.content_score || 74}/100
+                      {results.feedback?.content_score || results.ai_analysis?.coaching_feedback?.content_score || 'N/A'}/100
                     </span>
                   </div>
-                  <Progress value={results.feedback?.content_score || 74} className="h-2" />
+                  <Progress value={results.feedback?.content_score || results.ai_analysis?.coaching_feedback?.content_score || 0} className="h-2" />
                   
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Confidence:</span>
                     <span className="text-sm font-semibold">
-                      {results.feedback?.confidence_score || 80}/100
+                      {results.feedback?.confidence_score || results.ai_analysis?.coaching_feedback?.confidence_score || 'N/A'}/100
                     </span>
                   </div>
-                  <Progress value={results.feedback?.confidence_score || 80} className="h-2" />
+                  <Progress value={results.feedback?.confidence_score || results.ai_analysis?.coaching_feedback?.confidence_score || 0} className="h-2" />
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Preparation:</span>
+                    <span className="text-sm font-semibold">
+                      {results.ai_analysis?.preparation_analysis?.preparation_score || 'N/A'}/100
+                    </span>
+                  </div>
+                  <Progress value={results.ai_analysis?.preparation_analysis?.preparation_score || 0} className="h-2" />
                 </div>
               </CardContent>
             </Card>
@@ -301,7 +309,7 @@ const Results = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  {results.feedback?.overall_feedback || "Great job completing your interview!"}
+                  {results.feedback?.overall_feedback || results.ai_analysis?.coaching_feedback?.overall_feedback || "Analysis not yet available."}
                 </p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -357,7 +365,7 @@ const Results = () => {
                           Q{response.question.question_order}: &quot;{response.question.question_text}&quot;
                         </span>
                         <span className="font-bold text-primary">
-                          {response.analysis?.quality_score || 75}/100
+                          {response.analysis?.quality_score || 'N/A'}/100
                         </span>
                       </div>
                       

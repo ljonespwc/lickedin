@@ -900,6 +900,18 @@ export async function POST(request: NextRequest) {
         decision = await analyzeConversationAndDecide(sessionContext, recentConversation, text || '')
       }
       
+      // BULLETPROOF OVERRIDE: If decision is end_interview but candidate asked question, switch to follow_up
+      if (decision.action === 'end_interview' && text) {
+        const candidateAskedQuestion = await detectQuestionWithAI(text)
+        if (candidateAskedQuestion) {
+          decision = {
+            action: 'follow_up',
+            reasoning: 'Candidate asked question during closing - continuing conversation'
+          }
+          console.log('🔄 OVERRIDE: Changed end_interview to follow_up due to candidate question')
+        }
+      }
+      
       // Phase 4: Log decision execution
       console.log('⚡ Decision Execution:', {
         sessionId: interviewSessionId,

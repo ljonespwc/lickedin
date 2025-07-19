@@ -263,6 +263,19 @@ You understand that technical competency varies by role - a marketing director's
           { status: 500 }
         )
       }
+      
+      // Update session with actual question count
+      const actualQuestionCount = generatedQuestions.length
+      const { error: updateError } = await supabase
+        .from('interview_sessions')
+        .update({ question_count: actualQuestionCount })
+        .eq('id', sessionData.id)
+      
+      if (updateError) {
+        console.error('Failed to update question count:', updateError)
+      } else {
+        console.log(`✅ Updated session ${sessionData.id} with question_count: ${actualQuestionCount}`)
+      }
 
     } catch (openaiError) {
       console.error('OpenAI error:', openaiError)
