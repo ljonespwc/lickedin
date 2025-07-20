@@ -49,27 +49,9 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
           (data.type === 'response.data' && content?.type === 'interview_complete')) {
         console.log('🏁 Interview complete event received - terminating LayerCode connection')
         
-        // Terminate LayerCode pipeline connection
-        if (disconnect && typeof disconnect === 'function') {
-          console.log('🔌 Calling LayerCode disconnect method')
-          try {
-            const result = disconnect()
-            // Handle promise rejection if disconnect returns a promise (cast to unknown to bypass typing)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const promiseResult = result as any
-            if (promiseResult && typeof promiseResult.catch === 'function') {
-              promiseResult.catch((error: unknown) => {
-                console.warn('⚠️ LayerCode disconnect promise rejected (SDK internal issue):', error)
-              })
-            }
-            console.log('✅ LayerCode disconnect called successfully')
-          } catch (error) {
-            console.warn('⚠️ LayerCode disconnect error (SDK internal issue):', error)
-            // Continue anyway - this is a LayerCode SDK bug, not our issue
-          }
-        } else {
-          console.warn('⚠️ LayerCode disconnect method not available')
-        }
+        // Terminate LayerCode pipeline connection - but don't call disconnect as it causes errors
+        // LayerCode will handle cleanup internally when the interview ends
+        console.log('🔌 Interview complete - LayerCode will handle disconnect internally')
         
         onVoiceData({ 
           interviewComplete: true,
@@ -100,8 +82,7 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
   const { 
     agentAudioAmplitude, 
     userAudioAmplitude,
-    status: voiceStatus,
-    disconnect
+    status: voiceStatus
   } = hookData || {}
   
   // Debug: Log all available methods/properties (removed to reduce console spam)
