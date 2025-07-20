@@ -81,6 +81,7 @@ export async function GET(request: NextRequest) {
         overall_score,
         completed_at,
         status,
+        interview_type,
         job_descriptions (
           job_content
         )
@@ -144,7 +145,8 @@ export async function GET(request: NextRequest) {
         score: session.overall_score || 0,
         completed_at: session.completed_at,
         company_name: companyName,
-        job_title: jobTitle
+        job_title: jobTitle,
+        interview_type: session.interview_type || 'behavioral_interview'
       };
     })
 

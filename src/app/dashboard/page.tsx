@@ -7,7 +7,8 @@ import type { Session } from '@supabase/supabase-js'
 import { Header } from '@/components/Header'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, Calendar, ExternalLink } from "lucide-react"
+import { TrendingUp, Calendar } from "lucide-react"
+import { ProgressRing } from "@/components/ui/progress-ring"
 import {
   Table,
   TableBody,
@@ -30,6 +31,7 @@ interface DashboardData {
     completed_at: string
     company_name: string
     job_title: string
+    interview_type: string
   }>
 }
 
@@ -110,17 +112,29 @@ const Dashboard = () => {
       }
     }
 
-  const formatTimeAgo = (dateString: string) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = Math.abs(now.getTime() - date.getTime())
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
-    if (diffDays === 1) return '1 day ago'
-    if (diffDays < 7) return `${diffDays} days ago`
-    if (diffDays < 14) return '1 week ago'
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
-    return `${Math.floor(diffDays / 30)} months ago`
+    return date.toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    })
+  }
+
+  const getInterviewTypeDisplay = (type: string) => {
+    const typeMap = {
+      'phone_screening': 'Phone Screen',
+      'behavioral_interview': 'Behavioral',
+      'hiring_manager': 'Hiring Manager',
+      'cultural_fit': 'Cultural Fit'
+    }
+    return typeMap[type as keyof typeof typeMap] || type
+  }
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-green-600 bg-green-100'
+    if (score >= 60) return 'text-yellow-600 bg-yellow-100' 
+    return 'text-red-600 bg-red-100'
   }
 
   if (loading) {
@@ -151,10 +165,6 @@ const Dashboard = () => {
       <Header />
 
       <div className="max-w-4xl mx-auto px-6 py-8">
-        {/* Welcome Message */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-foreground mb-2">Welcome back!</h1>
-        </div>
 
         {/* Your Progress */}
         <Card className="mb-6">
@@ -166,22 +176,30 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-6 text-center">
-              <div>
-                <div className="text-2xl font-bold text-foreground">
+              <div className="flex flex-col items-center">
+                <div className="text-3xl font-bold text-foreground mb-2">
                   {dashboardData.stats.totalInterviews}
                 </div>
                 <div className="text-sm text-muted-foreground">Interviews completed</div>
               </div>
-              <div>
-                <div className="text-2xl font-bold text-foreground">
-                  {dashboardData.stats.averageScore > 0 ? `${dashboardData.stats.averageScore}/100` : '--'}
-                </div>
+              <div className="flex flex-col items-center">
+                <ProgressRing 
+                  progress={dashboardData.stats.averageScore} 
+                  size={90}
+                  strokeWidth={8}
+                  showValue={true}
+                  className="mb-2"
+                />
                 <div className="text-sm text-muted-foreground">Average score</div>
               </div>
-              <div>
-                <div className="text-2xl font-bold text-foreground">
-                  {dashboardData.stats.bestScore > 0 ? `${dashboardData.stats.bestScore}/100` : '--'}
-                </div>
+              <div className="flex flex-col items-center">
+                <ProgressRing 
+                  progress={dashboardData.stats.bestScore} 
+                  size={90}
+                  strokeWidth={8}
+                  showValue={true}
+                  className="mb-2"
+                />
                 <div className="text-sm text-muted-foreground">Best performance</div>
               </div>
             </div>
@@ -204,7 +222,9 @@ const Dashboard = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Position</TableHead>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Role/Position</TableHead>
+                      <TableHead>Interview Type</TableHead>
                       <TableHead>Score</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Actions</TableHead>
@@ -218,20 +238,29 @@ const Dashboard = () => {
                         onClick={() => router.push(`/results/${interview.id}`)}
                       >
                         <TableCell className="font-medium">
-                          {interview.job_title ? `${interview.job_title} @ ${interview.company_name}` : interview.position}
+                          {interview.company_name || 'Company'}
                         </TableCell>
                         <TableCell>
-                          <span className="font-semibold text-primary">
+                          {interview.job_title || interview.position}
+                        </TableCell>
+                        <TableCell>
+                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
+                            {getInterviewTypeDisplay(interview.interview_type)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getScoreColor(interview.score)}`}>
                             {interview.score}/100
                           </span>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {formatTimeAgo(interview.completed_at)}
+                          {formatDate(interview.completed_at)}
                         </TableCell>
                         <TableCell>
                           <Button 
-                            variant="ghost" 
+                            variant="default"
                             size="sm"
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
                             onClick={(e) => {
                               e.stopPropagation()
                               router.push(`/results/${interview.id}`)
@@ -244,12 +273,6 @@ const Dashboard = () => {
                     ))}
                   </TableBody>
                 </Table>
-                <div className="mt-4 text-center">
-                  <Button variant="ghost" className="text-primary hover:text-primary/90">
-                    <ExternalLink size={16} className="mr-2" />
-                    View All
-                  </Button>
-                </div>
               </>
             ) : (
               <div className="text-center py-8">
