@@ -977,8 +977,19 @@ export async function GET(
       }
     })
 
+    // Include calculated overall score in session data
+    const sessionWithScore = {
+      ...session,
+      overall_score: session.overall_score || (aiAnalysis?.coaching_feedback ? Math.round((
+        aiAnalysis.coaching_feedback.communication_score +
+        aiAnalysis.coaching_feedback.content_score +
+        aiAnalysis.coaching_feedback.confidence_score +
+        aiAnalysis.preparation_analysis.preparation_score
+      ) / 4) : null)
+    }
+
     return NextResponse.json({
-      session,
+      session: sessionWithScore,
       feedback: aiAnalysis?.coaching_feedback || feedback || {
         overall_feedback: "Great job on completing your interview! You showed good communication skills and provided thoughtful responses.",
         strengths: ["Clear communication", "Good examples", "Professional demeanor"],
