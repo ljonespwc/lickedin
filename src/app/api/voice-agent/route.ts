@@ -2,6 +2,13 @@ import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { streamResponse, verifySignature } from '@layercode/node-server-sdk'
 import { createClient } from '@supabase/supabase-js'
+import crypto from 'crypto'
+
+// In-memory stores for deduplication and mutex
+const recentRequests = new Map<string, number>() // requestHash -> timestamp
+const responseMutex = new Map<string, boolean>() // sessionId -> isProcessing
+const DEDUP_WINDOW_MS = 5000 // 5 second window for duplicate detection
+const MUTEX_TIMEOUT_MS = 30000 // 30 second mutex timeout
 
 // Type definitions
 interface ConversationTurn {
@@ -684,6 +691,60 @@ Respond with JSON only:
   }
 }
 
+// Helper function to generate request fingerprint
+function generateRequestHash(sessionId: string, text: string, type: string): string {
+  const content = `${sessionId}-${text}-${type}`
+  return crypto.createHash('md5').update(content).digest('hex')
+}
+
+// Helper function to check if request is duplicate
+function isDuplicateRequest(sessionId: string, text: string, type: string): boolean {
+  const requestHash = generateRequestHash(sessionId, text, type)
+  const now = Date.now()
+  
+  // Clean old entries
+  for (const [hash, timestamp] of recentRequests.entries()) {
+    if (now - timestamp > DEDUP_WINDOW_MS) {
+      recentRequests.delete(hash)
+    }
+  }
+  
+  // Check if this request was seen recently
+  if (recentRequests.has(requestHash)) {
+    console.log('🔄 DUPLICATE REQUEST DETECTED:', { sessionId, text: text?.substring(0, 50), type })
+    return true
+  }
+  
+  // Store this request
+  recentRequests.set(requestHash, now)
+  return false
+}
+
+// Helper function to acquire response generation mutex
+function acquireResponseMutex(sessionId: string): boolean {
+  if (responseMutex.get(sessionId)) {
+    console.log('🔒 RESPONSE MUTEX LOCKED - skipping duplicate response for session:', sessionId)
+    return false
+  }
+  
+  responseMutex.set(sessionId, true)
+  
+  // Auto-release mutex after timeout
+  setTimeout(() => {
+    responseMutex.delete(sessionId)
+    console.log('⏰ RESPONSE MUTEX AUTO-RELEASED for session:', sessionId)
+  }, MUTEX_TIMEOUT_MS)
+  
+  console.log('🔓 RESPONSE MUTEX ACQUIRED for session:', sessionId)
+  return true
+}
+
+// Helper function to release response generation mutex
+function releaseResponseMutex(sessionId: string): void {
+  responseMutex.delete(sessionId)
+  console.log('🔓 RESPONSE MUTEX RELEASED for session:', sessionId)
+}
+
 export async function GET() {
   console.log('🔥 GET request to voice-agent endpoint')
   return new Response('Webhook endpoint is working! Updated with session mapping.', { status: 200 })
@@ -741,6 +802,13 @@ export async function POST(request: NextRequest) {
     // Get LayerCode's session ID from the request
     const layercodeSessionId = session_id || session_context?.sessionId
     
+    // DEDUPLICATION CHECK: Skip duplicate requests within 5-second window
+    if (layercodeSessionId && text && isDuplicateRequest(layercodeSessionId, text, type || 'message')) {
+      console.log('🚫 SKIPPING DUPLICATE REQUEST - maintaining first response')
+      stream.end()
+      return
+    }
+    
     // Look up our interview session ID using the LayerCode session ID
     let interviewSessionId: string | null = null
     
@@ -765,6 +833,13 @@ export async function POST(request: NextRequest) {
       } else {
         interviewSessionId = sessionData.id
         console.log('✅ Found interview session:', interviewSessionId, 'for LayerCode session:', layercodeSessionId)
+        
+        // MUTEX CHECK: Only allow one response generation per session at a time
+        if (interviewSessionId && !acquireResponseMutex(interviewSessionId)) {
+          console.log('🚫 SKIPPING REQUEST - response already in progress for session:', interviewSessionId)
+          stream.end()
+          return
+        }
       }
     } else {
       console.error('❌ No LayerCode session ID provided')
@@ -842,6 +917,10 @@ export async function POST(request: NextRequest) {
             timestamp: Date.now()
           })
           
+          // Release mutex before ending
+          if (interviewSessionId) {
+            releaseResponseMutex(interviewSessionId)
+          }
           stream.end()
           return
         }
@@ -899,6 +978,8 @@ export async function POST(request: NextRequest) {
         // Mark interview as completed in database
         if (interviewSessionId) {
           await markInterviewCompleted(interviewSessionId)
+          // Release mutex before ending
+          releaseResponseMutex(interviewSessionId)
         }
         
         stream.end()
@@ -1082,6 +1163,8 @@ export async function POST(request: NextRequest) {
           // Mark interview as completed in database
           if (interviewSessionId) {
             await markInterviewCompleted(interviewSessionId)
+            // Release mutex before ending
+            releaseResponseMutex(interviewSessionId)
           }
           
           stream.end()
@@ -1142,6 +1225,11 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error('OpenAI completion error:', error)
       stream.tts("I apologize, but I'm having some technical difficulties. Let's continue with your interview.")
+    } finally {
+      // ALWAYS release mutex when request completes
+      if (interviewSessionId) {
+        releaseResponseMutex(interviewSessionId)
+      }
     }
     
     // End the stream
