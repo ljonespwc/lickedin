@@ -82,31 +82,47 @@ const InterviewSession = () => {
     interviewComplete?: boolean;
     finalGoodbyeSent?: boolean;
   }) => {
-    // Handle final goodbye sent - start audio monitoring
+    // Handle final goodbye sent - start smart TTS completion detection
     if (data.finalGoodbyeSent && !finalGoodbyeSent) {
       setFinalGoodbyeSent(true)
-      console.log('👋 Starting audio monitoring for TTS completion')
+      console.log('👋 Starting smart TTS completion detection')
       
       // Clear any existing monitor
       if (audioMonitorRef.current) {
         clearInterval(audioMonitorRef.current)
       }
       
-      // Monitor agent audio amplitude to detect when TTS finishes
+      // Two-phase detection: wait for audio to START, then wait for it to END
+      let audioStarted = false
       let silenceCount = 0
+      let startDelay = 0
+      
       audioMonitorRef.current = setInterval(() => {
         const currentAmplitude = voiceData.agentAudioAmplitude || 0
+        startDelay++
         
-        if (currentAmplitude < 0.01) { // Very low amplitude = silence
-          silenceCount++
-          if (silenceCount >= 3) { // 3 consecutive checks of silence (~600ms)
-            console.log('🎵 TTS finished - showing completion modal')
-            clearInterval(audioMonitorRef.current!)
-            setInterviewCompleted(true)
-            setShowConfetti(true)
+        // Phase 1: Wait for TTS to actually start (or timeout after 3 seconds)
+        if (!audioStarted) {
+          if (currentAmplitude > 0.02 || startDelay > 15) { // Audio detected or 3 second timeout
+            audioStarted = true
+            console.log('🔊 TTS started, now monitoring for completion')
+            return
           }
-        } else {
-          silenceCount = 0 // Reset if audio detected
+        }
+        
+        // Phase 2: Wait for TTS to finish (silence detection)
+        if (audioStarted) {
+          if (currentAmplitude < 0.01) { // Very low amplitude = silence
+            silenceCount++
+            if (silenceCount >= 4) { // 4 consecutive checks of silence (~800ms)
+              console.log('🎵 TTS finished - showing completion modal')
+              clearInterval(audioMonitorRef.current!)
+              setInterviewCompleted(true)
+              setShowConfetti(true)
+            }
+          } else {
+            silenceCount = 0 // Reset if audio detected
+          }
         }
       }, 200) // Check every 200ms
     }

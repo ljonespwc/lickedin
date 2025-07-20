@@ -1117,7 +1117,42 @@ export async function POST(request: NextRequest) {
           turn.speaker === 'interviewer' && turn.message_type === 'closing'
         ).length
 
-        // AI-powered question detection using GPT-4.1
+        // FIRST: Check if response needs recovery (same logic as main questions)
+        const qualityCheck = detectResponseQualityIssues(text, recentConversation)
+        
+        if (qualityCheck.needsRecovery) {
+          console.log('🔄 CLOSING RECOVERY NEEDED:', qualityCheck.reason)
+          
+          // Generate recovery response instead of terminating
+          response = "I think you were saying something there - could you repeat that last part?"
+          
+          // Store recovery response and continue conversation
+          const recoveryEntry = {
+            session_id: interviewSessionId,
+            turn_number: nextTurnNumber,
+            speaker: 'interviewer',
+            message_text: response,
+            message_type: 'follow_up',
+            related_main_question_id: null,
+            word_count: response.split(' ').length
+          }
+          
+          await supabase
+            .from('interview_conversation')
+            .insert(recoveryEntry)
+          
+          // Send response and continue
+          stream.data({
+            type: 'agent_transcription',
+            text: response,
+            timestamp: Date.now()
+          })
+          
+          stream.tts(response)
+          return // Don't terminate, continue conversation
+        }
+
+        // SECOND: If no recovery needed, check for questions vs termination
         const candidateAskedQuestion = await detectQuestionWithAI(text || '')
 
         console.log(`🎯 Closing check: ${closingTurns} existing turns, candidate response: "${text}"`)
