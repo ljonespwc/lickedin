@@ -39,7 +39,13 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
         // Terminate LayerCode pipeline connection
         if (disconnect && typeof disconnect === 'function') {
           console.log('🔌 Calling LayerCode disconnect method')
-          disconnect()
+          try {
+            disconnect()
+            console.log('✅ LayerCode disconnect completed successfully')
+          } catch (error) {
+            console.warn('⚠️ LayerCode disconnect error (SDK internal issue):', error)
+            // Continue anyway - this is a LayerCode SDK bug, not our issue
+          }
         } else {
           console.warn('⚠️ LayerCode disconnect method not available')
         }

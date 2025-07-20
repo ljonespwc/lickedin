@@ -76,10 +76,30 @@ async function extractStructuredJobData(jobContent: string): Promise<{
   job_title: string | null
 }> {
   try {
-    const prompt = `Extract the company name and job title from this job posting. Be precise and only extract the exact company name and job title.
+    const prompt = `Extract the company name and job title from this job posting. Look carefully for patterns and be thorough.
 
 JOB POSTING:
 ${jobContent}
+
+EXTRACTION GUIDELINES:
+1. COMPANY NAME - Look for these patterns:
+   - "Company Name is looking for..." 
+   - "Join [Company] as a..."
+   - "We're [Company]" or "[Company] exists to..."
+   - Company names in headers, titles, or repeated throughout
+   - Brand names that appear multiple times
+
+2. JOB TITLE - Look for these patterns:
+   - "We're looking for a [Job Title]"
+   - "[Job Title] - Company"
+   - "Join us as [Job Title]"
+   - Position titles near the beginning of the posting
+   - Titles that include "Director", "Manager", "Engineer", "Analyst", etc.
+
+3. COMMON FORMATS:
+   - "[Job Title] at [Company]"
+   - "[Company] - [Job Title]" 
+   - "We're [Company] and we're hiring a [Job Title]"
 
 Respond with JSON only:
 {
@@ -87,11 +107,12 @@ Respond with JSON only:
   "job_title": "exact job title or null if not found"
 }
 
-Rules:
-- company_name should be the main company name (e.g., "Google", "Microsoft", "Acme Corp")
-- job_title should be the main position title (e.g., "Software Engineer", "Marketing Manager", "Senior Data Analyst")
-- Return null if unable to determine with confidence
-- Do not include extra words like "at" or "@"`
+EXAMPLES:
+- "Jobber is looking for a Director of Product" → {"company_name": "Jobber", "job_title": "Director of Product"}
+- "We're Google and we need a Software Engineer" → {"company_name": "Google", "job_title": "Software Engineer"}
+- "Join Microsoft as a Product Manager" → {"company_name": "Microsoft", "job_title": "Product Manager"}
+
+Be aggressive in your extraction - if you see clear indicators, extract them even if the format is unusual.`
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
