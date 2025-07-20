@@ -83,7 +83,9 @@ export async function GET(request: NextRequest) {
         status,
         interview_type,
         job_descriptions (
-          job_content
+          job_content,
+          company_name,
+          job_title
         )
       `)
       .eq('user_id', user.id)
@@ -115,29 +117,15 @@ export async function GET(request: NextRequest) {
       ? Math.max(...scores)
       : 0
 
-    // Format recent interviews
+    // Format recent interviews using structured data
     const recentInterviews = completedSessions.slice(0, 10).map(session => {
       const jobDesc = Array.isArray(session.job_descriptions) 
         ? session.job_descriptions[0] 
         : session.job_descriptions;
       
-      // Extract company and job title from job_content
-      let companyName = 'Company';
-      let jobTitle = 'Position';
-      
-      if (jobDesc?.job_content) {
-        // Try to extract company name (look for common patterns)
-        const companyMatch = jobDesc.job_content.match(/(?:at|@)\s+([A-Z][a-zA-Z\s&]+?)(?:\s|,|\.|$)/i);
-        if (companyMatch) {
-          companyName = companyMatch[1].trim();
-        }
-        
-        // Try to extract job title (look for common patterns)
-        const titleMatch = jobDesc.job_content.match(/(?:role|position|job|title)\s*:?\s*([A-Z][a-zA-Z\s&-]+?)(?:\s|,|\.|at|@|$)/i);
-        if (titleMatch) {
-          jobTitle = titleMatch[1].trim();
-        }
-      }
+      // Use structured fields with fallbacks
+      const companyName = jobDesc?.company_name || 'Company';
+      const jobTitle = jobDesc?.job_title || 'Position';
       
       return {
         id: session.id,

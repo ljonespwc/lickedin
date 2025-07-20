@@ -33,7 +33,7 @@ interface SessionContext {
   communication_style: string
   interview_questions: InterviewQuestion[]
   resumes: { parsed_content: string }[]
-  job_descriptions: { job_content: string }[]
+  job_descriptions: { job_content: string; company_name: string; job_title: string }[]
 }
 
 // Helper function to detect if candidate asked a question using AI
@@ -149,7 +149,7 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
     // Get job description data
     const { data: jobData, error: jobError } = await supabase
       .from('job_descriptions')
-      .select('job_content')
+      .select('job_content, company_name, job_title')
       .eq('id', session.job_description_id)
       .single()
 
@@ -177,7 +177,11 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
       communication_style: session.communication_style,
       interview_questions: questionsData || [],
       resumes: resumeData ? [{ parsed_content: resumeData.parsed_content }] : [],
-      job_descriptions: jobData ? [{ job_content: jobData.job_content }] : []
+      job_descriptions: jobData ? [{ 
+        job_content: jobData.job_content,
+        company_name: jobData.company_name,
+        job_title: jobData.job_title
+      }] : []
     }
 
     console.log('✅ Session context loaded successfully:', {
@@ -411,22 +415,24 @@ function getDecisionGuidance(
   
   switch (action) {
     case 'introduction':
-      // Extract company name from job description for personalization
-      const jobContent = sessionContext?.job_descriptions?.[0]?.job_content || ''
-      const companyNameMatch = jobContent.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/)?.[1] || 'the company'
+      // Use structured company name from job description
+      const jobDesc = sessionContext?.job_descriptions?.[0]
+      const companyName = jobDesc?.company_name || 'the company'
+      const jobTitle = jobDesc?.job_title || 'this role'
       
       return `DECISION: Provide a warm, personalized introduction based on your communication style and interview type. 
       
       Include:
-      - Brief personal introduction as the interviewer
-      - Reference to the company: "${companyNameMatch}"
+      - Brief personal introduction as "Alex" (the interviewer name)
+      - Reference to the company: "${companyName}"
+      - Reference to the position: "${jobTitle}"
       - Mention the interview type: "${sessionContext?.interview_type || 'interview'}"
       - Let them know they'll have time to ask questions at the end
       - Set the tone based on your communication style
       - Keep it concise (2-3 sentences) and natural for voice
       - End with a natural confirmation phrase like "Sound good?" or "How does that sound?" or "Ready to get started?"
       
-      Example framework: "Hi! I'm [Name/Persona], and I'm excited to conduct your [interview_type] interview with [company] today! I'll be asking you a few questions, and you'll have time to ask me questions at the end. Sound good?"`
+      Example framework: "Hi! I'm Alex, and I'm excited to conduct your [interview_type] interview for the ${jobTitle} position at ${companyName} today! I'll be asking you a few questions, and you'll have time to ask me questions at the end. Sound good?"`
     case 'recovery':
       return `DECISION: The candidate's response was incomplete, cut off, or didn't address the question. Give them a chance to recover.
       

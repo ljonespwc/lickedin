@@ -2,6 +2,128 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { parsePDF } from '@/lib/pdf-parser'
+import OpenAI from 'openai'
+
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
+
+// Extract relevant job content using AI (replacing fragile regex patterns)
+async function extractJobContent(rawHtml: string): Promise<string> {
+  try {
+    // First, do basic HTML cleaning
+    const cleanText = rawHtml
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    
+    // If the content is already short and clean, return it
+    if (cleanText.length < 2000) {
+      return cleanText
+    }
+    
+    const prompt = `Extract the main job description content from this scraped web page. Focus on extracting ONLY the relevant job posting information including role description, responsibilities, and requirements.
+
+WEB PAGE CONTENT:
+${cleanText.substring(0, 8000)}
+
+Rules:
+- Extract the job description, responsibilities, requirements, and qualifications
+- Remove navigation, headers, footers, and unrelated content
+- Remove "apply now" buttons, similar jobs, and promotional content
+- Keep the content focused on the actual job posting
+- Return clean, readable text without HTML or extra formatting
+- If no clear job content is found, return the cleaned text as-is
+
+Return only the extracted job content:`
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini", 
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert at extracting job descriptions from web pages. Focus on extracting only relevant job posting content."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 2000
+    })
+
+    const extractedContent = completion.choices[0]?.message?.content?.trim()
+    return extractedContent || cleanText
+  } catch (error) {
+    console.error('Error extracting job content with AI:', error)
+    // Fallback to basic text cleaning if AI fails
+    return rawHtml
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+}
+
+// Extract structured company and job title data using AI
+async function extractStructuredJobData(jobContent: string): Promise<{
+  company_name: string | null
+  job_title: string | null
+}> {
+  try {
+    const prompt = `Extract the company name and job title from this job posting. Be precise and only extract the exact company name and job title.
+
+JOB POSTING:
+${jobContent}
+
+Respond with JSON only:
+{
+  "company_name": "exact company name or null if not found",
+  "job_title": "exact job title or null if not found"
+}
+
+Rules:
+- company_name should be the main company name (e.g., "Google", "Microsoft", "Acme Corp")
+- job_title should be the main position title (e.g., "Software Engineer", "Marketing Manager", "Senior Data Analyst")
+- Return null if unable to determine with confidence
+- Do not include extra words like "at" or "@"`
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert at extracting structured data from job postings. Respond only with valid JSON."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 200
+    })
+
+    const response = completion.choices[0]?.message?.content || '{}'
+    const parsed = JSON.parse(response)
+    
+    return {
+      company_name: parsed.company_name || null,
+      job_title: parsed.job_title || null
+    }
+  } catch (error) {
+    console.error('Error extracting structured job data:', error)
+    return {
+      company_name: null,
+      job_title: null
+    }
+  }
+}
 
 // Validate job description content quality
 function validateJobContent(content: string): { isValid: boolean; reason?: string } {
@@ -185,56 +307,10 @@ export async function POST(request: NextRequest) {
         
         if (response.ok) {
           const html = await response.text()
+          console.log('Scraping successful, extracting job content with AI...')
           
-          // Check if this is a LinkedIn job posting URL
-          const isLinkedInJob = jobUrl.includes('linkedin.com/jobs')
-          
-          if (isLinkedInJob) {
-            // LinkedIn-specific parsing: extract "About the job" content
-            console.log('LinkedIn job detected - extracting job description section')
-            
-            // Look for job description content patterns
-            const jobDescriptionPatterns = [
-              /About the job([\s\S]*?)(?=Show more|Show less|Similar jobs|$)/i,
-              /Job description([\s\S]*?)(?=Show more|Show less|Similar jobs|$)/i,
-              /About The Role([\s\S]*?)(?=About You|You Might Thrive|What You'll|Why You Should|$)/i,
-              /About the role([\s\S]*?)(?=About you|You might thrive|What you'll|Why you should|$)/i
-            ]
-            
-            let extractedContent = ''
-            for (const pattern of jobDescriptionPatterns) {
-              const match = html.match(pattern)
-              if (match && match[1].trim()) {
-                extractedContent = match[1].trim()
-                break
-              }
-            }
-            
-            // If no specific pattern found, try to extract main content section
-            if (!extractedContent) {
-              // Remove navigation and login elements, keep job content
-              const cleanHtml = html
-                .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-                .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-                .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-                .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-                .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-              
-              // Extract text and look for job content after company name
-              const textContent = cleanHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
-              
-              // Try to find job content after role title
-              const roleMatch = textContent.match(/(?:About The Role|About the role|Job description|About the job)([\s\S]*?)(?:About You|You Might Thrive|What You'll|Why You Should|Similar jobs|$)/i)
-              if (roleMatch) {
-                extractedContent = roleMatch[1].trim()
-              }
-            }
-            
-            jobContent = extractedContent || html
-          } else {
-            // Non-LinkedIn: use existing general cleaning
-            jobContent = html
-          }
+          // Use AI-powered extraction for all job sites (replaces fragile LinkedIn regex)
+          jobContent = await extractJobContent(html)
           
           // Apply general cleaning to all content
           jobContent = jobContent
@@ -270,16 +346,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Step 3: Validate job content quality
+    // Step 3: Extract structured company and job title data
+    const structuredData = await extractStructuredJobData(jobContent)
+    
+    // Step 4: Validate job content quality
     const validation = validateJobContent(jobContent)
     
-    // Step 4: Store job description (even if validation fails, for debugging)
+    // Step 5: Store job description with structured data
     const { data: jobData, error: jobError } = await supabase
       .from('job_descriptions')
       .insert({
         user_id: user.id,
         url: jobUrl || 'Manual text input',
-        job_content: jobContent.substring(0, 10000) // Increased limit for cleaned content
+        job_content: jobContent.substring(0, 10000), // Increased limit for cleaned content
+        company_name: structuredData.company_name,
+        job_title: structuredData.job_title
       })
       .select()
       .single()
