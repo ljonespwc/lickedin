@@ -588,11 +588,18 @@ async function analyzeConversationAndDecide(
       }
     }
 
-    // If all main questions have been asked, enter closing phase
+    // If all main questions have been asked, only end if we've had enough follow-ups for the final question
     if (mainQuestionsAsked >= totalQuestions) {
+      if (followUpsSinceLastMain >= MAX_FOLLOWUPS_PER_QUESTION) {
+        return {
+          action: 'end_interview',
+          reasoning: 'All main questions covered and follow-up limit reached for final question'
+        }
+      }
+      // All questions asked but can still do follow-ups on the final question
       return {
-        action: 'end_interview',
-        reasoning: 'All main questions covered, entering closing phase'
+        action: 'follow_up',
+        reasoning: `All main questions covered, continuing with follow-ups (${followUpsSinceLastMain}/${MAX_FOLLOWUPS_PER_QUESTION})`
       }
     }
 

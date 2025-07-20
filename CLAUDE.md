@@ -170,6 +170,8 @@ The database schema is managed in `examples/lickedin_supabase_schema.sql`. This 
 ### Database Access
 **IMPORTANT**: Always use the `supabase-lickedin` MCP server for any database requests. This provides direct access to the Supabase database with proper authentication and security. Use the MCP functions like `mcp__supabase-lickedin__execute_sql` and `mcp__supabase-lickedin__list_tables` instead of making direct API calls.
 
+**Project ID**: `amaxamxgwtiliiedwzxq` (use this for all MCP database operations)
+
 ## Development Workflow Rules
 When working on this project, always follow these 7 rules:
 1. **Plan First**: Think through the problem, read the codebase for relevant files, and write a plan to `docs/todo.md`
