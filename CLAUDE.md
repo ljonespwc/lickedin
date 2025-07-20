@@ -57,12 +57,7 @@ https://docs.layercode.com/api-reference/rest_api\
 
 ## Current Issues & Limitations
 
-### 1. Voice Activity Detection (VAD) Sensitivity
-**Issue**: Sporadic voice capture with premature audio cutoffs during user responses.
-**Impact**: Users experience interrupted speech recognition, affecting interview flow.
-**Status**: Identified but not resolved - requires LayerCode configuration adjustments.
-
-### 2. Supabase Session Hanging Issue - RESOLVED ✅
+### 1. Supabase Session Hanging Issue - RESOLVED ✅
 **Issue**: Calling `supabase.auth.getSession()` in button handlers would sometimes hang indefinitely, causing buttons to become unresponsive.
 **Root Cause**: Race conditions, token refresh timing, or browser storage issues with concurrent `getSession()` calls.
 **Impact**: Users would click buttons (like "Fetch Job Details") and nothing would happen - the call would hang at the `getSession()` line.
@@ -113,7 +108,7 @@ const handleButtonClick = async () => {
 
 2. **Interview Creation**: `POST /api/interview/create`
    - Fetches user's latest resume and job description
-   - Generates 5 personalized questions using OpenAI GPT-4
+   - Generates 8 personalized questions using OpenAI GPT-4
    - Creates interview session in `interview_sessions` table
    - Stores questions in `interview_questions` table
 
@@ -201,7 +196,7 @@ When working on this project, always follow these 7 rules:
 1. **Error Handling**: Improve error boundaries and user feedback for API failures
 2. **Testing**: Add unit tests for core interview logic and API endpoints
 3. **Performance Optimization**: Optimize database queries and conversation history retrieval
-4. **Fix VAD Sensitivity**: Investigate LayerCode configuration options for voice activity detection
+4. **Voice System**: LayerCode voice processing continues to work as intended
 
 ## Project Status: Advanced Conversational AI Interviews
 The interview system now features sophisticated conversation flow with personalized context, intelligent follow-up questions, and comprehensive conversation tracking. The architecture supports natural interview experiences that adapt to candidate responses while maintaining complete conversation history for analysis.
@@ -229,13 +224,13 @@ The interview system now features sophisticated conversation flow with personali
 5. **User-Controlled Navigation**: Removed auto-redirect, users now control when to view results
 
 **Key Technical Fixes**:
-- **Maximum Interviewer Turns**: Increased from 8 to 18 to accommodate all 5 questions plus follow-ups
+- **Maximum Interviewer Turns**: Increased from 8 to 18 to accommodate all 8 questions plus follow-ups
 - **Closing Turn Detection**: Fixed timing issues where termination checks occurred after database storage
 - **Event Data Structure**: Corrected LayerCode event handling to detect `response.data` with `content.type: 'interview_complete'`
 - **Natural End Patterns**: Comprehensive regex for detecting conversational endings
 
 **Conversation Flow Results**:
-- ✅ All 5 main questions consistently asked in proper order
+- ✅ All 8 main questions consistently asked in proper order
 - ✅ Maximum 2 follow-ups per question (adjustable)
 - ✅ Exactly 4 closing exchanges maximum
 - ✅ Natural conversation endings detected and honored
@@ -283,7 +278,7 @@ This resolves the core interview flow issues and provides a polished, profession
 
 **Test Results**:
 - ✅ Session mapping persists throughout entire conversation
-- ✅ All 5 main questions asked in proper order with appropriate follow-ups
+- ✅ All 8 main questions asked in proper order with appropriate follow-ups
 - ✅ Natural conversation flow with intelligent closing detection
 - ✅ Clean termination when candidate expresses satisfaction
 - ✅ No more session loss errors or extended goodbye loops
@@ -333,7 +328,7 @@ This implementation provides robust session persistence and natural conversation
 - ✅ **Legacy Cleanup**: Removed outdated persona mappings while maintaining data consistency
 
 **Live Testing Results** (Session: b8ce5226-b18d-4404-9cda-514096fe4cfb):
-- **Perfect Question Flow**: All 5 main questions asked in correct order
+- **Perfect Question Flow**: All 8 main questions asked in correct order
 - **Appropriate Follow-ups**: Only 1 follow-up question (within 2-question limit)  
 - **Communication Style Applied**: Casual conversational tone evident throughout ("Hey Lance", natural language)
 - **Interview Type Focus**: Phone screening questions matched perfectly (team culture, motivation, company fit)
