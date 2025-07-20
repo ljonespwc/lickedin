@@ -40,8 +40,16 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
         if (disconnect && typeof disconnect === 'function') {
           console.log('🔌 Calling LayerCode disconnect method')
           try {
-            disconnect()
-            console.log('✅ LayerCode disconnect completed successfully')
+            const result = disconnect()
+            // Handle promise rejection if disconnect returns a promise (cast to unknown to bypass typing)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const promiseResult = result as any
+            if (promiseResult && typeof promiseResult.catch === 'function') {
+              promiseResult.catch((error: unknown) => {
+                console.warn('⚠️ LayerCode disconnect promise rejected (SDK internal issue):', error)
+              })
+            }
+            console.log('✅ LayerCode disconnect called successfully')
           } catch (error) {
             console.warn('⚠️ LayerCode disconnect error (SDK internal issue):', error)
             // Continue anyway - this is a LayerCode SDK bug, not our issue
