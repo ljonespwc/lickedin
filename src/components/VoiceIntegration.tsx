@@ -11,6 +11,7 @@ interface VoiceIntegrationProps {
     agentTranscription?: string;
     userTranscription?: string;
     interviewComplete?: boolean;
+    finalGoodbyeSent?: boolean;
   }) => void
 }
 
@@ -31,6 +32,18 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
       // Handle transcription data
       const content = data.content as { type?: string; text?: string; message?: string } | undefined
       
+      // Handle final goodbye sent - start monitoring for TTS completion
+      if (data.type === 'final_goodbye_sent' || 
+          (data.type === 'response.data' && content?.type === 'final_goodbye_sent')) {
+        console.log('👋 Final goodbye sent - starting TTS completion monitoring')
+        
+        onVoiceData({ 
+          finalGoodbyeSent: true,
+          status: voiceStatus
+        })
+        return
+      }
+
       // Handle interview completion event - check BOTH patterns
       if (data.type === 'interview_complete' || 
           (data.type === 'response.data' && content?.type === 'interview_complete')) {

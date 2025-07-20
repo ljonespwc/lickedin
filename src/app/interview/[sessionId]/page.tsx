@@ -51,7 +51,9 @@ const InterviewSession = () => {
   // Interview completion state
   const [showConfetti, setShowConfetti] = useState(false)
   const [interviewCompleted, setInterviewCompleted] = useState(false)
+  const [finalGoodbyeSent, setFinalGoodbyeSent] = useState(false)
   const prevStatusRef = useRef<string>('disconnected')
+  const audioMonitorRef = useRef<NodeJS.Timeout | null>(null)
 
   // Voice integration state
   const [voiceData, setVoiceData] = useState<{
@@ -78,8 +80,38 @@ const InterviewSession = () => {
     agentTranscription?: string;
     userTranscription?: string;
     interviewComplete?: boolean;
+    finalGoodbyeSent?: boolean;
   }) => {
-    // Handle interview completion immediately
+    // Handle final goodbye sent - start audio monitoring
+    if (data.finalGoodbyeSent && !finalGoodbyeSent) {
+      setFinalGoodbyeSent(true)
+      console.log('👋 Starting audio monitoring for TTS completion')
+      
+      // Clear any existing monitor
+      if (audioMonitorRef.current) {
+        clearInterval(audioMonitorRef.current)
+      }
+      
+      // Monitor agent audio amplitude to detect when TTS finishes
+      let silenceCount = 0
+      audioMonitorRef.current = setInterval(() => {
+        const currentAmplitude = voiceData.agentAudioAmplitude || 0
+        
+        if (currentAmplitude < 0.01) { // Very low amplitude = silence
+          silenceCount++
+          if (silenceCount >= 3) { // 3 consecutive checks of silence (~600ms)
+            console.log('🎵 TTS finished - showing completion modal')
+            clearInterval(audioMonitorRef.current!)
+            setInterviewCompleted(true)
+            setShowConfetti(true)
+          }
+        } else {
+          silenceCount = 0 // Reset if audio detected
+        }
+      }, 200) // Check every 200ms
+    }
+
+    // Handle interview completion immediately (fallback)
     if (data.interviewComplete && !interviewCompleted) {
       setInterviewCompleted(true)
       setShowConfetti(true)
@@ -93,7 +125,16 @@ const InterviewSession = () => {
       agentTranscription: data.agentTranscription !== undefined ? data.agentTranscription : prevData.agentTranscription,
       userTranscription: data.userTranscription !== undefined ? data.userTranscription : prevData.userTranscription
     }))
-  }, [interviewCompleted])
+  }, [interviewCompleted, finalGoodbyeSent, voiceData.agentAudioAmplitude])
+  
+  // Cleanup audio monitor on unmount
+  useEffect(() => {
+    return () => {
+      if (audioMonitorRef.current) {
+        clearInterval(audioMonitorRef.current)
+      }
+    }
+  }, [])
 
   // Get pipeline ID based on voice gender
   const getPipelineId = (voiceGender: string) => {

@@ -1157,11 +1157,10 @@ export async function POST(request: NextRequest) {
           // Send TTS for final goodbye
           stream.tts(finalGoodbye)
           
-          // Send completion event
+          // Send completion flag for frontend to monitor audio and show modal when TTS finishes
           stream.data({
-            type: 'interview_complete',
-            message: 'Interview has ended',
-            reason: 'natural_closing_completion',
+            type: 'final_goodbye_sent',
+            message: finalGoodbye,
             timestamp: Date.now()
           })
           
