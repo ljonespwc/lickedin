@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { handleSmartResultsNavigation, hasCompletedInterviews } from '@/lib/interview-utils'
+import { handleSmartResultsNavigation } from '@/lib/interview-utils'
 import { handleSignOut } from '@/lib/auth-utils'
 import { Button } from "@/components/ui/button"
 import { FileText, BarChart3 } from "lucide-react"
@@ -22,19 +22,13 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
   const [session, setSession] = useState<Session | null>(null)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isLoadingResults, setIsLoadingResults] = useState(false)
-  const [hasInterviews, setHasInterviews] = useState(false)
 
-  // Load user authentication state and check for interviews
+  // Load user authentication state
   useEffect(() => {
     const loadUserData = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       setUser(session?.user ?? null)
       setSession(session) // Cache session for button handlers
-      
-      if (session?.user) {
-        const hasInterviewsResult = await hasCompletedInterviews(session.user.id)
-        setHasInterviews(hasInterviewsResult)
-      }
     }
     
     loadUserData()
@@ -43,12 +37,6 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null)
       setSession(session) // Cache session for button handlers
-      if (session?.user) {
-        const hasInterviewsResult = await hasCompletedInterviews(session.user.id)
-        setHasInterviews(hasInterviewsResult)
-      } else {
-        setHasInterviews(false)
-      }
     })
 
     return () => subscription.unsubscribe()
@@ -88,11 +76,8 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
 
       const result = await handleSmartResultsNavigation(user.id, session.access_token)
       
-      if (result.success && result.sessionId) {
-        router.push(`/results/${result.sessionId}`)
-      } else {
-        // Don't show alert, just update the hasInterviews state
-        setHasInterviews(result.hasInterviews)
+      if (result.success) {
+        router.push(result.route)
       }
     } catch (error) {
       console.error('Error handling smart results:', error)
@@ -133,7 +118,7 @@ export const Header = ({ currentSessionId }: HeaderProps) => {
             </Button>
           )}
           
-          {user && hasInterviews && (
+          {user && (
             <Button 
               type="button"
               variant="ghost" 
