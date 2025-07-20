@@ -75,10 +75,9 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
     userAudioAmplitude,
     status: voiceStatus,
     disconnect
-  } = hookData
+  } = hookData || {}
   
-  // Debug: Log all available methods/properties
-  console.log('LayerCode hookData properties:', Object.keys(hookData))
+  // Debug: Log all available methods/properties (removed to reduce console spam)
 
   // Send audio/status updates to parent with throttling to reduce spam
   React.useEffect(() => {
