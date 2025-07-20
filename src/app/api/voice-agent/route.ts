@@ -595,18 +595,11 @@ async function analyzeConversationAndDecide(
       }
     }
 
-    // If all main questions have been asked, only end if we've had enough follow-ups for the final question
+    // If all main questions have been asked, enter closing mode
     if (mainQuestionsAsked >= totalQuestions) {
-      if (followUpsSinceLastMain >= MAX_FOLLOWUPS_PER_QUESTION) {
-        return {
-          action: 'end_interview',
-          reasoning: 'All main questions covered and follow-up limit reached for final question'
-        }
-      }
-      // All questions asked but can still do follow-ups on the final question
       return {
-        action: 'follow_up',
-        reasoning: `All main questions covered, continuing with follow-ups (${followUpsSinceLastMain}/${MAX_FOLLOWUPS_PER_QUESTION})`
+        action: 'end_interview',
+        reasoning: 'All main questions covered, entering closing mode'
       }
     }
 
@@ -1098,8 +1091,8 @@ export async function POST(request: NextRequest) {
         console.log(`🎯 Closing check: ${closingTurns} existing turns, candidate response: "${text}"`)
         console.log(`🔍 AI Question detection result: candidateAskedQuestion=${candidateAskedQuestion}`)
 
-        // Bulletproof closing logic: if candidate responds without a question in closing phase, end interview
-        if (closingTurns > 0 && !candidateAskedQuestion) {
+        // Bulletproof closing logic: if candidate responds without a question, end interview
+        if (!candidateAskedQuestion) {
           console.log('🏁 ENDING INTERVIEW: Candidate responded without question in closing phase - BULLETPROOF TERMINATION')
           
           // Generate final goodbye response first
