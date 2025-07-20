@@ -977,15 +977,18 @@ export async function GET(
       }
     })
 
+    // Use freshly calculated overall score, not potentially stale database value
+    const freshOverallScore = aiAnalysis?.coaching_feedback ? Math.round((
+      aiAnalysis.coaching_feedback.communication_score +
+      aiAnalysis.coaching_feedback.content_score +
+      aiAnalysis.coaching_feedback.confidence_score +
+      aiAnalysis.preparation_analysis.preparation_score
+    ) / 4) : null
+    
     // Include calculated overall score in session data
     const sessionWithScore = {
       ...session,
-      overall_score: session.overall_score || (aiAnalysis?.coaching_feedback ? Math.round((
-        aiAnalysis.coaching_feedback.communication_score +
-        aiAnalysis.coaching_feedback.content_score +
-        aiAnalysis.coaching_feedback.confidence_score +
-        aiAnalysis.preparation_analysis.preparation_score
-      ) / 4) : null)
+      overall_score: freshOverallScore || session.overall_score
     }
 
     return NextResponse.json({

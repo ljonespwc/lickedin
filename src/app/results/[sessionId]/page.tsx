@@ -96,6 +96,7 @@ const Results = () => {
   
   const [results, setResults] = useState<InterviewResults | null>(null)
   const [loading, setLoading] = useState(true)
+  const [hasLoadedResults, setHasLoadedResults] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [session, setSession] = useState<Session | null>(null) // Cache session to avoid hanging getSession() calls
 
@@ -116,6 +117,7 @@ const Results = () => {
       
       const data = await response.json()
       setResults(data)
+      setHasLoadedResults(true)
       
       setLoading(false)
     } catch (error) {
@@ -147,14 +149,15 @@ const Results = () => {
         setSession(null)
       } else {
         setSession(session) // Update cached session
-        if (sessionId) {
+        // Only load results if we haven't loaded them yet to prevent duplicate calls
+        if (sessionId && !hasLoadedResults) {
           loadResults(session)
         }
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [sessionId, router, loadResults])
+  }, [sessionId, router, loadResults, hasLoadedResults])
 
 
   if (loading) {
