@@ -455,7 +455,20 @@ function getDecisionGuidance(
       
       Keep it encouraging and give them a clear path to provide a better response.`
     case 'follow_up':
-      return "DECISION: Ask a follow-up question to get more depth on the current topic. Probe for specific examples, challenges, or outcomes."
+      const followUpMainQuestions = recentConversation.filter(turn => 
+        turn.speaker === 'interviewer' && 
+        turn.message_type === 'main_question' && 
+        turn.related_main_question_id
+      )
+      const totalQuestions = questions.length
+      const questionsAsked = followUpMainQuestions.length
+      
+      return `DECISION: Ask a follow-up question to get more depth on the current topic. Probe for specific examples, challenges, or outcomes.
+      
+      IMPORTANT CONTEXT: You are in the MIDDLE of the interview process (${questionsAsked}/${totalQuestions} main questions covered). 
+      DO NOT use closing language like "wrap up", "before we finish", or "final questions". 
+      Continue the natural interview flow with curiosity about their experience.`
+    
     case 'next_question':
       // Use improved unique question tracking
       const mainQuestionTurns = recentConversation.filter(turn => 
@@ -636,7 +649,8 @@ DECISION RULES (Phase 3: Improved Clarity):
 3. "next_question" - If response is sufficient OR you've asked ${MAX_FOLLOWUPS_PER_QUESTION} follow-ups OR candidate gave good examples
 4. "end_interview" - If all ${totalQuestions} main questions have been thoroughly covered
 
-IMPORTANT: Favor "next_question" to maintain interview pace. Good responses deserve to move forward.
+CRITICAL: If MAIN QUESTIONS ASKED equals ${totalQuestions}/${totalQuestions}, you MUST choose "end_interview" regardless of other factors.
+IMPORTANT: Only favor "next_question" when there are still main questions remaining. Good responses deserve to move forward.
 
 Respond with JSON only:
 {
