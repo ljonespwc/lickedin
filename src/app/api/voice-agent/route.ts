@@ -1250,9 +1250,12 @@ export async function POST(request: NextRequest) {
       console.error('OpenAI completion error:', error)
       stream.tts("I apologize, but I'm having some technical difficulties. Let's continue with your interview.")
     } finally {
-      // ALWAYS release mutex when request completes
+      // DELAY mutex release to allow LayerCode time to start TTS playback
+      // This prevents rapid duplicate requests from interrupting audio
       if (interviewSessionId) {
-        releaseResponseMutex(interviewSessionId)
+        setTimeout(() => {
+          releaseResponseMutex(interviewSessionId)
+        }, 2000) // 2 second delay before releasing mutex
       }
     }
     
