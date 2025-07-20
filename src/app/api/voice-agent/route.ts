@@ -595,18 +595,25 @@ async function analyzeConversationAndDecide(
       }
     }
 
-    // If all main questions have been asked, enter closing mode
-    if (mainQuestionsAsked >= totalQuestions) {
-      return {
-        action: 'end_interview',
-        reasoning: 'All main questions covered, entering closing mode'
-      }
-    }
-
     const conversationSummary = recentConversation
       .slice(-6) // Last 6 turns
       .map(turn => `${turn.speaker}: ${turn.message_text}`)
       .join('\n')
+
+    // If all main questions have been asked, check if we should allow follow-ups or close
+    if (mainQuestionsAsked >= totalQuestions) {
+      // Allow follow-ups to the final main question if within limits
+      if (followUpsSinceLastMain < MAX_FOLLOWUPS_PER_QUESTION) {
+        // Continue with normal decision logic to allow follow-ups to final question
+        console.log(`🎯 All ${totalQuestions} main questions asked, but allowing follow-ups to final question (${followUpsSinceLastMain}/${MAX_FOLLOWUPS_PER_QUESTION})`)
+      } else {
+        // All questions + follow-ups complete, start closing mode
+        return {
+          action: 'end_interview',
+          reasoning: `All ${totalQuestions} main questions covered with follow-ups complete, entering closing mode`
+        }
+      }
+    }
 
     const decisionPrompt = `You are an AI interviewer analyzing a conversation to decide the next action.
 
@@ -1078,8 +1085,19 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Check termination BEFORE storing/streaming response
-      if (decision.action === 'end_interview') {
+      // Check if we're already in closing mode
+      const isAlreadyInClosingMode = recentConversation.some(turn => 
+        turn.speaker === 'interviewer' && turn.message_type === 'closing'
+      )
+      
+      // Handle opening closing question when starting closing mode
+      if (decision.action === 'end_interview' && !isAlreadyInClosingMode) {
+        // Generate opening closing question - FIRST closing turn
+        response = "Great! That covers all my questions. Now, do you have any questions for me about the role, the team, or the company?"
+        console.log('🎯 STARTING CLOSING MODE: Asking opening closing question')
+      }
+      
+      if (decision.action === 'end_interview' && isAlreadyInClosingMode) {
         // Count existing closing turns
         const closingTurns = recentConversation.filter(turn => 
           turn.speaker === 'interviewer' && turn.message_type === 'closing'
