@@ -820,122 +820,138 @@ const Results = () => {
             </Card>
           </TabsContent>
 
-          {/* Preparation & Problem-Solving Tab */}
+          {/* Strategic Thinking Tab */}
           <TabsContent value="preparation" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Lightbulb className="text-primary" size={20} />
-                  <span>Strategic Thinking & Preparation</span>
+                  <span>Strategic Thinking Analysis</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {results.ai_analysis?.preparation_analysis ? (
                   <div className="space-y-6">
+                    {/* Clean Score Display */}
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-foreground mb-2">
+                      <div className="text-4xl font-bold text-foreground mb-2">
                         {results.ai_analysis.preparation_analysis.preparation_score}/100
                       </div>
-                      <div className="text-muted-foreground">Preparation Score</div>
+                      <div className="text-muted-foreground font-medium">Strategic Thinking Score</div>
                     </div>
                     
+                    {/* Enhanced Analysis Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h4 className="font-medium text-blue-600 mb-3 flex items-center gap-2">
-                          <CheckCircle size={16} />
-                          Business Insights
+                      {/* Business Insights Card */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 hover:shadow-sm transition-shadow">
+                        <h4 className="font-semibold text-blue-700 mb-4 flex items-center gap-2">
+                          <CheckCircle size={18} />
+                          Business Insights Demonstrated
                         </h4>
-                        <div className="space-y-2">
-                          {results.ai_analysis.preparation_analysis.business_insights.map((insight, index) => (
-                            <div key={index} className="flex items-start gap-2">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                              <span className="text-sm">{insight}</span>
-                            </div>
-                          ))}
-                          {results.ai_analysis.preparation_analysis.business_insights.length === 0 && (
-                            <p className="text-sm text-muted-foreground">No specific business insights identified</p>
+                        <div className="space-y-3">
+                          {results.ai_analysis.preparation_analysis.business_insights.length > 0 ? (
+                            results.ai_analysis.preparation_analysis.business_insights.map((insight, index) => (
+                              <div key={index} className="flex items-start gap-3">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                                <span className="text-sm text-blue-800 leading-relaxed">{insight}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-blue-700 italic">No specific business insights identified in responses</p>
                           )}
                         </div>
                       </div>
                       
-                      <div>
-                        <h4 className="font-medium text-green-600 mb-3 flex items-center gap-2">
-                          <Star size={16} />
-                          Solutions Proposed
+                      {/* Solutions Proposed Card */}
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-5 hover:shadow-sm transition-shadow">
+                        <h4 className="font-semibold text-green-700 mb-4 flex items-center gap-2">
+                          <Star size={18} />
+                          Solutions You Proposed
                         </h4>
-                        <div className="space-y-2">
-                          {results.ai_analysis.preparation_analysis.solutions_proposed.map((solution, index) => (
-                            <div key={index} className="flex items-start gap-2">
-                              <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                              <span className="text-sm">{solution}</span>
-                            </div>
-                          ))}
-                          {results.ai_analysis.preparation_analysis.solutions_proposed.length === 0 && (
-                            <p className="text-sm text-muted-foreground">No specific solutions proposed</p>
+                        <div className="space-y-3">
+                          {results.ai_analysis.preparation_analysis.solutions_proposed.length > 0 ? (
+                            results.ai_analysis.preparation_analysis.solutions_proposed.map((solution, index) => (
+                              <div key={index} className="flex items-start gap-3">
+                                <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                                <span className="text-sm text-green-800 leading-relaxed">{solution}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-green-700 italic">No specific solutions identified in responses</p>
                           )}
                         </div>
                       </div>
                     </div>
                     
+                    {/* Research & Strategic Analysis Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h4 className="font-medium text-purple-600 mb-3 flex items-center gap-2">
-                          <Brain size={16} />
-                          Research Quality
+                      {/* Research Quality Card */}
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-5 hover:shadow-sm transition-shadow">
+                        <h4 className="font-semibold text-purple-700 mb-4 flex items-center gap-2">
+                          <Brain size={18} />
+                          Research & Preparation Quality
                         </h4>
-                        <div className="space-y-2">
-                          {results.ai_analysis.preparation_analysis.research_quality.map((quality, index) => (
-                            <div key={index} className="flex items-start gap-2">
-                              <div className="w-2 h-2 bg-purple-500 rounded-full mt-2"></div>
-                              <span className="text-sm">{quality}</span>
-                            </div>
-                          ))}
-                          {results.ai_analysis.preparation_analysis.research_quality.length === 0 && (
-                            <p className="text-sm text-muted-foreground">Research quality analysis not available</p>
+                        <div className="space-y-3">
+                          {results.ai_analysis.preparation_analysis.research_quality.length > 0 ? (
+                            results.ai_analysis.preparation_analysis.research_quality.map((quality, index) => (
+                              <div key={index} className="flex items-start gap-3">
+                                <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                                <span className="text-sm text-purple-800 leading-relaxed">{quality}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-purple-700 italic">Research quality analysis not available</p>
                           )}
                         </div>
                       </div>
                       
-                      <div>
-                        <h4 className="font-medium text-orange-600 mb-3 flex items-center gap-2">
-                          <TrendingUp size={16} />
-                          Strategic Thinking
+                      {/* Strategic Thinking Card */}
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-5 hover:shadow-sm transition-shadow">
+                        <h4 className="font-semibold text-orange-700 mb-4 flex items-center gap-2">
+                          <TrendingUp size={18} />
+                          Strategic Thinking Depth
                         </h4>
-                        <div className="space-y-2">
-                          {results.ai_analysis.preparation_analysis.strategic_thinking.map((thinking, index) => (
-                            <div key={index} className="flex items-start gap-2">
-                              <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                              <span className="text-sm">{thinking}</span>
-                            </div>
-                          ))}
-                          {results.ai_analysis.preparation_analysis.strategic_thinking.length === 0 && (
-                            <p className="text-sm text-muted-foreground">Strategic thinking analysis not available</p>
+                        <div className="space-y-3">
+                          {results.ai_analysis.preparation_analysis.strategic_thinking.length > 0 ? (
+                            results.ai_analysis.preparation_analysis.strategic_thinking.map((thinking, index) => (
+                              <div key={index} className="flex items-start gap-3">
+                                <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                                <span className="text-sm text-orange-800 leading-relaxed">{thinking}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-orange-700 italic">Strategic thinking analysis not available</p>
                           )}
                         </div>
                       </div>
                     </div>
                     
-                    <div>
-                      <h4 className="font-medium text-primary mb-3 flex items-center gap-2">
-                        <Target size={16} />
+                    {/* Problem-Solving Approach Section */}
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
+                      <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                        <Target size={18} />
                         Problem-Solving Approach
                       </h4>
-                      <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                      <p className="text-sm text-gray-800 leading-relaxed bg-white p-4 rounded border border-gray-100">
                         {results.ai_analysis.preparation_analysis.problem_solving_approach}
                       </p>
                     </div>
                     
+                    {/* Growth Opportunities */}
                     {results.ai_analysis.preparation_analysis.missed_opportunities.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-yellow-600 mb-3 flex items-center gap-2">
-                          <XCircle size={16} />
-                          Missed Opportunities
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-5">
+                        <h4 className="font-semibold text-yellow-700 mb-4 flex items-center gap-2">
+                          <XCircle size={18} />
+                          Growth Opportunities
                         </h4>
-                        <ul className="space-y-2">
+                        <div className="space-y-3">
                           {results.ai_analysis.preparation_analysis.missed_opportunities.map((opportunity, index) => (
-                            <li key={index} className="text-sm text-muted-foreground">• {opportunity}</li>
+                            <div key={index} className="flex items-start gap-3">
+                              <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 flex-shrink-0"></div>
+                              <span className="text-sm text-yellow-800 leading-relaxed">{opportunity}</span>
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       </div>
                     )}
                   </div>
