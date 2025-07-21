@@ -809,12 +809,20 @@ export async function GET(
     // Check for cached AI analysis first, then generate if needed
     let aiAnalysis = null
     
-    // Check if we have cached analysis
+    // Check if we have cached analysis (more lenient check)
     const hasCachedAnalysis = feedback?.ai_analysis_completed_at && 
-                             feedback?.response_analyses && 
-                             feedback?.resume_analysis && 
-                             feedback?.job_fit_analysis &&
-                             (feedback?.preparation_analysis || feedback?.preparation_score !== null)
+                             feedback?.response_analyses
+    
+    console.log('🔍 Cached analysis check:', {
+      sessionId,
+      hasFeedback: !!feedback,
+      hasCompletedAt: !!feedback?.ai_analysis_completed_at,
+      hasResponseAnalyses: !!feedback?.response_analyses,
+      hasResumeAnalysis: !!feedback?.resume_analysis,
+      hasJobFitAnalysis: !!feedback?.job_fit_analysis,
+      hasPreparationAnalysis: !!feedback?.preparation_analysis,
+      hasCachedAnalysis
+    })
     
     if (hasCachedAnalysis) {
       console.log('✅ Using cached AI analysis for session:', sessionId)
