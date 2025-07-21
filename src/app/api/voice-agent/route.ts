@@ -217,17 +217,31 @@ Respond ONLY with valid JSON:
       finalResponse = `Hi! I'm Alex, and I'm excited to conduct your ${sessionContext?.interview_type || 'interview'} interview for the ${jobTitle} position at ${companyName} today! I'll be asking you a few questions, and you'll have time to ask me questions at the end. Sound good?`
     }
 
-    // Handle next_question - get actual question from database
+    // Handle next_question - get actual question from database using question_order
     if (finalAction === 'next_question' && sessionContext?.interview_questions) {
       const sortedQuestions = sessionContext.interview_questions.sort((a, b) => a.question_order - b.question_order)
-      const nextQuestion = sortedQuestions[usedQuestionIds.size]
+      
+      // Get the highest question_order that has been asked, then get the next one
+      const askedQuestionOrders = new Set(
+        mainQuestionTurns
+          .map(turn => {
+            const question = sortedQuestions.find(q => q.id === turn.related_main_question_id)
+            return question?.question_order || 0
+          })
+          .filter(order => order > 0)
+      )
+      
+      const nextQuestionOrder = Math.max(...Array.from(askedQuestionOrders), 0) + 1
+      const nextQuestion = sortedQuestions.find(q => q.question_order === nextQuestionOrder)
       
       if (nextQuestion) {
         finalResponse = nextQuestion.question_text
         relatedMainQuestionId = nextQuestion.id
+        console.log(`✅ Selected next question by order: Q${nextQuestion.question_order} (ID: ${nextQuestion.id})`)
       } else {
         finalAction = 'end_interview'
         finalResponse = "Great! That covers all my questions. Now, do you have any questions for me about the role, the team, or the company?"
+        console.log(`🎯 All questions asked (up to Q${Math.max(...Array.from(askedQuestionOrders))}), transitioning to end_interview`)
       }
     }
 
