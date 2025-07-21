@@ -393,7 +393,7 @@ const Results = () => {
                   />
                   
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Preparation:</span>
+                    <span className="text-sm font-medium">Strategic Thinking:</span>
                     <span className="text-sm font-semibold">
                       {results.ai_analysis?.preparation_analysis?.preparation_score || 'N/A'}/100
                     </span>
@@ -486,52 +486,88 @@ const Results = () => {
                   <span>Question-by-Question Analysis</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 {results.responses && results.responses.length > 0 ? (
-                  results.responses.map((response, index) => (
-                    <div key={index} className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">
-                          Q{response.question.question_order}: &quot;{response.question.question_text}&quot;
-                        </span>
-                        <span className="font-bold text-primary">
-                          {response.analysis?.quality_score || 'N/A'}/100
-                        </span>
-                      </div>
+                  results.responses
+                    .filter(response => response.analysis) // Only show responses that have analysis
+                    .map((response, index) => {
+                      const score = response.analysis?.quality_score || 0;
+                      const scoreColor = score >= 80 ? 'text-green-600 bg-green-50 border-green-200' : 
+                                        score >= 60 ? 'text-yellow-600 bg-yellow-50 border-yellow-200' : 
+                                        'text-red-600 bg-red-50 border-red-200';
                       
-                      {response.analysis && (
-                        <>
-                          {response.analysis.strengths.length > 0 && (
-                            <div className="flex items-start space-x-2">
-                              <CheckCircle className="text-green-600 mt-0.5" size={16} />
-                              <div>
-                                <div className="text-sm font-medium text-green-600 mb-1">Strengths</div>
-                                <ul className="text-sm text-muted-foreground space-y-1">
-                                  {response.analysis.strengths.map((strength, i) => (
-                                    <li key={i}>• {strength}</li>
-                                  ))}
-                                </ul>
+                      return (
+                        <div key={index} className="border rounded-xl p-6 space-y-5 hover:shadow-sm transition-shadow">
+                          {/* Question Header with Score Badge */}
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="text-xs font-medium text-muted-foreground mb-1">
+                                QUESTION {response.question.question_order}
                               </div>
+                              <h3 className="font-medium text-foreground leading-relaxed">
+                                &quot;{response.question.question_text}&quot;
+                              </h3>
+                            </div>
+                            <div className={`px-3 py-2 rounded-lg border font-bold text-sm whitespace-nowrap ${scoreColor}`}>
+                              {score}/100
+                            </div>
+                          </div>
+                          
+                          {/* Candidate Response */}
+                          {response.analysis?.response_text && (
+                            <div className="bg-muted/30 rounded-lg p-4 border-l-4 border-blue-500">
+                              <div className="text-xs font-medium text-blue-600 mb-2 uppercase tracking-wide">
+                                Your Response
+                              </div>
+                              <p className="text-sm text-muted-foreground leading-relaxed italic">
+                                &quot;{response.analysis.response_text}&quot;
+                              </p>
                             </div>
                           )}
                           
-                          {response.analysis.improvement_suggestions.length > 0 && (
-                            <div className="flex items-start space-x-2">
-                              <Lightbulb className="text-primary mt-0.5" size={16} />
-                              <div>
-                                <div className="text-sm font-medium text-primary mb-1">Improvement Suggestions</div>
-                                <ul className="text-sm text-muted-foreground space-y-1">
-                                  {response.analysis.improvement_suggestions.map((suggestion, i) => (
-                                    <li key={i}>• {suggestion}</li>
-                                  ))}
-                                </ul>
-                              </div>
+                          {/* Analysis Cards */}
+                          {response.analysis && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {/* Strengths Card */}
+                              {response.analysis.strengths.length > 0 && (
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                  <h4 className="font-semibold text-green-700 mb-3 flex items-center gap-2">
+                                    <CheckCircle size={16} />
+                                    What Worked Well
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {response.analysis.strengths.map((strength, i) => (
+                                      <div key={i} className="flex items-start gap-2">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                                        <span className="text-sm text-green-800 leading-relaxed">{strength}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Improvements Card */}
+                              {response.analysis.improvement_suggestions.length > 0 && (
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                  <h4 className="font-semibold text-yellow-700 mb-3 flex items-center gap-2">
+                                    <TrendingUp size={16} />
+                                    How to Improve
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {response.analysis.improvement_suggestions.map((suggestion, i) => (
+                                      <div key={i} className="flex items-start gap-2">
+                                        <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 flex-shrink-0"></div>
+                                        <span className="text-sm text-yellow-800 leading-relaxed">{suggestion}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
-                        </>
-                      )}
-                    </div>
-                  ))
+                        </div>
+                      );
+                    })
                 ) : (
                   <div className="text-center py-8">
                     <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -554,56 +590,114 @@ const Results = () => {
               <CardContent>
                 {results.ai_analysis?.resume_analysis ? (
                   <div className="space-y-6">
+                    {/* Enhanced Score Display */}
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-foreground mb-2">
+                      <div className="text-4xl font-bold text-foreground mb-2">
                         {results.ai_analysis.resume_analysis.utilization_score}/100
                       </div>
-                      <div className="text-muted-foreground">Resume Utilization Score</div>
+                      <div className="text-muted-foreground font-medium">Resume Utilization Score</div>
                     </div>
                     
+                    {/* Enhanced Skills Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h4 className="font-medium text-green-600 mb-3 flex items-center gap-2">
-                          <CheckCircle size={16} />
-                          Skills Mentioned
+                      {/* Skills Mentioned Card */}
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-5 hover:shadow-sm transition-shadow">
+                        <h4 className="font-semibold text-green-700 mb-4 flex items-center gap-2">
+                          <CheckCircle size={18} />
+                          Skills You Showcased
                         </h4>
-                        <div className="space-y-2">
-                          {results.ai_analysis.resume_analysis.skills_mentioned.map((skill, index) => (
-                            <div key={index} className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <span className="text-sm">{skill}</span>
-                            </div>
-                          ))}
+                        <div className="space-y-3">
+                          {results.ai_analysis.resume_analysis.skills_mentioned.length > 0 ? (
+                            results.ai_analysis.resume_analysis.skills_mentioned.map((skill, index) => (
+                              <div key={index} className="flex items-start gap-3">
+                                <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                                <span className="text-sm text-green-800 leading-relaxed">{skill}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-green-700 italic">No specific skills identified in responses</p>
+                          )}
                         </div>
                       </div>
                       
-                      <div>
-                        <h4 className="font-medium text-yellow-600 mb-3 flex items-center gap-2">
-                          <XCircle size={16} />
-                          Skills Missed
+                      {/* Skills Missed Card */}
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-5 hover:shadow-sm transition-shadow">
+                        <h4 className="font-semibold text-yellow-700 mb-4 flex items-center gap-2">
+                          <XCircle size={18} />
+                          Missed Opportunities
                         </h4>
-                        <div className="space-y-2">
-                          {results.ai_analysis.resume_analysis.skills_missed.map((skill, index) => (
-                            <div key={index} className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                              <span className="text-sm">{skill}</span>
-                            </div>
-                          ))}
+                        <div className="space-y-3">
+                          {results.ai_analysis.resume_analysis.skills_missed.length > 0 ? (
+                            results.ai_analysis.resume_analysis.skills_missed.map((skill, index) => (
+                              <div key={index} className="flex items-start gap-3">
+                                <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 flex-shrink-0"></div>
+                                <span className="text-sm text-yellow-800 leading-relaxed">{skill}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-yellow-700 italic">Great job - you covered all relevant skills!</p>
+                          )}
                         </div>
                       </div>
                     </div>
                     
+                    {/* Experience Analysis */}
+                    {(results.ai_analysis.resume_analysis.experiences_mentioned?.length > 0 || 
+                      results.ai_analysis.resume_analysis.experiences_missed?.length > 0) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Experiences Mentioned */}
+                        {results.ai_analysis.resume_analysis.experiences_mentioned?.length > 0 && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-5">
+                            <h4 className="font-semibold text-blue-700 mb-4 flex items-center gap-2">
+                              <Star size={18} />
+                              Experiences Referenced
+                            </h4>
+                            <div className="space-y-3">
+                              {results.ai_analysis.resume_analysis.experiences_mentioned.map((experience, index) => (
+                                <div key={index} className="flex items-start gap-3">
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                                  <span className="text-sm text-blue-800 leading-relaxed">{experience}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Experiences Missed */}
+                        {results.ai_analysis.resume_analysis.experiences_missed?.length > 0 && (
+                          <div className="bg-orange-50 border border-orange-200 rounded-lg p-5">
+                            <h4 className="font-semibold text-orange-700 mb-4 flex items-center gap-2">
+                              <TrendingUp size={18} />
+                              Additional Experience
+                            </h4>
+                            <div className="space-y-3">
+                              {results.ai_analysis.resume_analysis.experiences_missed.map((experience, index) => (
+                                <div key={index} className="flex items-start gap-3">
+                                  <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                                  <span className="text-sm text-orange-800 leading-relaxed">{experience}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Actionable Insights */}
                     {results.ai_analysis.resume_analysis.missed_opportunities.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-primary mb-3 flex items-center gap-2">
-                          <Lightbulb size={16} />
-                          Missed Opportunities
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-5">
+                        <h4 className="font-semibold text-purple-700 mb-4 flex items-center gap-2">
+                          <Lightbulb size={18} />
+                          Strategic Recommendations
                         </h4>
-                        <ul className="space-y-2">
+                        <div className="space-y-3">
                           {results.ai_analysis.resume_analysis.missed_opportunities.map((opportunity, index) => (
-                            <li key={index} className="text-sm text-muted-foreground">• {opportunity}</li>
+                            <div key={index} className="flex items-start gap-3">
+                              <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                              <span className="text-sm text-purple-800 leading-relaxed">{opportunity}</span>
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -629,56 +723,90 @@ const Results = () => {
               <CardContent>
                 {results.ai_analysis?.job_fit_analysis ? (
                   <div className="space-y-6">
+                    {/* Clean Score Display */}
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-foreground mb-2">
+                      <div className="text-4xl font-bold text-foreground mb-2">
                         {results.ai_analysis.job_fit_analysis.fit_score}/100
                       </div>
-                      <div className="text-muted-foreground">Job Fit Score</div>
+                      <div className="text-muted-foreground font-medium">Job Fit Score</div>
                     </div>
                     
+                    {/* Enhanced Requirements Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h4 className="font-medium text-green-600 mb-3 flex items-center gap-2">
-                          <CheckCircle size={16} />
-                          Requirements Covered
+                      {/* Requirements Covered Card */}
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-5 hover:shadow-sm transition-shadow">
+                        <h4 className="font-semibold text-green-700 mb-4 flex items-center gap-2">
+                          <CheckCircle size={18} />
+                          Requirements You Met
                         </h4>
-                        <div className="space-y-2">
-                          {results.ai_analysis.job_fit_analysis.requirements_covered.map((req, index) => (
-                            <div key={index} className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <span className="text-sm">{req}</span>
-                            </div>
-                          ))}
+                        <div className="space-y-3">
+                          {results.ai_analysis.job_fit_analysis.requirements_covered.length > 0 ? (
+                            results.ai_analysis.job_fit_analysis.requirements_covered.map((req, index) => (
+                              <div key={index} className="flex items-start gap-3">
+                                <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                                <span className="text-sm text-green-800 leading-relaxed">{req}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-green-700 italic">No specific requirements identified as covered</p>
+                          )}
                         </div>
                       </div>
                       
-                      <div>
-                        <h4 className="font-medium text-red-600 mb-3 flex items-center gap-2">
-                          <XCircle size={16} />
-                          Requirements Missed
+                      {/* Requirements Missed Card */}
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-5 hover:shadow-sm transition-shadow">
+                        <h4 className="font-semibold text-red-700 mb-4 flex items-center gap-2">
+                          <XCircle size={18} />
+                          Areas to Address
                         </h4>
-                        <div className="space-y-2">
-                          {results.ai_analysis.job_fit_analysis.requirements_missed.map((req, index) => (
-                            <div key={index} className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                              <span className="text-sm">{req}</span>
-                            </div>
-                          ))}
+                        <div className="space-y-3">
+                          {results.ai_analysis.job_fit_analysis.requirements_missed.length > 0 ? (
+                            results.ai_analysis.job_fit_analysis.requirements_missed.map((req, index) => (
+                              <div key={index} className="flex items-start gap-3">
+                                <div className="w-2 h-2 bg-red-500 rounded-full mt-2 flex-shrink-0"></div>
+                                <span className="text-sm text-red-800 leading-relaxed">{req}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-red-700 italic">Excellent - you addressed all key requirements!</p>
+                          )}
                         </div>
                       </div>
                     </div>
                     
-                    {results.ai_analysis.job_fit_analysis.gap_analysis.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-primary mb-3 flex items-center gap-2">
-                          <TrendingUp size={16} />
-                          Gap Analysis
+                    {/* Keyword Matches */}
+                    {results.ai_analysis.job_fit_analysis.keyword_matches?.length > 0 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-5">
+                        <h4 className="font-semibold text-blue-700 mb-4 flex items-center gap-2">
+                          <Star size={18} />
+                          Keyword Alignment
                         </h4>
-                        <ul className="space-y-2">
-                          {results.ai_analysis.job_fit_analysis.gap_analysis.map((gap, index) => (
-                            <li key={index} className="text-sm text-muted-foreground">• {gap}</li>
+                        <div className="space-y-3">
+                          {results.ai_analysis.job_fit_analysis.keyword_matches.map((keyword, index) => (
+                            <div key={index} className="flex items-start gap-3">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                              <span className="text-sm text-blue-800 leading-relaxed">{keyword}</span>
+                            </div>
                           ))}
-                        </ul>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Gap Analysis */}
+                    {results.ai_analysis.job_fit_analysis.gap_analysis.length > 0 && (
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-5">
+                        <h4 className="font-semibold text-purple-700 mb-4 flex items-center gap-2">
+                          <TrendingUp size={18} />
+                          Strategic Recommendations
+                        </h4>
+                        <div className="space-y-3">
+                          {results.ai_analysis.job_fit_analysis.gap_analysis.map((gap, index) => (
+                            <div key={index} className="flex items-start gap-3">
+                              <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                              <span className="text-sm text-purple-800 leading-relaxed">{gap}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
