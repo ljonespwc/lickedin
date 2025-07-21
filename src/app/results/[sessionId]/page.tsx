@@ -282,7 +282,7 @@ const Results = () => {
 
         {/* Tabbed Interface */}
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <BarChart3 size={16} />
               Overview
@@ -302,10 +302,6 @@ const Results = () => {
             <TabsTrigger value="preparation" className="flex items-center gap-2">
               <Lightbulb size={16} />
               Preparation
-            </TabsTrigger>
-            <TabsTrigger value="coaching" className="flex items-center gap-2">
-              <Brain size={16} />
-              Coaching
             </TabsTrigger>
           </TabsList>
 
@@ -334,7 +330,16 @@ const Results = () => {
                       {results.feedback?.communication_score || results.ai_analysis?.coaching_feedback?.communication_score || 'N/A'}/100
                     </span>
                   </div>
-                  <Progress value={results.feedback?.communication_score || results.ai_analysis?.coaching_feedback?.communication_score || 0} className="h-2" />
+                  <Progress 
+                    value={results.feedback?.communication_score || results.ai_analysis?.coaching_feedback?.communication_score || 0} 
+                    className={`h-2 ${
+                      (results.feedback?.communication_score || results.ai_analysis?.coaching_feedback?.communication_score || 0) >= 80 
+                        ? '[&>div]:bg-green-500' 
+                        : (results.feedback?.communication_score || results.ai_analysis?.coaching_feedback?.communication_score || 0) >= 60 
+                          ? '[&>div]:bg-yellow-500' 
+                          : '[&>div]:bg-red-500'
+                    }`} 
+                  />
                   
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Content:</span>
@@ -342,7 +347,16 @@ const Results = () => {
                       {results.feedback?.content_score || results.ai_analysis?.coaching_feedback?.content_score || 'N/A'}/100
                     </span>
                   </div>
-                  <Progress value={results.feedback?.content_score || results.ai_analysis?.coaching_feedback?.content_score || 0} className="h-2" />
+                  <Progress 
+                    value={results.feedback?.content_score || results.ai_analysis?.coaching_feedback?.content_score || 0} 
+                    className={`h-2 ${
+                      (results.feedback?.content_score || results.ai_analysis?.coaching_feedback?.content_score || 0) >= 80 
+                        ? '[&>div]:bg-green-500' 
+                        : (results.feedback?.content_score || results.ai_analysis?.coaching_feedback?.content_score || 0) >= 60 
+                          ? '[&>div]:bg-yellow-500' 
+                          : '[&>div]:bg-red-500'
+                    }`} 
+                  />
                   
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Confidence:</span>
@@ -350,7 +364,16 @@ const Results = () => {
                       {results.feedback?.confidence_score || results.ai_analysis?.coaching_feedback?.confidence_score || 'N/A'}/100
                     </span>
                   </div>
-                  <Progress value={results.feedback?.confidence_score || results.ai_analysis?.coaching_feedback?.confidence_score || 0} className="h-2" />
+                  <Progress 
+                    value={results.feedback?.confidence_score || results.ai_analysis?.coaching_feedback?.confidence_score || 0} 
+                    className={`h-2 ${
+                      (results.feedback?.confidence_score || results.ai_analysis?.coaching_feedback?.confidence_score || 0) >= 80 
+                        ? '[&>div]:bg-green-500' 
+                        : (results.feedback?.confidence_score || results.ai_analysis?.coaching_feedback?.confidence_score || 0) >= 60 
+                          ? '[&>div]:bg-yellow-500' 
+                          : '[&>div]:bg-red-500'
+                    }`} 
+                  />
                   
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Preparation:</span>
@@ -358,7 +381,16 @@ const Results = () => {
                       {results.ai_analysis?.preparation_analysis?.preparation_score || 'N/A'}/100
                     </span>
                   </div>
-                  <Progress value={results.ai_analysis?.preparation_analysis?.preparation_score || 0} className="h-2" />
+                  <Progress 
+                    value={results.ai_analysis?.preparation_analysis?.preparation_score || 0} 
+                    className={`h-2 ${
+                      (results.ai_analysis?.preparation_analysis?.preparation_score || 0) >= 80 
+                        ? '[&>div]:bg-green-500' 
+                        : (results.ai_analysis?.preparation_analysis?.preparation_score || 0) >= 60 
+                          ? '[&>div]:bg-yellow-500' 
+                          : '[&>div]:bg-red-500'
+                    }`} 
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -803,12 +835,6 @@ const Results = () => {
             className="flex-1 sm:flex-none"
           >
             New Interview
-          </Button>
-          <Button 
-            variant="outline"
-            className="flex-1 sm:flex-none"
-          >
-            Share Results
           </Button>
           <Button 
             onClick={() => router.push('/dashboard')}
