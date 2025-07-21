@@ -1082,20 +1082,22 @@ export async function GET(
       }
     } else if (analysisInProgress) {
       console.log('⏳ Analysis already in progress for session:', sessionId)
-      // Return a placeholder response while analysis is being generated
+      // Return a clear in-progress response for frontend to detect
       return NextResponse.json({
         session: session,
         feedback: {
-          overall_feedback: "Analysis in progress. Please refresh in a moment.",
+          overall_feedback: "ANALYSIS_IN_PROGRESS",
           strengths: ["Analysis being generated..."],
           areas_for_improvement: ["Please wait..."],
-          suggested_next_steps: ["Refresh the page in a few seconds"],
+          suggested_next_steps: ["Analysis will complete shortly"],
           confidence_score: 0,
           communication_score: 0,
           content_score: 0
         },
         responses: [],
-        ai_analysis: null
+        ai_analysis: null,
+        analysis_status: "in_progress",
+        analysis_message: "Your interview analysis is being generated. This usually takes 1-2 minutes."
       })
     } else if (conversation && conversation.length > 0) {
       console.log('🔄 Generating fresh AI analysis for session:', sessionId)

@@ -33,6 +33,7 @@ interface InterviewResults {
     communication_style: string
     difficulty_level: string
   }
+  analysis_status?: string
   feedback: {
     overall_feedback: string
     strengths: string[]
@@ -89,6 +90,28 @@ interface InterviewResults {
   } | null
 }
 
+const MAX_POLLING_TIME = 5 * 60 * 1000 // 5 minutes maximum polling
+
+// Helper function to check if analysis is complete
+const isAnalysisComplete = (data: InterviewResults | null): boolean => {
+  if (!data) return false
+  
+  // Check API analysis status field first (if available)
+  if (data.analysis_status === "in_progress") return false
+  
+  // Check if we have ai_analysis data with key components
+  const hasAiAnalysis = !!(data.ai_analysis && 
+                          data.ai_analysis.coaching_feedback &&
+                          data.ai_analysis.resume_analysis &&
+                          data.ai_analysis.job_fit_analysis)
+  
+  // Check for analysis-in-progress indicators in feedback
+  const isInProgress = data.feedback?.overall_feedback === "ANALYSIS_IN_PROGRESS" ||
+                      (data.feedback?.overall_feedback?.includes("Analysis in progress") ?? false)
+  
+  return hasAiAnalysis && !isInProgress
+}
+
 const Results = () => {
   const params = useParams()
   const router = useRouter()
@@ -97,6 +120,7 @@ const Results = () => {
   const [results, setResults] = useState<InterviewResults | null>(null)
   const [loading, setLoading] = useState(true)
   const hasLoadedResults = useRef(false)
+  const pollingStartTime = useRef<number | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [session, setSession] = useState<Session | null>(null) // Cache session to avoid hanging getSession() calls
 
@@ -121,9 +145,35 @@ const Results = () => {
       
       const data = await response.json()
       setResults(data)
-      hasLoadedResults.current = true
       
-      setLoading(false)
+      // Only mark as loaded and stop loading if analysis is complete
+      if (isAnalysisComplete(data)) {
+        hasLoadedResults.current = true
+        setLoading(false)
+        pollingStartTime.current = null // Reset polling timer
+        console.log('✅ Analysis complete - showing results')
+      } else {
+        // Start polling timer if not already started
+        if (!pollingStartTime.current) {
+          pollingStartTime.current = Date.now()
+        }
+        
+        // Check if we've exceeded maximum polling time
+        const elapsedTime = Date.now() - pollingStartTime.current
+        if (elapsedTime > MAX_POLLING_TIME) {
+          console.warn('⚠️ Analysis polling timeout reached - showing partial results')
+          hasLoadedResults.current = true
+          setLoading(false)
+          pollingStartTime.current = null
+        } else {
+          console.log(`⏳ Analysis in progress (${Math.round(elapsedTime/1000)}s elapsed) - will retry in 3 seconds`)
+          // Analysis is still in progress - retry after delay
+          setTimeout(() => {
+            hasLoadedResults.current = false // Allow retry
+            loadResults(sessionToUse)
+          }, 3000) // Retry every 3 seconds
+        }
+      }
     } catch (error) {
       console.error('Error loading results:', error)
       setLoading(false)
@@ -169,7 +219,14 @@ const Results = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading results...</p>
+          <p className="text-muted-foreground mb-2">
+            {results ? "Analyzing your interview responses..." : "Loading results..."}
+          </p>
+          {results && (
+            <p className="text-sm text-muted-foreground">
+              This usually takes 1-2 minutes. Please wait...
+            </p>
+          )}
         </div>
       </div>
     )
