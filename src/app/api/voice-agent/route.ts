@@ -59,6 +59,11 @@ Determine if this response contains a question (explicit or implied). Consider t
 QUESTIONS (return true):
 - "What's the salary range?"
 - "I'm wondering about the compensation structure."
+- "I'm just wondering how much you'll pay me."
+- "I have bills to pay, so what's the salary like?"
+- "What's the pay for this position?"
+- "How much does this job pay?"
+- "I was wondering about the compensation."
 - "Could you tell me about the benefits?"
 - "I'd like to know more about the team."
 - "How about work-life balance?"
@@ -66,6 +71,8 @@ QUESTIONS (return true):
 - "What about career growth opportunities?"
 - "I wanted to ask about the company culture."
 - "Can you share more about the role?"
+- "What are the next steps in the process?"
+- "When would you need someone to start?"
 
 NOT QUESTIONS (return false):
 - "Thank you for your time."
@@ -73,6 +80,8 @@ NOT QUESTIONS (return false):
 - "I look forward to hearing from you."
 - "This sounds like a great fit."
 - "I appreciate the conversation."
+- "I have a big mortgage payment."
+- "Money is important to me."
 
 Respond with only "true" or "false".`
 
