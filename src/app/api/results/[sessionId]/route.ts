@@ -1042,6 +1042,44 @@ export async function GET(
     
     if (hasCachedAnalysis) {
       console.log('✅ Using cached AI analysis for session:', sessionId)
+      
+      // Map cached database analysis to aiAnalysis structure
+      aiAnalysis = {
+        response_analyses: feedback.response_analyses || [],
+        resume_analysis: feedback.resume_analysis || {
+          skills_mentioned: [],
+          skills_missed: [],
+          experiences_mentioned: [],
+          experiences_missed: [],
+          utilization_score: 0,
+          missed_opportunities: []
+        },
+        job_fit_analysis: feedback.job_fit_analysis || {
+          requirements_covered: [],
+          requirements_missed: [],
+          keyword_matches: [],
+          fit_score: 0,
+          gap_analysis: []
+        },
+        coaching_feedback: {
+          overall_feedback: feedback.overall_feedback || '',
+          strengths: feedback.strengths || [],
+          areas_for_improvement: feedback.areas_for_improvement || [],
+          suggested_next_steps: feedback.suggested_next_steps || [],
+          communication_score: feedback.communication_score || 0,
+          content_score: feedback.content_score || 0,
+          confidence_score: feedback.confidence_score || 0
+        },
+        preparation_analysis: feedback.preparation_analysis || {
+          preparation_score: feedback.preparation_score || 0,
+          business_insights: [],
+          solutions_proposed: [],
+          problem_solving_approach: '',
+          research_quality: [],
+          strategic_thinking: [],
+          missed_opportunities: []
+        }
+      }
     } else if (analysisInProgress) {
       console.log('⏳ Analysis already in progress for session:', sessionId)
       // Return a placeholder response while analysis is being generated
