@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import OpenAI from 'openai'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -935,11 +934,23 @@ export async function GET(
     }
 
     // Get interview feedback (check for cached analysis first)
-    const { data: feedback } = await supabase
+    const { data: feedback, error: feedbackError } = await supabase
       .from('interview_feedback')
       .select('*')
       .eq('session_id', sessionId)
       .single()
+    
+    if (feedbackError && feedbackError.code !== 'PGRST116') { // PGRST116 = no rows found, which is expected
+      console.error('❌ Feedback query error:', feedbackError)
+    }
+    
+    console.log('🔍 Feedback query result:', {
+      sessionId,
+      hasFeedback: !!feedback,
+      feedbackId: feedback?.id,
+      hasAnalysisCompleted: !!feedback?.ai_analysis_completed_at,
+      error: feedbackError?.code === 'PGRST116' ? 'No feedback found (expected)' : feedbackError?.message
+    })
 
     // Get conversation history from the new interview_conversation table
     const { data: conversation, error: conversationError } = await supabase
@@ -1147,20 +1158,9 @@ export async function GET(
         preparation_analysis: preparationAnalysis
       }
       
-      // Create service role client for database writes (bypasses RLS)
-      const serviceSupabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        {
-          auth: {
-            autoRefreshToken: false,
-            persistSession: false
-          }
-        }
-      )
       
       // Store the analysis results in the database for future use
-      const storageSuccess = await storeAnalysisResults(serviceSupabase, sessionId, aiAnalysis)
+      const storageSuccess = await storeAnalysisResults(supabase, sessionId, aiAnalysis)
       
       if (storageSuccess) {
         // Calculate and store overall score
@@ -1171,7 +1171,7 @@ export async function GET(
           aiAnalysis.preparation_analysis.preparation_score
         ) / 4)
         
-        await serviceSupabase
+        await supabase
           .from('interview_sessions')
           .update({ overall_score: overallScore })
           .eq('id', sessionId)

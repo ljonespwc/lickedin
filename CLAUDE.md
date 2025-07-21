@@ -420,3 +420,54 @@ This implementation provides robust session persistence and natural conversation
 - Database schema - Added unique constraint on interview_feedback.session_id
 
 **Impact**: Complete interview analysis pipeline now works end-to-end with reliable data storage, consistent scoring, and natural conversation termination detection.
+
+## Recent Major Fixes: Interview Flow & Completion System (July 21, 2025)
+
+### 🎯 **Interview Question Flow & Premature Termination Fix - COMPLETED**
+**Status**: ✅ Critical interview flow issues resolved
+
+**Problems Solved**:
+1. **AI Attempting Early Closing**: Interview tried to end after only 6 questions instead of all 8 main questions
+2. **Premature "Wrap Up" Language**: AI used closing language ("To wrap up...") during mid-interview follow-ups  
+3. **Decision Engine Override**: LLM ignoring prompt constraints and choosing `end_interview` prematurely
+
+**Technical Solutions Implemented**:
+
+#### 1. **Bulletproof Question Enforcement** (`/src/app/api/voice-agent/route.ts`)
+- **Enhanced Prompt Constraints**: Added explicit warnings with emojis and absolute requirements
+- **Code-Level Override**: Added enforcement that blocks `end_interview` unless all 8 questions are asked
+- **Decision Engine Fix**: Strengthened rules to prevent premature closing attempts
+
+#### 2. **Interview Completion Modal/Button Conflict Fix**
+**Root Cause**: New completion button was triggering old modal overlay system, causing conflicting UX
+
+**Solutions**:
+- **Removed Old Modal System**: Deleted `interviewCompleted` state and modal overlay JSX entirely
+- **Fixed Button Handler**: Removed `setInterviewCompleted(true)` call that was triggering modal
+- **Clean Voice Integration**: Voice stays connected (good UX) but AI doesn't respond after completion
+- **Updated Status Indicators**: Changed from `interviewCompleted` to `showEndButton` for consistency
+
+**Key Technical Changes**:
+```typescript
+// BEFORE: Conflicting systems
+setInterviewCompleted(true)  // Triggered old modal
+setShowConfetti(true)        // Triggered confetti
+
+// AFTER: Clean single system  
+setShowConfetti(true)        // Only confetti, no modal
+```
+
+**Files Modified**:
+- `/src/app/api/voice-agent/route.ts` - Question enforcement and decision engine fixes
+- `/src/app/interview/[sessionId]/page.tsx` - Removed modal system, fixed button handler
+- `/src/components/VoiceIntegration.tsx` - Cleaned up TypeScript interfaces
+
+**Test Results**:
+- ✅ All 8 questions asked before any closing attempts
+- ✅ No premature "wrap up" language during follow-ups
+- ✅ Button click shows confetti without modal conflict  
+- ✅ Clean user-controlled navigation to results
+- ✅ Voice connection maintained with proper AI silence after completion
+- ✅ Build completed successfully with no TypeScript errors
+
+**Impact**: Interview flow now reliably completes all 8 main questions with natural follow-ups before allowing any termination, while providing a clean, modal-free completion experience with user-controlled navigation.
