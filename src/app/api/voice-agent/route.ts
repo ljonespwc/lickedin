@@ -1192,12 +1192,17 @@ export async function POST(request: NextRequest) {
           // Send TTS for final goodbye
           stream.tts(finalGoodbye)
           
-          // Send interview complete event - LayerCode will handle TTS then disconnect
-          stream.data({
-            type: 'interview_complete',
-            message: 'Interview has ended - TTS will complete before disconnect',
-            timestamp: Date.now()
-          })
+          // Calculate TTS duration and send delayed completion event
+          const wordCount = finalGoodbye.split(' ').length
+          const estimatedDuration = (wordCount * 0.6) * 1000 // ~0.6 seconds per word
+          
+          setTimeout(() => {
+            stream.data({
+              type: 'tts_complete',
+              message: 'Final goodbye TTS should have finished playing',
+              timestamp: Date.now()
+            })
+          }, estimatedDuration)
           
           // Mark interview as completed in database
           if (interviewSessionId) {

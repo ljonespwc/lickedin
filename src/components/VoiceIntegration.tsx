@@ -40,6 +40,18 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
         })
       }
 
+      // Handle TTS completion event - this means final goodbye has finished playing
+      if (data.type === 'tts_complete' || 
+          (data.type === 'response.data' && content?.type === 'tts_complete')) {
+        console.log('🎵 TTS complete - showing completion modal')
+        
+        onVoiceData({ 
+          interviewComplete: true,
+          status: 'disconnected'
+        })
+        return
+      }
+
       // Handle interview completion event - check BOTH patterns
       if (data.type === 'interview_complete' || 
           (data.type === 'response.data' && content?.type === 'interview_complete')) {
