@@ -51,7 +51,7 @@ const InterviewSession = () => {
   // Interview completion state
   const [showConfetti, setShowConfetti] = useState(false)
   const [interviewCompleted, setInterviewCompleted] = useState(false)
-  const [finalGoodbyeSent, setFinalGoodbyeSent] = useState(false)
+  const [finalGoodbyeComplete, setFinalGoodbyeComplete] = useState(false)
   const prevStatusRef = useRef<string>('disconnected')
   const audioMonitorRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -80,48 +80,38 @@ const InterviewSession = () => {
     agentTranscription?: string;
     userTranscription?: string;
     interviewComplete?: boolean;
-    finalGoodbyeSent?: boolean;
+    finalGoodbyeComplete?: boolean;
   }) => {
-    // Handle final goodbye sent - start smart TTS completion detection
-    if (data.finalGoodbyeSent && !finalGoodbyeSent) {
-      setFinalGoodbyeSent(true)
-      console.log('👋 Starting smart TTS completion detection')
+    // Handle final goodbye complete - start simple TTS completion detection
+    if (data.finalGoodbyeComplete && !finalGoodbyeComplete) {
+      setFinalGoodbyeComplete(true)
+      console.log('👋 Starting simple TTS completion detection')
       
       // Clear any existing monitor
       if (audioMonitorRef.current) {
         clearInterval(audioMonitorRef.current)
       }
       
-      // Two-phase detection: wait for audio to START, then wait for it to END
-      let audioStarted = false
+      // Simple approach: wait for audio to go above threshold, then below threshold
+      let hasHeardAudio = false
       let silenceCount = 0
-      let startDelay = 0
       
       audioMonitorRef.current = setInterval(() => {
         const currentAmplitude = voiceData.agentAudioAmplitude || 0
-        startDelay++
         
-        // Phase 1: Wait for TTS to actually start (or timeout after 3 seconds)
-        if (!audioStarted) {
-          if (currentAmplitude > 0.02 || startDelay > 15) { // Audio detected or 3 second timeout
-            audioStarted = true
-            console.log('🔊 TTS started, now monitoring for completion')
-            return
-          }
-        }
-        
-        // Phase 2: Wait for TTS to finish (silence detection)
-        if (audioStarted) {
-          if (currentAmplitude < 0.01) { // Very low amplitude = silence
-            silenceCount++
-            if (silenceCount >= 4) { // 4 consecutive checks of silence (~800ms)
-              console.log('🎵 TTS finished - showing completion modal')
-              clearInterval(audioMonitorRef.current!)
-              setInterviewCompleted(true)
-              setShowConfetti(true)
-            }
-          } else {
-            silenceCount = 0 // Reset if audio detected
+        // If we detect audio above threshold, mark that we've heard the TTS
+        if (currentAmplitude > 0.02) {
+          hasHeardAudio = true
+          silenceCount = 0
+          console.log('🔊 TTS audio detected')
+        } else if (hasHeardAudio) {
+          // Once we've heard audio, start counting silence
+          silenceCount++
+          if (silenceCount >= 8) { // 8 * 200ms = 1.6 seconds of silence after TTS
+            console.log('🎵 TTS completed - showing completion modal')
+            clearInterval(audioMonitorRef.current!)
+            setInterviewCompleted(true)
+            setShowConfetti(true)
           }
         }
       }, 200) // Check every 200ms
@@ -141,7 +131,7 @@ const InterviewSession = () => {
       agentTranscription: data.agentTranscription !== undefined ? data.agentTranscription : prevData.agentTranscription,
       userTranscription: data.userTranscription !== undefined ? data.userTranscription : prevData.userTranscription
     }))
-  }, [interviewCompleted, finalGoodbyeSent, voiceData.agentAudioAmplitude])
+  }, [interviewCompleted, finalGoodbyeComplete, voiceData.agentAudioAmplitude])
   
   // Cleanup audio monitor on unmount
   useEffect(() => {

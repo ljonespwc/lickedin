@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Session } from '@supabase/supabase-js'
@@ -96,11 +96,15 @@ const Results = () => {
   
   const [results, setResults] = useState<InterviewResults | null>(null)
   const [loading, setLoading] = useState(true)
-  const [hasLoadedResults, setHasLoadedResults] = useState(false)
+  const hasLoadedResults = useRef(false)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [session, setSession] = useState<Session | null>(null) // Cache session to avoid hanging getSession() calls
 
   const loadResults = useCallback(async (sessionToUse: Session) => {
+    if (hasLoadedResults.current) {
+      return
+    }
+    
     try {
       const accessToken = sessionToUse.access_token
         
@@ -117,7 +121,7 @@ const Results = () => {
       
       const data = await response.json()
       setResults(data)
-      setHasLoadedResults(true)
+      hasLoadedResults.current = true
       
       setLoading(false)
     } catch (error) {
@@ -150,14 +154,14 @@ const Results = () => {
       } else {
         setSession(session) // Update cached session
         // Only load results if we haven't loaded them yet to prevent duplicate calls
-        if (sessionId && !hasLoadedResults) {
+        if (sessionId && !hasLoadedResults.current) {
           loadResults(session)
         }
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [sessionId, router, loadResults, hasLoadedResults])
+  }, [sessionId, router, loadResults])
 
 
   if (loading) {

@@ -1192,9 +1192,9 @@ export async function POST(request: NextRequest) {
           // Send TTS for final goodbye
           stream.tts(finalGoodbye)
           
-          // Send completion flag for frontend to monitor audio and show modal when TTS finishes
+          // Send completion event immediately - frontend will handle TTS detection properly  
           stream.data({
-            type: 'final_goodbye_sent',
+            type: 'final_goodbye_complete',
             message: finalGoodbye,
             timestamp: Date.now()
           })
