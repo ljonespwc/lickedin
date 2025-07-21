@@ -316,7 +316,6 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
         )
       `)
       .eq('id', sessionId)
-      .order('interview_questions.question_order', { ascending: true })
       .single() as { data: SessionJoinResult | null; error: Error | null }
 
     if (sessionError || !sessionData) {
@@ -331,7 +330,9 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
       interview_type: sessionData.interview_type,
       voice_gender: sessionData.voice_gender,
       communication_style: sessionData.communication_style,
-      interview_questions: Array.isArray(sessionData.interview_questions) ? sessionData.interview_questions : [],
+      interview_questions: Array.isArray(sessionData.interview_questions) 
+        ? sessionData.interview_questions.sort((a, b) => a.question_order - b.question_order)
+        : [],
       resumes: sessionData.resumes ? [{ parsed_content: sessionData.resumes.parsed_content }] : [],
       job_descriptions: sessionData.job_descriptions ? [{ 
         job_content: sessionData.job_descriptions.job_content,
