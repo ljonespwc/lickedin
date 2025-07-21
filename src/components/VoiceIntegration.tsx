@@ -51,21 +51,7 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
         return
       }
 
-      // Handle interview completion event - check BOTH patterns
-      if (data.type === 'interview_complete' || 
-          (data.type === 'response.data' && content?.type === 'interview_complete')) {
-        console.log('🏁 Interview complete event received - terminating LayerCode connection')
-        
-        // Terminate LayerCode pipeline connection - but don't call disconnect as it causes errors
-        // LayerCode will handle cleanup internally when the interview ends
-        console.log('🔌 Interview complete - LayerCode will handle disconnect internally')
-        
-        onVoiceData({ 
-          interviewComplete: true,
-          status: 'disconnected' // Force status to disconnected
-        })
-        return
-      }
+      // REMOVED: Old interview_complete event handling - now using user-controlled completion only
       
       if (data.type === 'user_transcription' || 
           (data.type === 'response.data' && content?.type === 'user_transcription')) {

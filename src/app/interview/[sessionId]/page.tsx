@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -52,7 +52,7 @@ const InterviewSession = () => {
   const [showConfetti, setShowConfetti] = useState(false)
   const [interviewCompleted, setInterviewCompleted] = useState(false)
   const [showEndButton, setShowEndButton] = useState(false)
-  const prevStatusRef = useRef<string>('disconnected')
+  // REMOVED: prevStatusRef no longer needed since old completion detection was removed
 
   // Voice integration state
   const [voiceData, setVoiceData] = useState<{
@@ -88,11 +88,7 @@ const InterviewSession = () => {
       setShowEndButton(true)
     }
 
-    // Handle interview completion immediately (fallback)
-    if (data.interviewComplete && !interviewCompleted) {
-      setInterviewCompleted(true)
-      setShowConfetti(true)
-    }
+    // REMOVED: Old interviewComplete handling - now using user-controlled button only
     
     // Merge with existing data instead of overwriting
     setVoiceData(prevData => ({
@@ -102,7 +98,7 @@ const InterviewSession = () => {
       agentTranscription: data.agentTranscription !== undefined ? data.agentTranscription : prevData.agentTranscription,
       userTranscription: data.userTranscription !== undefined ? data.userTranscription : prevData.userTranscription
     }))
-  }, [interviewCompleted])
+  }, []) // Removed interviewCompleted dependency as it's no longer used
   
   // Removed unused cleanup effect
 
@@ -240,25 +236,8 @@ const InterviewSession = () => {
     return () => clearInterval(interval)
   }, [sessionId, loading])
 
-  // Interview completion detection effect
-  useEffect(() => {
-    const prevStatus = prevStatusRef.current
-    const currentStatus = voiceData.status
-
-    // Detect voice session end: connected -> disconnected (and not initial load)
-    if (prevStatus === 'connected' && currentStatus === 'disconnected' && !interviewCompleted) {
-      setInterviewCompleted(true)
-      setShowConfetti(true)
-      
-      // Auto-navigate to results after 4 seconds
-      setTimeout(() => {
-        router.push(`/results/${sessionId}`)
-      }, 4000)
-    }
-
-    // Update previous status reference
-    prevStatusRef.current = currentStatus
-  }, [voiceData.status, interviewCompleted, router, sessionId])
+  // REMOVED: Old completion detection that was conflicting with new user-controlled system
+  // The interview completion is now handled by the showEndButton system only
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
