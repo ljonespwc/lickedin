@@ -94,14 +94,51 @@ Respond with JSON only:
       messages: [
         {
           role: "system",
-          content: `You are an expert interview coach. For behavioral interviews, evaluate responses using STAR method criteria (Situation, Task, Action, Result). Look for specific examples, measurable outcomes, and clear problem-solving progression. Respond only with valid JSON.`
+          content: `You are an expert interview coach. For behavioral interviews, evaluate responses using STAR method criteria (Situation, Task, Action, Result). Look for specific examples, measurable outcomes, and clear problem-solving progression.`
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      temperature: 0.3,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "response_analysis",
+          schema: {
+            type: "object",
+            properties: {
+              quality_score: {
+                type: "integer",
+                minimum: 0,
+                maximum: 100
+              },
+              strengths: {
+                type: "array",
+                items: { type: "string" }
+              },
+              weaknesses: {
+                type: "array",
+                items: { type: "string" }
+              },
+              improvement_suggestions: {
+                type: "array",
+                items: { type: "string" }
+              },
+              keyword_alignment: {
+                type: "array",
+                items: { type: "string" }
+              },
+              missed_opportunities: {
+                type: "array",
+                items: { type: "string" }
+              }
+            },
+            required: ["quality_score", "strengths", "weaknesses", "improvement_suggestions", "keyword_alignment", "missed_opportunities"]
+          }
+        }
+      },
+      temperature: 0.1,
       max_tokens: 800
     })
 
@@ -187,14 +224,51 @@ Respond with JSON only:
       messages: [
         {
           role: "system",
-          content: "You are an expert career coach. Respond only with valid JSON."
+          content: "You are an expert career coach analyzing resume utilization."
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      temperature: 0.3,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "resume_analysis",
+          schema: {
+            type: "object",
+            properties: {
+              skills_mentioned: {
+                type: "array",
+                items: { type: "string" }
+              },
+              skills_missed: {
+                type: "array",
+                items: { type: "string" }
+              },
+              experiences_mentioned: {
+                type: "array",
+                items: { type: "string" }
+              },
+              experiences_missed: {
+                type: "array",
+                items: { type: "string" }
+              },
+              utilization_score: {
+                type: "integer",
+                minimum: 0,
+                maximum: 100
+              },
+              missed_opportunities: {
+                type: "array",
+                items: { type: "string" }
+              }
+            },
+            required: ["skills_mentioned", "skills_missed", "experiences_mentioned", "experiences_missed", "utilization_score", "missed_opportunities"]
+          }
+        }
+      },
+      temperature: 0.1,
       max_tokens: 600
     })
 
@@ -273,14 +347,47 @@ Respond with JSON only:
       messages: [
         {
           role: "system",
-          content: "You are an expert talent acquisition specialist. Respond only with valid JSON."
+          content: "You are an expert talent acquisition specialist analyzing job fit."
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      temperature: 0.3,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "job_fit_analysis",
+          schema: {
+            type: "object",
+            properties: {
+              requirements_covered: {
+                type: "array",
+                items: { type: "string" }
+              },
+              requirements_missed: {
+                type: "array", 
+                items: { type: "string" }
+              },
+              keyword_matches: {
+                type: "array",
+                items: { type: "string" }
+              },
+              fit_score: {
+                type: "integer",
+                minimum: 0,
+                maximum: 100
+              },
+              gap_analysis: {
+                type: "array",
+                items: { type: "string" }
+              }
+            },
+            required: ["requirements_covered", "requirements_missed", "keyword_matches", "fit_score", "gap_analysis"]
+          }
+        }
+      },
+      temperature: 0.1,
       max_tokens: 600
     })
 
@@ -368,17 +475,17 @@ async function storeAnalysisResults(
       .from('interview_feedback')
       .upsert({
         session_id: sessionId,
-        overall_feedback: aiAnalysis.coaching_feedback.overall_feedback,
-        strengths: aiAnalysis.coaching_feedback.strengths,
-        areas_for_improvement: aiAnalysis.coaching_feedback.areas_for_improvement,
-        suggested_next_steps: aiAnalysis.coaching_feedback.suggested_next_steps,
-        confidence_score: aiAnalysis.coaching_feedback.confidence_score,
-        communication_score: aiAnalysis.coaching_feedback.communication_score,
-        content_score: aiAnalysis.coaching_feedback.content_score,
-        preparation_score: aiAnalysis.preparation_analysis.preparation_score,
-        business_insights: aiAnalysis.preparation_analysis.business_insights,
-        solutions_proposed: aiAnalysis.preparation_analysis.solutions_proposed,
-        problem_solving_approach: aiAnalysis.preparation_analysis.problem_solving_approach,
+        overall_feedback: aiAnalysis.coaching_feedback?.overall_feedback || 'Analysis completed',
+        strengths: aiAnalysis.coaching_feedback?.strengths || [],
+        areas_for_improvement: aiAnalysis.coaching_feedback?.areas_for_improvement || [],
+        suggested_next_steps: aiAnalysis.coaching_feedback?.suggested_next_steps || [],
+        confidence_score: aiAnalysis.coaching_feedback?.confidence_score || 0,
+        communication_score: aiAnalysis.coaching_feedback?.communication_score || 0,
+        content_score: aiAnalysis.coaching_feedback?.content_score || 0,
+        preparation_score: aiAnalysis.preparation_analysis?.preparation_score || 0,
+        business_insights: aiAnalysis.preparation_analysis?.business_insights || [],
+        solutions_proposed: aiAnalysis.preparation_analysis?.solutions_proposed || [],
+        problem_solving_approach: aiAnalysis.preparation_analysis?.problem_solving_approach || 'No analysis available',
         preparation_analysis: aiAnalysis.preparation_analysis,
         response_analyses: aiAnalysis.response_analyses,
         resume_analysis: aiAnalysis.resume_analysis,
@@ -396,6 +503,16 @@ async function storeAnalysisResults(
         message: error.message,
         details: error.details,
         hint: error.hint
+      })
+      console.error('❌ Failed data summary:', {
+        sessionId,
+        hasOverallFeedback: !!aiAnalysis.coaching_feedback?.overall_feedback,
+        hasStrengths: !!aiAnalysis.coaching_feedback?.strengths,
+        hasAreasForImprovement: !!aiAnalysis.coaching_feedback?.areas_for_improvement,
+        communicationScore: aiAnalysis.coaching_feedback?.communication_score,
+        contentScore: aiAnalysis.coaching_feedback?.content_score,
+        confidenceScore: aiAnalysis.coaching_feedback?.confidence_score,
+        preparationScore: aiAnalysis.preparation_analysis?.preparation_score
       })
       return false
     } else {
@@ -489,14 +606,56 @@ Respond with JSON only:
       messages: [
         {
           role: "system",
-          content: "You are an expert interview coach specializing in behavioral interview assessment. For behavioral interviews, focus on STAR methodology evaluation, story quality, and demonstration of competencies through specific examples. Respond only with valid JSON."
+          content: "You are an expert interview coach specializing in behavioral interview assessment. For behavioral interviews, focus on STAR methodology evaluation, story quality, and demonstration of competencies through specific examples."
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      temperature: 0.7,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "coaching_feedback",
+          schema: {
+            type: "object",
+            properties: {
+              overall_feedback: {
+                type: "string"
+              },
+              strengths: {
+                type: "array",
+                items: { type: "string" }
+              },
+              areas_for_improvement: {
+                type: "array",
+                items: { type: "string" }
+              },
+              suggested_next_steps: {
+                type: "array",
+                items: { type: "string" }
+              },
+              communication_score: {
+                type: "integer",
+                minimum: 0,
+                maximum: 100
+              },
+              content_score: {
+                type: "integer",
+                minimum: 0,
+                maximum: 100
+              },
+              confidence_score: {
+                type: "integer",
+                minimum: 0,
+                maximum: 100
+              }
+            },
+            required: ["overall_feedback", "strengths", "areas_for_improvement", "suggested_next_steps", "communication_score", "content_score", "confidence_score"]
+          }
+        }
+      },
+      temperature: 0.1,
       max_tokens: 800
     })
 
@@ -603,14 +762,54 @@ Respond with JSON only:
       messages: [
         {
           role: "system",
-          content: "You are an expert interviewer evaluating preparation and problem-solving. Respond only with valid JSON."
+          content: "You are an expert interviewer evaluating preparation and problem-solving."
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      temperature: 0.3,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "preparation_analysis",
+          schema: {
+            type: "object",
+            properties: {
+              preparation_score: {
+                type: "integer",
+                minimum: 0,
+                maximum: 100
+              },
+              business_insights: {
+                type: "array",
+                items: { type: "string" }
+              },
+              solutions_proposed: {
+                type: "array",
+                items: { type: "string" }
+              },
+              problem_solving_approach: {
+                type: "string"
+              },
+              research_quality: {
+                type: "array",
+                items: { type: "string" }
+              },
+              strategic_thinking: {
+                type: "array",
+                items: { type: "string" }
+              },
+              missed_opportunities: {
+                type: "array",
+                items: { type: "string" }
+              }
+            },
+            required: ["preparation_score", "business_insights", "solutions_proposed", "problem_solving_approach", "research_quality", "strategic_thinking", "missed_opportunities"]
+          }
+        }
+      },
+      temperature: 0.1,
       max_tokens: 800
     })
 
@@ -813,6 +1012,11 @@ export async function GET(
     const hasCachedAnalysis = feedback?.ai_analysis_completed_at && 
                              feedback?.response_analyses
     
+    // Check if analysis is currently being generated (prevent concurrent generation)
+    const analysisInProgress = feedback?.ai_analysis_completed_at === null && 
+                              feedback?.response_analyses === null &&
+                              feedback?.overall_feedback === 'ANALYSIS_IN_PROGRESS'
+    
     console.log('🔍 Cached analysis check:', {
       sessionId,
       hasFeedback: !!feedback,
@@ -821,38 +1025,40 @@ export async function GET(
       hasResumeAnalysis: !!feedback?.resume_analysis,
       hasJobFitAnalysis: !!feedback?.job_fit_analysis,
       hasPreparationAnalysis: !!feedback?.preparation_analysis,
-      hasCachedAnalysis
+      hasCachedAnalysis,
+      analysisInProgress
     })
     
     if (hasCachedAnalysis) {
       console.log('✅ Using cached AI analysis for session:', sessionId)
-      
-      // Reconstruct aiAnalysis from cached data
-      aiAnalysis = {
-        response_analyses: feedback.response_analyses,
-        resume_analysis: feedback.resume_analysis,
-        job_fit_analysis: feedback.job_fit_analysis,
-        coaching_feedback: {
-          overall_feedback: feedback.overall_feedback,
-          strengths: feedback.strengths,
-          areas_for_improvement: feedback.areas_for_improvement,
-          suggested_next_steps: feedback.suggested_next_steps,
-          communication_score: feedback.communication_score,
-          content_score: feedback.content_score,
-          confidence_score: feedback.confidence_score
+    } else if (analysisInProgress) {
+      console.log('⏳ Analysis already in progress for session:', sessionId)
+      // Return a placeholder response while analysis is being generated
+      return NextResponse.json({
+        session: session,
+        feedback: {
+          overall_feedback: "Analysis in progress. Please refresh in a moment.",
+          strengths: ["Analysis being generated..."],
+          areas_for_improvement: ["Please wait..."],
+          suggested_next_steps: ["Refresh the page in a few seconds"],
+          confidence_score: 0,
+          communication_score: 0,
+          content_score: 0
         },
-        preparation_analysis: feedback.preparation_analysis || {
-          preparation_score: feedback.preparation_score || 70,
-          business_insights: feedback.business_insights || [],
-          solutions_proposed: feedback.solutions_proposed || [],
-          problem_solving_approach: feedback.problem_solving_approach || 'Analysis unavailable',
-          research_quality: [],
-          strategic_thinking: [],
-          missed_opportunities: []
-        }
-      }
+        responses: [],
+        ai_analysis: null
+      })
     } else if (conversation && conversation.length > 0) {
       console.log('🔄 Generating fresh AI analysis for session:', sessionId)
+      
+      // Mark analysis as in progress to prevent concurrent generation
+      await supabase
+        .from('interview_feedback')
+        .upsert({
+          session_id: sessionId,
+          overall_feedback: 'ANALYSIS_IN_PROGRESS',
+          ai_analysis_completed_at: null
+        }, { onConflict: 'session_id' })
       
       const interviewContext: InterviewContext = {
         interview_type: session.interview_type,

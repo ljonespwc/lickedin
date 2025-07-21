@@ -663,13 +663,32 @@ Respond with JSON only:
       messages: [
         {
           role: "system",
-          content: "You are a decision engine for interview flow. Respond only with valid JSON."
+          content: "You are a decision engine for interview flow."
         },
         {
           role: "user",
           content: decisionPrompt
         }
       ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "interview_decision",
+          schema: {
+            type: "object",
+            properties: {
+              action: {
+                type: "string",
+                enum: ["recovery", "follow_up", "next_question", "end_interview"]
+              },
+              reasoning: {
+                type: "string"
+              }
+            },
+            required: ["action", "reasoning"]
+          }
+        }
+      },
       temperature: 0.3,
       max_tokens: 100
     })
