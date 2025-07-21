@@ -321,22 +321,14 @@ const InterviewSession = () => {
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex justify-between items-center">
-            {currentQuestion === 1 && (
-              <Button
-                variant="outline"
-                onClick={() => router.push('/setup/customize')}
-                className="flex items-center space-x-2"
-              >
-                <Settings size={16} />
-                <span>Change Settings</span>
-              </Button>
-            )}
-            {!(currentQuestion === 1) && <div></div>}
-            
-            <h1 className="text-2xl font-semibold">LIVE INTERVIEW</h1>
-            <div></div>
-          </div>
+          <h1 className="text-2xl font-semibold">LIVE INTERVIEW</h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            {new Date().toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </p>
         </div>
 
         {/* Interviewer Section - Live Transcription */}
@@ -390,7 +382,7 @@ const InterviewSession = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <Mic className="text-primary" size={20} />
-                <h3 className="font-medium">Your Response</h3>
+                <h3 className="font-medium">Your Microphone</h3>
               </div>
               {showEndButton ? (
                 <div className="flex items-center space-x-2">
@@ -434,7 +426,7 @@ const InterviewSession = () => {
               </div>
               
               <div className="text-right">
-                <span className="text-sm font-medium">Time: {formatTime(timeElapsed)}</span>
+                <span className="text-sm font-medium">Total Time: {formatTime(timeElapsed)}</span>
               </div>
             </div>
             
