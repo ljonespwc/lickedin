@@ -643,14 +643,15 @@ PROGRESS STATUS:
 - MAIN QUESTIONS ASKED: ${mainQuestionsAsked} out of ${totalQuestions}
 - FOLLOW-UPS SINCE LAST MAIN QUESTION: ${followUpsSinceLastMain} (max: ${MAX_FOLLOWUPS_PER_QUESTION})
 
-DECISION RULES (Phase 3: Improved Clarity):
+DECISION RULES (Phase 4: BULLETPROOF CONSTRAINTS):
 1. "recovery" - ONLY if response was cut off, incomplete, or completely didn't address the question
 2. "follow_up" - If response is reasonable but could use 1-2 clarifying questions (max ${MAX_FOLLOWUPS_PER_QUESTION} total)
 3. "next_question" - If response is sufficient OR you've asked ${MAX_FOLLOWUPS_PER_QUESTION} follow-ups OR candidate gave good examples
-4. "end_interview" - If all ${totalQuestions} main questions have been thoroughly covered
+4. "end_interview" - ONLY ALLOWED IF ALL ${totalQuestions} MAIN QUESTIONS HAVE BEEN ASKED
 
-CRITICAL: If MAIN QUESTIONS ASKED equals ${totalQuestions}/${totalQuestions}, you MUST choose "end_interview" regardless of other factors.
-IMPORTANT: Only favor "next_question" when there are still main questions remaining. Good responses deserve to move forward.
+⚠️  ABSOLUTE REQUIREMENT: You can NEVER choose "end_interview" unless MAIN QUESTIONS ASKED = ${totalQuestions}
+⚠️  CURRENT STATUS: ${mainQuestionsAsked}/${totalQuestions} questions asked
+⚠️  IF ${mainQuestionsAsked} < ${totalQuestions}, you MUST choose "next_question" or "follow_up", NEVER "end_interview"
 
 Respond with JSON only:
 {
@@ -696,8 +697,15 @@ Respond with JSON only:
     const response = completion.choices[0]?.message?.content || '{}'
     const decision = JSON.parse(response)
     
+    // BULLETPROOF OVERRIDE: Never allow end_interview unless all main questions asked
+    let finalAction = decision.action || 'follow_up'
+    if (finalAction === 'end_interview' && mainQuestionsAsked < totalQuestions) {
+      console.log(`🚫 BLOCKING PREMATURE END_INTERVIEW: ${mainQuestionsAsked}/${totalQuestions} questions asked, forcing next_question`)
+      finalAction = 'next_question'
+    }
+    
     const finalDecision = {
-      action: decision.action || 'follow_up',
+      action: finalAction,
       reasoning: decision.reasoning || 'Default follow-up decision'
     }
     
