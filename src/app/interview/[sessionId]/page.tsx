@@ -50,7 +50,6 @@ const InterviewSession = () => {
   
   // Interview completion state
   const [showConfetti, setShowConfetti] = useState(false)
-  const [interviewCompleted, setInterviewCompleted] = useState(false)
   const [showEndButton, setShowEndButton] = useState(false)
   // REMOVED: prevStatusRef no longer needed since old completion detection was removed
 
@@ -79,7 +78,6 @@ const InterviewSession = () => {
     status?: string;
     agentTranscription?: string;
     userTranscription?: string;
-    interviewComplete?: boolean;
     interviewEndedShowButton?: boolean;
   }) => {
     // Handle interview ended - show button instead of modal
@@ -296,27 +294,9 @@ const InterviewSession = () => {
         />
       )}
       
-      {/* Interview completion overlay */}
-      {interviewCompleted && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 text-center max-w-md mx-4">
-            <div className="text-6xl mb-4">🎉</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Interview Complete!</h2>
-            <p className="text-gray-600 mb-6">
-              Great job! You&apos;ve successfully completed your interview.
-            </p>
-            <Button 
-              onClick={() => router.push(`/results/${sessionId}`)}
-              className="mt-4"
-            >
-              View Results Now
-            </Button>
-          </div>
-        </div>
-      )}
       
-      {/* Voice Integration - client-side only, disabled when interview is complete */}
-      {session && !interviewCompleted && (
+      {/* Voice Integration - client-side only */}
+      {session && (
         <VoiceIntegration 
           onVoiceData={handleVoiceData} 
           interviewSessionId={sessionId}
@@ -367,7 +347,7 @@ const InterviewSession = () => {
                 <div className="text-2xl">{interviewer.emoji}</div>
                 <h2 className="text-lg font-medium">{interviewer.name}</h2>
               </div>
-              {interviewCompleted ? (
+              {showEndButton ? (
                 <div className="flex items-center space-x-2">
                   <span className="text-xs text-red-500 font-medium">Interview Ended</span>
                 </div>
@@ -412,7 +392,7 @@ const InterviewSession = () => {
                 <Mic className="text-primary" size={20} />
                 <h3 className="font-medium">Your Response</h3>
               </div>
-              {interviewCompleted ? (
+              {showEndButton ? (
                 <div className="flex items-center space-x-2">
                   <span className="text-xs text-red-500 font-medium">Interview Ended</span>
                 </div>
@@ -464,7 +444,6 @@ const InterviewSession = () => {
                 <p className="text-muted-foreground mb-4">Interview completed! You can now view your results.</p>
                 <Button 
                   onClick={() => {
-                    setInterviewCompleted(true)
                     setShowConfetti(true)
                     setTimeout(() => router.push(`/results/${sessionId}`), 2000)
                   }}

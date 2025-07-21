@@ -10,7 +10,6 @@ interface VoiceIntegrationProps {
     status?: string;
     agentTranscription?: string;
     userTranscription?: string;
-    interviewComplete?: boolean;
     interviewEndedShowButton?: boolean;
   }) => void
 }
