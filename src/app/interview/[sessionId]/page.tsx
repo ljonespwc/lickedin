@@ -8,7 +8,7 @@ import { Header } from '@/components/Header'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Mic, Settings } from "lucide-react"
+import { Mic } from "lucide-react"
 import Confetti from 'react-confetti'
 // Dynamic import to avoid SSR issues with LayerCode
 const VoiceIntegration = dynamic(() => import('@/components/VoiceIntegration').then(mod => ({ default: mod.VoiceIntegration })), {
