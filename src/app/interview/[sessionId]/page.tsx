@@ -51,7 +51,7 @@ const InterviewSession = () => {
   // Interview completion state
   const [showConfetti, setShowConfetti] = useState(false)
   const [interviewCompleted, setInterviewCompleted] = useState(false)
-  const [finalGoodbyeComplete, setFinalGoodbyeComplete] = useState(false)
+  // Remove unused state
   const prevStatusRef = useRef<string>('disconnected')
   const audioMonitorRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -80,44 +80,8 @@ const InterviewSession = () => {
     agentTranscription?: string;
     userTranscription?: string;
     interviewComplete?: boolean;
-    finalGoodbyeComplete?: boolean;
   }) => {
-    // Handle final goodbye complete - start simple TTS completion detection
-    if (data.finalGoodbyeComplete && !finalGoodbyeComplete) {
-      setFinalGoodbyeComplete(true)
-      console.log('👋 Starting simple TTS completion detection')
-      
-      // Clear any existing monitor
-      if (audioMonitorRef.current) {
-        clearInterval(audioMonitorRef.current)
-      }
-      
-      // Simple approach: wait for audio to go above threshold, then below threshold
-      let hasHeardAudio = false
-      let silenceCount = 0
-      
-      audioMonitorRef.current = setInterval(() => {
-        const currentAmplitude = voiceData.agentAudioAmplitude || 0
-        
-        // If we detect audio above threshold, mark that we've heard the TTS
-        if (currentAmplitude > 0.02) {
-          hasHeardAudio = true
-          silenceCount = 0
-          console.log('🔊 TTS audio detected')
-        } else if (hasHeardAudio) {
-          // Once we've heard audio, start counting silence
-          silenceCount++
-          if (silenceCount >= 8) { // 8 * 200ms = 1.6 seconds of silence after TTS
-            console.log('🎵 TTS completed - showing completion modal')
-            clearInterval(audioMonitorRef.current!)
-            setInterviewCompleted(true)
-            setShowConfetti(true)
-          }
-        }
-      }, 200) // Check every 200ms
-    }
-
-    // Handle interview completion immediately (fallback)
+    // Handle interview completion immediately
     if (data.interviewComplete && !interviewCompleted) {
       setInterviewCompleted(true)
       setShowConfetti(true)
@@ -131,7 +95,7 @@ const InterviewSession = () => {
       agentTranscription: data.agentTranscription !== undefined ? data.agentTranscription : prevData.agentTranscription,
       userTranscription: data.userTranscription !== undefined ? data.userTranscription : prevData.userTranscription
     }))
-  }, [interviewCompleted, finalGoodbyeComplete, voiceData.agentAudioAmplitude])
+  }, [interviewCompleted])
   
   // Cleanup audio monitor on unmount
   useEffect(() => {

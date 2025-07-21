@@ -1192,10 +1192,10 @@ export async function POST(request: NextRequest) {
           // Send TTS for final goodbye
           stream.tts(finalGoodbye)
           
-          // Send completion event immediately - frontend will handle TTS detection properly  
+          // Send interview complete event - LayerCode will handle TTS then disconnect
           stream.data({
-            type: 'final_goodbye_complete',
-            message: finalGoodbye,
+            type: 'interview_complete',
+            message: 'Interview has ended - TTS will complete before disconnect',
             timestamp: Date.now()
           })
           

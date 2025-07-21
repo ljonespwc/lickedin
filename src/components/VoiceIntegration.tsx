@@ -32,16 +32,12 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
       // Handle transcription data
       const content = data.content as { type?: string; text?: string; message?: string } | undefined
       
-      // Handle final goodbye complete - trigger modal after TTS completion
-      if (data.type === 'final_goodbye_complete' || 
-          (data.type === 'response.data' && content?.type === 'final_goodbye_complete')) {
-        console.log('👋 Final goodbye complete - starting TTS completion monitoring')
-        
+      if (data.type === 'agent_transcription' || 
+          (data.type === 'response.data' && content?.type === 'agent_transcription')) {
+        const text = data.text || content?.text || ''
         onVoiceData({ 
-          finalGoodbyeComplete: true,
-          status: voiceStatus
+          agentTranscription: text
         })
-        return
       }
 
       // Handle interview completion event - check BOTH patterns
@@ -66,14 +62,6 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
         const text = data.text || content?.text || ''
         onVoiceData({ 
           userTranscription: text
-        })
-      } else if (data.type === 'agent_transcription' || 
-                 (data.type === 'response.data' && content?.type === 'agent_transcription')) {
-        // Extract text from the correct location in LayerCode's data structure
-        const text = data.text || content?.text || ''
-        
-        onVoiceData({ 
-          agentTranscription: text
         })
       }
     }
