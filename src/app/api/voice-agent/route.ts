@@ -1189,27 +1189,20 @@ export async function POST(request: NextRequest) {
             timestamp: Date.now()
           })
           
-          // Send TTS for final goodbye
+          // Send TTS for final goodbye  
           stream.tts(finalGoodbye)
           
-          // Calculate TTS duration and send delayed completion event
-          const wordCount = finalGoodbye.split(' ').length
-          const estimatedDuration = (wordCount * 0.6) * 1000 // ~0.6 seconds per word
-          
-          setTimeout(() => {
-            stream.data({
-              type: 'tts_complete',
-              message: 'Final goodbye TTS should have finished playing',
-              timestamp: Date.now()
-            })
-          }, estimatedDuration)
+          // Send completion notification - but don't trigger modal yet
+          stream.data({
+            type: 'interview_ended_wait_for_user',
+            message: 'Interview ended - user can navigate to results when ready',
+            timestamp: Date.now()
+          })
           
           // Mark interview as completed in database
           if (interviewSessionId) {
             await markInterviewCompleted(interviewSessionId)
           }
-          
-          stream.end()
           return
         }
 

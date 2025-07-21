@@ -51,9 +51,8 @@ const InterviewSession = () => {
   // Interview completion state
   const [showConfetti, setShowConfetti] = useState(false)
   const [interviewCompleted, setInterviewCompleted] = useState(false)
-  // Remove unused state
+  const [showEndButton, setShowEndButton] = useState(false)
   const prevStatusRef = useRef<string>('disconnected')
-  const audioMonitorRef = useRef<NodeJS.Timeout | null>(null)
 
   // Voice integration state
   const [voiceData, setVoiceData] = useState<{
@@ -73,6 +72,7 @@ const InterviewSession = () => {
   const userSpeaking = voiceData.userAudioAmplitude > 0.01 // Threshold for considering user is speaking
 
   // Handle voice data from the dynamic component - memoized to prevent infinite re-renders
+
   const handleVoiceData = useCallback((data: { 
     agentAudioAmplitude?: number; 
     userAudioAmplitude?: number;
@@ -80,8 +80,15 @@ const InterviewSession = () => {
     agentTranscription?: string;
     userTranscription?: string;
     interviewComplete?: boolean;
+    interviewEndedShowButton?: boolean;
   }) => {
-    // Handle interview completion immediately
+    // Handle interview ended - show button instead of modal
+    if (data.interviewEndedShowButton) {
+      console.log('✅ Interview ended - showing navigation button')
+      setShowEndButton(true)
+    }
+
+    // Handle interview completion immediately (fallback)
     if (data.interviewComplete && !interviewCompleted) {
       setInterviewCompleted(true)
       setShowConfetti(true)
@@ -97,14 +104,7 @@ const InterviewSession = () => {
     }))
   }, [interviewCompleted])
   
-  // Cleanup audio monitor on unmount
-  useEffect(() => {
-    return () => {
-      if (audioMonitorRef.current) {
-        clearInterval(audioMonitorRef.current)
-      }
-    }
-  }, [])
+  // Removed unused cleanup effect
 
   // Get pipeline ID based on voice gender
   const getPipelineId = (voiceGender: string) => {
@@ -478,6 +478,23 @@ const InterviewSession = () => {
                 <span className="text-sm font-medium">Time: {formatTime(timeElapsed)}</span>
               </div>
             </div>
+            
+            {/* Show end button when interview is complete */}
+            {showEndButton && (
+              <div className="mt-6 text-center">
+                <p className="text-muted-foreground mb-4">Interview completed! You can now view your results.</p>
+                <Button 
+                  onClick={() => {
+                    setInterviewCompleted(true)
+                    setShowConfetti(true)
+                    setTimeout(() => router.push(`/results/${sessionId}`), 2000)
+                  }}
+                  className="bg-primary hover:bg-primary/90 text-white px-8 py-3"
+                >
+                  View Results 🎉
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

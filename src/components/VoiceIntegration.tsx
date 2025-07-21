@@ -11,7 +11,7 @@ interface VoiceIntegrationProps {
     agentTranscription?: string;
     userTranscription?: string;
     interviewComplete?: boolean;
-    finalGoodbyeComplete?: boolean;
+    interviewEndedShowButton?: boolean;
   }) => void
 }
 
@@ -40,14 +40,13 @@ export function VoiceIntegration({ onVoiceData, interviewSessionId, pipelineId }
         })
       }
 
-      // Handle TTS completion event - this means final goodbye has finished playing
-      if (data.type === 'tts_complete' || 
-          (data.type === 'response.data' && content?.type === 'tts_complete')) {
-        console.log('🎵 TTS complete - showing completion modal')
+      // Handle interview ended - show simple notification instead of modal
+      if (data.type === 'interview_ended_wait_for_user' || 
+          (data.type === 'response.data' && content?.type === 'interview_ended_wait_for_user')) {
+        console.log('✅ Interview ended - showing navigation button')
         
         onVoiceData({ 
-          interviewComplete: true,
-          status: 'disconnected'
+          interviewEndedShowButton: true
         })
         return
       }
