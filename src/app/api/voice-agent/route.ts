@@ -43,63 +43,232 @@ interface SessionContext {
   job_descriptions: { job_content: string; company_name: string; job_title: string }[]
 }
 
-// Helper function to detect if candidate asked a question using AI
-async function detectQuestionWithAI(candidateResponse: string): Promise<boolean> {
-  if (!candidateResponse || candidateResponse.trim().length === 0) {
-    return false
+interface SessionJoinResult {
+  id: string
+  difficulty_level: string
+  interview_type: string
+  voice_gender: string
+  communication_style: string
+  resumes: {
+    parsed_content: string
   }
+  job_descriptions: {
+    job_content: string
+    company_name: string
+    job_title: string
+  }
+  interview_questions: InterviewQuestion[]
+}
 
+// Consolidated AI function that combines question detection, decision making, and response generation
+async function generateInterviewResponse(
+  sessionContext: SessionContext | null,
+  recentConversation: ConversationTurn[],
+  candidateResponse: string
+): Promise<{
+  response: string;
+  action: 'introduction' | 'recovery' | 'follow_up' | 'next_question' | 'end_interview';
+  candidateAskedQuestion: boolean;
+  relatedMainQuestionId: string | null;
+  reasoning: string;
+}> {
   try {
-    const prompt = `You are analyzing whether a candidate's response contains a question during an interview closing phase.
+    const questions = sessionContext?.interview_questions || []
+    const mainQuestions = questions
+      .sort((a, b) => a.question_order - b.question_order)
+      .map((q) => `${q.question_order}. ${q.question_text}`)
+      .join('\n')
 
-CANDIDATE RESPONSE: "${candidateResponse}"
+    // Count unique main questions asked
+    const mainQuestionTurns = recentConversation.filter(turn => 
+      turn.speaker === 'interviewer' && 
+      turn.message_type === 'main_question' && 
+      turn.related_main_question_id
+    )
+    const usedQuestionIds = new Set(mainQuestionTurns.map(turn => turn.related_main_question_id!))
+    const mainQuestionsAsked = usedQuestionIds.size
 
-Determine if this response contains a question (explicit or implied). Consider these examples:
+    // Count follow-ups since last main question
+    const lastMainQuestionTurn = recentConversation
+      .slice()
+      .reverse()
+      .find(turn => turn.speaker === 'interviewer' && 
+                   turn.message_type === 'main_question' && 
+                   turn.related_main_question_id)?.turn_number || 0
+    
+    const followUpsSinceLastMain = recentConversation.filter(turn => 
+      turn.speaker === 'interviewer' && 
+      turn.message_type === 'follow_up' && 
+      turn.turn_number > lastMainQuestionTurn
+    ).length
 
-QUESTIONS (return true):
-- "What's the salary range?"
-- "I'm wondering about the compensation structure."
-- "Could you tell me about the benefits?"
-- "I'd like to know more about the team."
-- "How about work-life balance?"
-- "I'm curious about remote work options."
-- "What about career growth opportunities?"
-- "I wanted to ask about the company culture."
-- "Can you share more about the role?"
+    const conversationSummary = recentConversation
+      .slice(-6)
+      .map(turn => `${turn.speaker}: ${turn.message_text}`)
+      .join('\n')
 
-NOT QUESTIONS (return false):
-- "Thank you for your time."
-- "I'm excited about this opportunity."
-- "I look forward to hearing from you."
-- "This sounds like a great fit."
-- "I appreciate the conversation."
+    const jobDesc = sessionContext?.job_descriptions?.[0]
+    const companyName = jobDesc?.company_name || 'the company'
+    const jobTitle = jobDesc?.job_title || 'this role'
+    
+    const MAX_FOLLOWUPS_PER_QUESTION = 3
+    const totalQuestions = questions.length
 
-Respond with only "true" or "false".`
+    // Check if we need introduction
+    const hasIntroduction = recentConversation.some(turn => 
+      turn.speaker === 'interviewer' && turn.message_type === 'transition' && turn.turn_number === 1
+    )
+
+    // Build comprehensive prompt that combines all three AI calls
+    const combinedPrompt = `You are an AI interview assistant that needs to analyze the conversation and provide a complete response. You must provide JSON with specific fields.
+
+INTERVIEW CONTEXT:
+- Company: ${companyName}
+- Position: ${jobTitle}
+- Interview Type: ${sessionContext?.interview_type || 'interview'}
+- Communication Style: ${sessionContext?.communication_style || 'professional'}
+- Main Questions Available: ${totalQuestions}
+- Main Questions Asked So Far: ${mainQuestionsAsked}
+- Follow-ups Since Last Main Question: ${followUpsSinceLastMain}
+
+MAIN QUESTIONS TO COVER:
+${mainQuestions}
+
+RECENT CONVERSATION:
+${conversationSummary}
+
+CANDIDATE'S LATEST RESPONSE: "${candidateResponse}"
+
+ANALYSIS TASKS:
+1. QUESTION DETECTION: Does the candidate's response contain a question (explicit or implied)?
+   - Examples of questions: "What's the salary?", "I'm wondering about benefits", "Could you tell me about the team?"
+   - Examples of non-questions: "Thank you", "Sounds great", "I'm excited"
+
+2. DECISION MAKING: What should happen next?
+   - "introduction": If no introduction given yet (first turn)
+   - "recovery": If candidate response was incomplete, cut off, or non-answer
+   - "follow_up": If response is reasonable but needs 1-2 clarifying questions (max ${MAX_FOLLOWUPS_PER_QUESTION})
+   - "next_question": If response is sufficient OR max follow-ups reached OR all topics covered
+   - "end_interview": ONLY if ALL ${totalQuestions} main questions have been asked
+
+3. RESPONSE GENERATION: Generate appropriate interviewer response based on decision
+
+CONSTRAINTS:
+- NEVER choose "end_interview" unless ${mainQuestionsAsked} = ${totalQuestions}
+- Maximum ${MAX_FOLLOWUPS_PER_QUESTION} follow-ups per main question
+- Keep responses conversational and 1-2 sentences max for voice
+- For "introduction", include brief greeting as "Alex" and mention interview type
+- For "next_question", do NOT generate the question text (will be provided from database)
+
+Respond ONLY with valid JSON:
+{
+  "candidateAskedQuestion": true/false,
+  "action": "introduction|recovery|follow_up|next_question|end_interview",
+  "response": "Generated interviewer response",
+  "reasoning": "Brief explanation of decision"
+}`
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
         {
           role: "system",
-          content: "You are an expert at detecting questions in conversation. Respond only with 'true' or 'false'."
+          content: "You are an interview flow AI that provides comprehensive analysis in JSON format."
         },
         {
           role: "user",
-          content: prompt
+          content: combinedPrompt
         }
       ],
-      temperature: 0.1,
-      max_tokens: 5
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "interview_analysis",
+          schema: {
+            type: "object",
+            properties: {
+              candidateAskedQuestion: { type: "boolean" },
+              action: {
+                type: "string",
+                enum: ["introduction", "recovery", "follow_up", "next_question", "end_interview"]
+              },
+              response: { type: "string" },
+              reasoning: { type: "string" }
+            },
+            required: ["candidateAskedQuestion", "action", "response", "reasoning"]
+          }
+        }
+      },
+      temperature: 0.5,
+      max_tokens: 200
     })
 
-    const response = completion.choices[0]?.message?.content?.trim().toLowerCase()
-    return response === 'true'
+    const responseContent = completion.choices[0]?.message?.content || '{}'
+    const analysisResult = JSON.parse(responseContent)
+
+    // Handle special cases and overrides
+    let finalAction = analysisResult.action || 'follow_up'
+    let finalResponse = analysisResult.response || "I see. Can you tell me more about that?"
+    let relatedMainQuestionId: string | null = null
+
+    // Override for introduction case
+    if (!hasIntroduction && usedQuestionIds.size === 0) {
+      finalAction = 'introduction'
+      finalResponse = `Hi! I'm Alex, and I'm excited to conduct your ${sessionContext?.interview_type || 'interview'} interview for the ${jobTitle} position at ${companyName} today! I'll be asking you a few questions, and you'll have time to ask me questions at the end. Sound good?`
+    }
+
+    // Handle next_question - get actual question from database
+    if (finalAction === 'next_question' && sessionContext?.interview_questions) {
+      const sortedQuestions = sessionContext.interview_questions.sort((a, b) => a.question_order - b.question_order)
+      const nextQuestion = sortedQuestions[usedQuestionIds.size]
+      
+      if (nextQuestion) {
+        finalResponse = nextQuestion.question_text
+        relatedMainQuestionId = nextQuestion.id
+      } else {
+        finalAction = 'end_interview'
+        finalResponse = "Great! That covers all my questions. Now, do you have any questions for me about the role, the team, or the company?"
+      }
+    }
+
+    // Handle closing question for end_interview
+    if (finalAction === 'end_interview') {
+      const isAlreadyInClosingMode = recentConversation.some(turn => 
+        turn.speaker === 'interviewer' && turn.message_type === 'closing'
+      )
+      
+      if (!isAlreadyInClosingMode) {
+        finalResponse = "Great! That covers all my questions. Now, do you have any questions for me about the role, the team, or the company?"
+      }
+    }
+
+    // Bulletproof override: Never allow end_interview unless all questions asked
+    if (finalAction === 'end_interview' && mainQuestionsAsked < totalQuestions) {
+      console.log(`🚫 BLOCKING PREMATURE END_INTERVIEW: ${mainQuestionsAsked}/${totalQuestions} questions asked`)
+      finalAction = 'next_question'
+    }
+
+    return {
+      response: finalResponse,
+      action: finalAction as 'introduction' | 'recovery' | 'follow_up' | 'next_question' | 'end_interview',
+      candidateAskedQuestion: analysisResult.candidateAskedQuestion || false,
+      relatedMainQuestionId,
+      reasoning: analysisResult.reasoning || 'AI analysis completed'
+    }
+
   } catch (error) {
-    console.error('Error detecting question with AI:', error)
-    // Fallback to simple question mark detection
-    return candidateResponse.includes('?')
+    console.error('Error in consolidated AI function:', error)
+    return {
+      response: "I see. Can you tell me more about that?",
+      action: 'follow_up',
+      candidateAskedQuestion: false,
+      relatedMainQuestionId: null,
+      reasoning: 'Error fallback'
+    }
   }
 }
+
+// Legacy function removed - now using consolidated AI function
 
 // Initialize OpenAI
 const openai = new OpenAI({
@@ -122,8 +291,8 @@ console.log('Voice Agent initialized with:', {
 // Helper function to fetch session context from database
 async function fetchSessionContext(sessionId: string): Promise<SessionContext | null> {
   try {
-    // Get session basic info first
-    const { data: session, error: sessionError } = await supabase
+    // Single optimized query with JOINs instead of 4 sequential queries
+    const { data: sessionData, error: sessionError } = await supabase
       .from('interview_sessions')
       .select(`
         id,
@@ -131,73 +300,54 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
         interview_type,
         voice_gender,
         communication_style,
-        resume_id,
-        job_description_id
+        resumes!inner (
+          parsed_content
+        ),
+        job_descriptions!inner (
+          job_content,
+          company_name,
+          job_title
+        ),
+        interview_questions (
+          id,
+          question_text,
+          question_order,
+          question_type
+        )
       `)
       .eq('id', sessionId)
-      .single()
+      .order('interview_questions.question_order', { ascending: true })
+      .single() as { data: SessionJoinResult | null; error: Error | null }
 
-    if (sessionError || !session) {
+    if (sessionError || !sessionData) {
       console.error('Error fetching session context:', sessionError)
       return null
     }
 
-    // Get resume data
-    const { data: resumeData, error: resumeError } = await supabase
-      .from('resumes')
-      .select('parsed_content')
-      .eq('id', session.resume_id)
-      .single()
-
-    if (resumeError) {
-      console.error('Error fetching resume:', resumeError)
-    }
-
-    // Get job description data
-    const { data: jobData, error: jobError } = await supabase
-      .from('job_descriptions')
-      .select('job_content, company_name, job_title')
-      .eq('id', session.job_description_id)
-      .single()
-
-    if (jobError) {
-      console.error('Error fetching job description:', jobError)
-    }
-
-    // Get interview questions
-    const { data: questionsData, error: questionsError } = await supabase
-      .from('interview_questions')
-      .select('id, question_text, question_order, question_type')
-      .eq('session_id', sessionId)
-      .order('question_order', { ascending: true })
-
-    if (questionsError) {
-      console.error('Error fetching questions:', questionsError)
-    }
-
     // Transform the data into the expected format
     const sessionContext: SessionContext = {
-      id: session.id,
-      difficulty_level: session.difficulty_level,
-      interview_type: session.interview_type,
-      voice_gender: session.voice_gender,
-      communication_style: session.communication_style,
-      interview_questions: questionsData || [],
-      resumes: resumeData ? [{ parsed_content: resumeData.parsed_content }] : [],
-      job_descriptions: jobData ? [{ 
-        job_content: jobData.job_content,
-        company_name: jobData.company_name,
-        job_title: jobData.job_title
+      id: sessionData.id,
+      difficulty_level: sessionData.difficulty_level,
+      interview_type: sessionData.interview_type,
+      voice_gender: sessionData.voice_gender,
+      communication_style: sessionData.communication_style,
+      interview_questions: Array.isArray(sessionData.interview_questions) ? sessionData.interview_questions : [],
+      resumes: sessionData.resumes ? [{ parsed_content: sessionData.resumes.parsed_content }] : [],
+      job_descriptions: sessionData.job_descriptions ? [{ 
+        job_content: sessionData.job_descriptions.job_content,
+        company_name: sessionData.job_descriptions.company_name,
+        job_title: sessionData.job_descriptions.job_title
       }] : []
     }
 
-    console.log('✅ Session context loaded successfully:', {
+    console.log('✅ Session context loaded successfully (optimized query):', {
       sessionId,
       hasResume: sessionContext.resumes.length > 0,
       hasJobDescription: sessionContext.job_descriptions.length > 0,
       questionCount: sessionContext.interview_questions.length,
       resumeLength: sessionContext.resumes[0]?.parsed_content?.length || 0,
-      jobLength: sessionContext.job_descriptions[0]?.job_content?.length || 0
+      jobLength: sessionContext.job_descriptions[0]?.job_content?.length || 0,
+      queryType: 'single_join_query'
     })
 
     return sessionContext
@@ -252,7 +402,7 @@ async function getNextTurnNumber(sessionId: string) {
   }
 }
 
-// Helper function to build personalized system prompt
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildSystemPrompt(sessionContext: SessionContext | null): string {
   if (!sessionContext) {
     return `You are a professional job interviewer conducting a voice interview for LickedIn Interviews. 
@@ -412,7 +562,7 @@ function getCommunicationStyleInstructions(communicationStyle: string, interview
   return `${styleInstruction} ${typeContext}`
 }
 
-// Helper function to get decision-specific guidance
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getDecisionGuidance(
   action: 'introduction' | 'recovery' | 'follow_up' | 'next_question' | 'end_interview', 
   sessionContext: SessionContext | null, 
@@ -492,7 +642,7 @@ function getDecisionGuidance(
 }
 
 
-// Helper function to analyze conversation and decide next action
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function analyzeConversationAndDecide(
   sessionContext: SessionContext | null,
   recentConversation: ConversationTurn[],
@@ -900,7 +1050,7 @@ export async function POST(request: NextRequest) {
     
     if (interviewSessionId) {
       sessionContext = await fetchSessionContext(interviewSessionId)
-      recentConversation = await getRecentConversation(interviewSessionId, 100)
+      recentConversation = await getRecentConversation(interviewSessionId, 8)
       nextTurnNumber = await getNextTurnNumber(interviewSessionId)
     }
 
@@ -967,12 +1117,15 @@ export async function POST(request: NextRequest) {
         }
       }
       
+      // Use consolidated AI function for decision making and response generation (OPTIMIZED)
+      const aiResult = await generateInterviewResponse(sessionContext, recentConversation, text || '')
+      
       // BULLETPROOF CLOSING CHECK: Check if we're in closing phase and candidate didn't ask a question
       const existingClosingTurns = recentConversation.filter(turn => 
         turn.speaker === 'interviewer' && turn.message_type === 'closing'
       ).length
       
-      const candidateAskedQuestion = text && text.trim().includes('?')
+      const candidateAskedQuestion = aiResult.candidateAskedQuestion
       
       // If we already have closing turns and candidate didn't ask a question, end immediately
       if (existingClosingTurns > 0 && !candidateAskedQuestion) {
@@ -1026,104 +1179,27 @@ export async function POST(request: NextRequest) {
         return
       }
       
-      // Use decision engine to determine next action
-      let decision: { action: 'introduction' | 'recovery' | 'follow_up' | 'next_question' | 'end_interview', reasoning: string } = { action: 'follow_up', reasoning: 'Default behavior' }
-      
-      // Use decision engine for all cases (including first turn)
-      if (sessionContext && recentConversation.length >= 0) {
-        decision = await analyzeConversationAndDecide(sessionContext, recentConversation, text || '')
-      }
+      // Extract results from consolidated AI call
+      const decision = { action: aiResult.action, reasoning: aiResult.reasoning }
+      let response = aiResult.response
+      const relatedMainQuestionId = aiResult.relatedMainQuestionId
       
       // BULLETPROOF OVERRIDE: If decision is end_interview but candidate asked question, switch to follow_up
-      if (decision.action === 'end_interview' && text) {
-        const candidateAskedQuestion = await detectQuestionWithAI(text)
-        if (candidateAskedQuestion) {
-          decision = {
-            action: 'follow_up',
-            reasoning: 'Candidate asked question during closing - continuing conversation'
-          }
-          console.log('🔄 OVERRIDE: Changed end_interview to follow_up due to candidate question')
-        }
+      if (decision.action === 'end_interview' && text && aiResult.candidateAskedQuestion) {
+        decision.action = 'follow_up'
+        decision.reasoning = 'Candidate asked question during closing - continuing conversation'
+        console.log('🔄 OVERRIDE: Changed end_interview to follow_up due to candidate question')
       }
       
-      // Phase 4: Log decision execution
-      console.log('⚡ Decision Execution:', {
+      // Log decision execution with performance info
+      console.log('⚡ Optimized AI Decision:', {
         sessionId: interviewSessionId,
         decision: decision,
         hasQuestions: sessionContext?.interview_questions?.length || 0,
-        conversationLength: recentConversation.length
+        conversationLength: recentConversation.length,
+        candidateAskedQuestion: aiResult.candidateAskedQuestion,
+        optimized: true // Flag to indicate using consolidated function
       })
-      
-      // Build conversation history for context
-      const conversationHistory: Array<{role: 'user' | 'assistant', content: string}> = recentConversation.map(turn => ({
-        role: turn.speaker === 'interviewer' ? 'assistant' as const : 'user' as const,
-        content: turn.message_text
-      }))
-      
-      // Add current user message
-      if (text) {
-        conversationHistory.push({
-          role: 'user',
-          content: text
-        })
-      }
-      
-      // Build personalized system prompt with decision context
-      const systemPrompt = buildSystemPrompt(sessionContext)
-      const decisionGuidance = getDecisionGuidance(decision.action, sessionContext, recentConversation)
-      
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4.1-mini",
-        messages: [
-          {
-            role: "system",
-            content: systemPrompt + "\n\n" + decisionGuidance
-          },
-          ...conversationHistory
-        ],
-        temperature: 0.7,
-        max_tokens: 150
-      })
-
-      let response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
-      
-      // Handle main question insertion directly from database
-      let relatedMainQuestionId = null
-      if (decision.action === 'next_question' && sessionContext?.interview_questions) {
-        // Get the next question directly from database
-        const mainQuestionTurns = recentConversation.filter(turn => 
-          turn.speaker === 'interviewer' && 
-          turn.message_type === 'main_question' && 
-          turn.related_main_question_id
-        )
-        
-        const usedQuestionIds = new Set(mainQuestionTurns.map(turn => turn.related_main_question_id!))
-        const sortedQuestions = sessionContext.interview_questions
-          .sort((a, b) => a.question_order - b.question_order)
-        
-        const nextQuestion = sortedQuestions[usedQuestionIds.size]
-        
-        // Phase 4: Enhanced logging for question selection
-        console.log('🎯 Question Selection:', {
-          usedQuestionIds: Array.from(usedQuestionIds),
-          nextQuestionIndex: usedQuestionIds.size,
-          totalQuestions: sortedQuestions.length,
-          nextQuestion: nextQuestion ? {
-            id: nextQuestion.id,
-            order: nextQuestion.question_order,
-            text: nextQuestion.question_text.substring(0, 100) + '...'
-          } : null
-        })
-        
-        if (nextQuestion) {
-          // Override LLM response with exact question from database
-          response = nextQuestion.question_text
-          relatedMainQuestionId = nextQuestion.id
-          console.log(`✅ Asking Q${nextQuestion.question_order}: ${nextQuestion.question_text.substring(0, 50)}...`)
-        } else {
-          console.log('⚠️  No next question found - all questions may have been asked')
-        }
-      }
       
       // Check if we're already in closing mode
       const isAlreadyInClosingMode = recentConversation.some(turn => 
@@ -1178,11 +1254,11 @@ export async function POST(request: NextRequest) {
           return // Don't terminate, continue conversation
         }
 
-        // SECOND: If no recovery needed, check for questions vs termination
-        const candidateAskedQuestion = await detectQuestionWithAI(text || '')
+        // SECOND: If no recovery needed, check for questions vs termination (use cached AI result)
+        const candidateAskedQuestion = aiResult.candidateAskedQuestion
 
         console.log(`🎯 Closing check: ${closingTurns} existing turns, candidate response: "${text}"`)
-        console.log(`🔍 AI Question detection result: candidateAskedQuestion=${candidateAskedQuestion}`)
+        console.log(`🔍 Optimized question detection result: candidateAskedQuestion=${candidateAskedQuestion}`)
 
         // Bulletproof closing logic: if candidate responds without a question, end interview
         if (!candidateAskedQuestion) {
