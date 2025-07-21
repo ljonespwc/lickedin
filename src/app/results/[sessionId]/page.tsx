@@ -123,6 +123,7 @@ const Results = () => {
   const pollingStartTime = useRef<number | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [session, setSession] = useState<Session | null>(null) // Cache session to avoid hanging getSession() calls
+  const [activeTab, setActiveTab] = useState('overview')
 
   const loadResults = useCallback(async (sessionToUse: Session) => {
     if (hasLoadedResults.current) {
@@ -266,6 +267,15 @@ const Results = () => {
     return styleMap[style as keyof typeof styleMap] || style
   }
 
+  // Tab descriptions
+  const tabDescriptions = {
+    overview: "Your overall interview scores across communication, content, confidence, and preparation with key insights",
+    conversation: "Detailed breakdown of each interview question with strengths and specific improvement suggestions", 
+    skills: "Analysis of how effectively you leveraged your background, skills, and experiences during the interview",
+    'job-fit': "Assessment of how well your responses aligned with the specific job requirements and role expectations",
+    preparation: "Evaluation of your business insights, problem-solving approach, and preparation quality"
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header currentSessionId={sessionId} />
@@ -281,19 +291,19 @@ const Results = () => {
         </div>
 
         {/* Tabbed Interface */}
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <BarChart3 size={16} />
-              Overview
+              Performance
             </TabsTrigger>
             <TabsTrigger value="conversation" className="flex items-center gap-2">
               <MessageSquare size={16} />
-              Conversation
+              Question Analysis
             </TabsTrigger>
             <TabsTrigger value="skills" className="flex items-center gap-2">
               <User size={16} />
-              Skills & Experience
+              Resume Impact
             </TabsTrigger>
             <TabsTrigger value="job-fit" className="flex items-center gap-2">
               <Target size={16} />
@@ -301,9 +311,16 @@ const Results = () => {
             </TabsTrigger>
             <TabsTrigger value="preparation" className="flex items-center gap-2">
               <Lightbulb size={16} />
-              Preparation
+              Strategic Thinking
             </TabsTrigger>
           </TabsList>
+
+          {/* Tab Description */}
+          <div className="bg-muted/20 border border-muted/40 rounded-b-lg -mt-1 px-4 py-3 mb-6">
+            <p className="text-sm text-muted-foreground text-center transition-all duration-300">
+              {tabDescriptions[activeTab as keyof typeof tabDescriptions]}
+            </p>
+          </div>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
@@ -312,7 +329,7 @@ const Results = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <BarChart3 className="text-primary" size={20} />
-                  <span>Overall Performance</span>
+                  <span>Performance Metrics</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -466,7 +483,7 @@ const Results = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <MessageSquare className="text-primary" size={20} />
-                  <span>Conversation Analysis</span>
+                  <span>Question-by-Question Analysis</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -531,7 +548,7 @@ const Results = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <User className="text-primary" size={20} />
-                  <span>Resume Utilization</span>
+                  <span>Resume Impact Assessment</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -681,7 +698,7 @@ const Results = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Lightbulb className="text-primary" size={20} />
-                  <span>Preparation & Problem-Solving</span>
+                  <span>Strategic Thinking & Preparation</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
