@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
 
       const interviewTypeMap = {
         phone_screening: "initial screening focused on cultural fit, basic qualifications, and motivation",
-        behavioral_interview: "behavioral assessment using STAR method focusing on past experiences, problem-solving situations, leadership examples, and competency-based questions",
+        behavioral_interview: "behavioral assessment focusing on past experiences, problem-solving situations, leadership examples, and competency-based questions",
         hiring_manager: "role-specific deep-dive covering past experiences, leadership situations, and job-specific scenarios",
         cultural_fit: "team dynamics, company values alignment, work style preferences, and interpersonal skills"
       }
@@ -222,15 +222,15 @@ Return in JSON format:
             role: "system",
             content: `You are an expert interviewer who creates personalized interview questions. Your questions must perfectly match the specified difficulty level, interview type focus, and communication style. 
 
-For behavioral interviews, focus on the STAR method (Situation, Task, Action, Result):
-- Ask for specific examples from past experiences
-- Probe for measurable outcomes and results
+For behavioral interviews, encourage specific examples from past experiences:
+- Ask for concrete situations and detailed outcomes
+- Probe for measurable results and lessons learned
 - Focus on competencies like leadership, problem-solving, teamwork, conflict resolution, adaptability
 - Include situational questions ("Tell me about a time when...")
-- Encourage detailed storytelling with concrete examples
+- Encourage comprehensive storytelling with clear context
 - Ask follow-up questions to understand decision-making processes
 
-Structure behavioral questions to elicit comprehensive responses that demonstrate:
+Structure questions to elicit responses that demonstrate:
 - Problem identification and analysis skills
 - Decision-making processes and rationale
 - Communication and interpersonal abilities

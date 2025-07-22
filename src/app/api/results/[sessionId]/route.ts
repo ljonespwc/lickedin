@@ -27,11 +27,28 @@ interface InterviewContext {
   job_content: string
 }
 
+interface PointCoverageAnalysis {
+  expected_point: string
+  addressed: boolean
+  score: number
+  evidence: string
+}
+
+interface ScoringBreakdown {
+  point_coverage_score: number
+  depth_detail_score: number
+  communication_score: number
+  structure_score: number
+}
+
 interface ResponseAnalysis {
   response_id: string
   question_text: string
   response_text: string
-  quality_score: number
+  point_coverage_analysis: PointCoverageAnalysis[]
+  scoring_breakdown: ScoringBreakdown
+  overall_score: number
+  difficulty_adjusted_score: number
   strengths: string[]
   weaknesses: string[]
   improvement_suggestions: string[]
@@ -43,14 +60,23 @@ interface ResponseAnalysis {
 async function analyzeResponseQuality(
   questionText: string,
   responseText: string,
+  expectedAnswerPoints: string[],
+  questionType: string,
   context: InterviewContext
 ): Promise<ResponseAnalysis> {
-  const prompt = `You are an expert interview coach analyzing a candidate's response. 
+  // Create difficulty adjustment factor
+  const difficultyLevel = parseInt(context.difficulty_level) || 5
+  const difficultyContext = difficultyLevel <= 3 ? "LENIENT (Easy)" : 
+                           difficultyLevel <= 6 ? "STANDARD (Medium)" : 
+                           "STRICT (Hard)"
+  
+  const prompt = `You are an expert interview coach using a structured rubric to analyze a candidate's response.
 
 INTERVIEW CONTEXT:
 - Interview Type: ${context.interview_type}
 - Communication Style: ${context.communication_style}
-- Difficulty Level: ${context.difficulty_level}
+- Difficulty Level: ${context.difficulty_level} (${difficultyContext} expectations)
+- Question Type: ${questionType}
 
 CANDIDATE'S RESUME:
 ${context.resume_content}
@@ -61,31 +87,45 @@ ${context.job_content}
 INTERVIEW QUESTION:
 ${questionText}
 
+EXPECTED ANSWER POINTS (PRIMARY SCORING RUBRIC):
+${expectedAnswerPoints.map((point, i) => `${i + 1}. ${point}`).join('\n')}
+
 CANDIDATE'S RESPONSE:
 ${responseText}
 
-Please provide a comprehensive analysis of this response. Consider:
-1. How well does it answer the question?
-2. Does it demonstrate relevant skills from their resume?
-3. How well does it align with the job requirements?
-4. Are there specific examples and concrete details?
-5. Is the communication style appropriate for the interview type?
+SCORING INSTRUCTIONS:
 
-For behavioral interviews specifically, also evaluate:
-- STAR structure: Does the response include Situation, Task, Action, and Result?
-- Specificity: Are examples concrete and detailed rather than vague generalizations?
-- Quantified outcomes: Are results measurable and impactful?
-- Learning/growth: Does the candidate show reflection and learning from experiences?
+1. POINT COVERAGE ANALYSIS (40% of total score):
+   - For each expected answer point, determine if candidate addressed it (true/false)
+   - Score each addressed point 0-100 based on depth and quality
+   - Provide specific evidence (quote) showing how they addressed it
+   - Unaddressed points get score 0
 
-Respond with JSON only:
-{
-  "quality_score": 0-100,
-  "strengths": ["strength1", "strength2"],
-  "weaknesses": ["weakness1", "weakness2"],
-  "improvement_suggestions": ["suggestion1", "suggestion2"],
-  "keyword_alignment": ["keyword1", "keyword2"],
-  "missed_opportunities": ["opportunity1", "opportunity2"]
-}`
+2. DEPTH & DETAIL SCORE (25% of total score):
+   - Specific examples and concrete details (0-100)
+   - Quantified outcomes and measurable results (0-100)
+   - Personal insights and reflection (0-100)
+
+3. COMMUNICATION SCORE (20% of total score):
+   - Clarity and structure of response (0-100)
+   - Appropriate tone for interview type (0-100)
+   - Professional communication style (0-100)
+
+4. STRUCTURE SCORE (15% of total score):
+   ${questionType === 'behavioral' ? 
+     '- STAR methodology (Situation, Task, Action, Result) (0-100)' :
+     '- Logical flow and organization (0-100)'}
+   - Complete answer addressing the question (0-100)
+
+DIFFICULTY ADJUSTMENTS:
+- LENIENT (1-3): Accept general examples, be encouraging, +10 point boost
+- STANDARD (4-6): Expect specific examples, standard expectations
+- STRICT (7-10): Require detailed examples, quantified results, strategic insights
+
+Calculate overall_score as weighted average: (point_coverage * 0.4) + (depth_detail * 0.25) + (communication * 0.2) + (structure * 0.15)
+Apply difficulty adjustment to get difficulty_adjusted_score.
+
+Respond with JSON only:`
 
   try {
     const completion = await openai.chat.completions.create({
@@ -93,7 +133,7 @@ Respond with JSON only:
       messages: [
         {
           role: "system",
-          content: `You are an expert interview coach. For behavioral interviews, evaluate responses using STAR method criteria (Situation, Task, Action, Result). Look for specific examples, measurable outcomes, and clear problem-solving progression.`
+          content: `You are an expert interview coach. Look for specific examples, measurable outcomes, and clear problem-solving progression in candidate responses.`
         },
         {
           role: "user",
@@ -107,11 +147,31 @@ Respond with JSON only:
           schema: {
             type: "object",
             properties: {
-              quality_score: {
-                type: "integer",
-                minimum: 0,
-                maximum: 100
+              point_coverage_analysis: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    expected_point: { type: "string" },
+                    addressed: { type: "boolean" },
+                    score: { type: "integer", minimum: 0, maximum: 100 },
+                    evidence: { type: "string" }
+                  },
+                  required: ["expected_point", "addressed", "score", "evidence"]
+                }
               },
+              scoring_breakdown: {
+                type: "object",
+                properties: {
+                  point_coverage_score: { type: "integer", minimum: 0, maximum: 100 },
+                  depth_detail_score: { type: "integer", minimum: 0, maximum: 100 },
+                  communication_score: { type: "integer", minimum: 0, maximum: 100 },
+                  structure_score: { type: "integer", minimum: 0, maximum: 100 }
+                },
+                required: ["point_coverage_score", "depth_detail_score", "communication_score", "structure_score"]
+              },
+              overall_score: { type: "integer", minimum: 0, maximum: 100 },
+              difficulty_adjusted_score: { type: "integer", minimum: 0, maximum: 100 },
               strengths: {
                 type: "array",
                 items: { type: "string" }
@@ -133,7 +193,7 @@ Respond with JSON only:
                 items: { type: "string" }
               }
             },
-            required: ["quality_score", "strengths", "weaknesses", "improvement_suggestions", "keyword_alignment", "missed_opportunities"]
+            required: ["point_coverage_analysis", "scoring_breakdown", "overall_score", "difficulty_adjusted_score", "strengths", "weaknesses", "improvement_suggestions", "keyword_alignment", "missed_opportunities"]
           }
         }
       },
@@ -148,7 +208,15 @@ Respond with JSON only:
       response_id: '',
       question_text: questionText,
       response_text: responseText,
-      quality_score: analysis.quality_score || 75,
+      point_coverage_analysis: analysis.point_coverage_analysis || [],
+      scoring_breakdown: analysis.scoring_breakdown || {
+        point_coverage_score: 70,
+        depth_detail_score: 70,
+        communication_score: 75,
+        structure_score: 70
+      },
+      overall_score: analysis.overall_score || 71,
+      difficulty_adjusted_score: analysis.difficulty_adjusted_score || 71,
       strengths: analysis.strengths || [],
       weaknesses: analysis.weaknesses || [],
       improvement_suggestions: analysis.improvement_suggestions || [],
@@ -161,7 +229,20 @@ Respond with JSON only:
       response_id: '',
       question_text: questionText,
       response_text: responseText,
-      quality_score: 75,
+      point_coverage_analysis: expectedAnswerPoints.map(point => ({
+        expected_point: point,
+        addressed: false,
+        score: 0,
+        evidence: 'Analysis failed - could not determine coverage'
+      })),
+      scoring_breakdown: {
+        point_coverage_score: 70,
+        depth_detail_score: 70,
+        communication_score: 75,
+        structure_score: 70
+      },
+      overall_score: 71,
+      difficulty_adjusted_score: 71,
       strengths: ['Response provided'],
       weaknesses: ['Could use more specific examples'],
       improvement_suggestions: ['Add concrete examples and metrics'],
@@ -189,11 +270,18 @@ async function analyzeResumeUtilization(
     .map(turn => turn.message_text)
     .join('\n')
 
+  // Create difficulty adjustment factor
+  const difficultyLevel = parseInt(context.difficulty_level) || 5
+  const difficultyContext = difficultyLevel <= 3 ? "LENIENT (Easy)" : 
+                           difficultyLevel <= 6 ? "STANDARD (Medium)" : 
+                           "STRICT (Hard)"
+
   const prompt = `You are an expert career coach analyzing how well a candidate utilized their resume during an interview.
 
 INTERVIEW CONTEXT:
 - Interview Type: ${context.interview_type}
 - Communication Style: ${context.communication_style}
+- Difficulty Level: ${context.difficulty_level} (${difficultyContext} expectations)
 
 CANDIDATE'S RESUME:
 ${resumeContent}
@@ -206,6 +294,11 @@ Analyze how effectively the candidate used their resume content during the inter
 2. Which work experiences were referenced vs. missed?
 3. What stories or achievements could they have shared but didn't?
 4. How well did they tailor their resume content to the interview type?
+
+DIFFICULTY ADJUSTMENTS:
+- LENIENT (1-3): Accept general mentions of skills/experiences, be encouraging, +10 point boost
+- STANDARD (4-6): Expect clear connections between resume and responses, standard expectations
+- STRICT (7-10): Require detailed strategic use of resume content with specific examples
 
 Respond with JSON only:
 {
@@ -312,11 +405,18 @@ async function analyzeJobFit(
     .map(turn => turn.message_text)
     .join('\n')
 
+  // Create difficulty adjustment factor
+  const difficultyLevel = parseInt(context.difficulty_level) || 5
+  const difficultyContext = difficultyLevel <= 3 ? "LENIENT (Easy)" : 
+                           difficultyLevel <= 6 ? "STANDARD (Medium)" : 
+                           "STRICT (Hard)"
+
   const prompt = `You are an expert talent acquisition specialist analyzing how well a candidate's interview responses align with job requirements.
 
 INTERVIEW CONTEXT:
 - Interview Type: ${context.interview_type}
 - Communication Style: ${context.communication_style}
+- Difficulty Level: ${context.difficulty_level} (${difficultyContext} expectations)
 
 JOB DESCRIPTION:
 ${jobContent}
@@ -330,6 +430,11 @@ Analyze how well the candidate's responses align with the job requirements. Cons
 3. What job-relevant keywords did they use?
 4. How well do they fit the role based on their responses?
 5. What are the main gaps between their responses and job needs?
+
+DIFFICULTY ADJUSTMENTS:
+- LENIENT (1-3): Accept broad alignment and general connections, be encouraging, +10 point boost
+- STANDARD (4-6): Expect clear job-relevant examples, standard expectations  
+- STRICT (7-10): Require precise alignment with detailed role-specific demonstrations
 
 Respond with JSON only:
 {
@@ -568,7 +673,7 @@ CONVERSATION SUMMARY:
 ${candidateResponses}
 
 RESPONSE ANALYSIS SUMMARY:
-Average Quality Score: ${responseAnalyses.reduce((sum, r) => sum + r.quality_score, 0) / responseAnalyses.length}
+Average Quality Score: ${responseAnalyses.reduce((sum, r) => sum + r.overall_score, 0) / responseAnalyses.length}
 Key Strengths: ${responseAnalyses.flatMap(r => r.strengths).join(', ')}
 Key Weaknesses: ${responseAnalyses.flatMap(r => r.weaknesses).join(', ')}
 
@@ -583,7 +688,7 @@ Gap Analysis: ${jobFitAnalysis.gap_analysis.join(', ')}
 Provide comprehensive coaching feedback considering the interview type and style. Be encouraging but honest about areas for improvement.
 
 For behavioral interviews, specifically evaluate:
-- STAR methodology usage (Situation, Task, Action, Result structure)
+- Story structure and completeness of examples
 - Story quality and specificity of examples provided
 - Evidence of self-reflection and learning from experiences
 - Leadership and problem-solving demonstration through concrete examples
@@ -605,7 +710,7 @@ Respond with JSON only:
       messages: [
         {
           role: "system",
-          content: "You are an expert interview coach specializing in behavioral interview assessment. For behavioral interviews, focus on STAR methodology evaluation, story quality, and demonstration of competencies through specific examples."
+          content: "You are an expert interview coach specializing in strategic thinking and preparation assessment. Focus on business insights, problem-solving approach, and demonstration of preparation through concrete examples."
         },
         {
           role: "user",
@@ -717,12 +822,18 @@ async function analyzePreparationAndProblemSolving(
     .map(turn => turn.message_text)
     .join('\n')
 
+  // Create difficulty adjustment factor
+  const difficultyLevel = parseInt(context.difficulty_level) || 5
+  const difficultyContext = difficultyLevel <= 3 ? "LENIENT (Easy)" : 
+                           difficultyLevel <= 6 ? "STANDARD (Medium)" : 
+                           "STRICT (Hard)"
+
   const prompt = `You are an expert interviewer analyzing a candidate's preparation and problem-solving demonstration.
 
 INTERVIEW CONTEXT:
 - Interview Type: ${context.interview_type}
 - Communication Style: ${context.communication_style}
-- Difficulty Level: ${context.difficulty_level}
+- Difficulty Level: ${context.difficulty_level} (${difficultyContext} expectations)
 
 CANDIDATE'S RESUME:
 ${resumeContent}
@@ -743,6 +854,11 @@ Analyze how well the candidate demonstrated preparation and problem-solving abil
 4. Strategic thinking and proactive approach
 5. Depth of preparation beyond surface-level research
 6. Problem-solving methodology demonstrated
+
+DIFFICULTY ADJUSTMENTS:
+- LENIENT (1-3): Accept basic preparation and general insights, be encouraging, +10 point boost
+- STANDARD (4-6): Expect solid research and clear problem-solving approach, standard expectations
+- STRICT (7-10): Require deep strategic insights, innovative solutions, and sophisticated analysis
 
 Respond with JSON only:
 {
@@ -1150,9 +1266,40 @@ export async function GET(
       const responseAnalyses = []
       for (const pair of qaPairs) {
         const combinedResponse = pair.responses.map(r => r.message_text).join(' ')
+        
+        // Fetch expected answer points and question type for this question
+        let expectedAnswerPoints: string[] = []
+        let questionType = 'general'
+        
+        if (pair.question.related_main_question_id) {
+          try {
+            const { data: questionData } = await supabase
+              .from('interview_questions')
+              .select('expected_answer_points, question_type')
+              .eq('id', pair.question.related_main_question_id)
+              .single()
+            
+            if (questionData) {
+              expectedAnswerPoints = questionData.expected_answer_points || []
+              questionType = questionData.question_type || 'general'
+            }
+          } catch (error) {
+            console.error('Error fetching question data:', error)
+            // Use fallback values
+            expectedAnswerPoints = ['Relevant experience demonstration', 'Clear communication', 'Job alignment']
+            questionType = 'general'
+          }
+        } else {
+          // Fallback for questions without related_main_question_id
+          expectedAnswerPoints = ['Clear response to question', 'Relevant examples', 'Professional communication']
+          questionType = 'general'
+        }
+        
         const analysis = await analyzeResponseQuality(
           pair.question.message_text,
           combinedResponse,
+          expectedAnswerPoints,
+          questionType,
           interviewContext
         )
         analysis.response_id = pair.question.related_main_question_id || `turn_${pair.question.turn_number}`
