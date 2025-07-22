@@ -522,7 +522,7 @@ const Results = () => {
                               </h3>
                             </div>
                             <div className={`px-3 py-2 rounded-lg border font-bold text-sm whitespace-nowrap ${scoreColor}`}>
-                              {score}/100
+                              {Math.round(score)}/100
                             </div>
                           </div>
                           
