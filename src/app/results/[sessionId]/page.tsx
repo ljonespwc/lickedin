@@ -15,7 +15,7 @@ interface ResponseAnalysis {
   response_id: string
   question_text: string
   response_text: string
-  quality_score: number
+  overall_score: number
   strengths: string[]
   weaknesses: string[]
   improvement_suggestions: string[]
@@ -504,7 +504,7 @@ const Results = () => {
                     .filter(response => response.analysis) // Only show responses that have analysis
                     .filter(response => response.question?.question_type !== 'closing') // Exclude closing section questions
                     .map((response, index) => {
-                      const score = response.analysis?.quality_score || 0;
+                      const score = response.analysis?.overall_score || 0;
                       const scoreColor = score >= 80 ? 'text-green-600 bg-green-50 border-green-200' : 
                                         score >= 60 ? 'text-yellow-600 bg-yellow-50 border-yellow-200' : 
                                         'text-red-600 bg-red-50 border-red-200';
