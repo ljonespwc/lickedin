@@ -1036,7 +1036,7 @@ export async function GET(
       .select(`
         *,
         resumes!inner(parsed_content),
-        job_descriptions!inner(job_content)
+        job_descriptions!inner(job_content, company_name)
       `)
       .eq('id', sessionId)
       .eq('user_id', user.id)

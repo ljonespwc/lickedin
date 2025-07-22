@@ -32,6 +32,9 @@ interface InterviewResults {
     interview_type: string
     communication_style: string
     difficulty_level: string
+    job_descriptions: {
+      company_name: string | null
+    }
   }
   analysis_status?: string
   feedback: {
@@ -225,7 +228,7 @@ const Results = () => {
           </p>
           {results && (
             <p className="text-sm text-muted-foreground">
-              This usually takes 1-2 minutes. Please wait...
+              This usually takes 2-3 minutes. Please wait...
             </p>
           )}
         </div>
@@ -258,14 +261,17 @@ const Results = () => {
     return typeMap[type as keyof typeof typeMap] || type
   }
 
-  // Helper function to get communication style display name
-  const getCommunicationStyleDisplay = (style: string) => {
-    const styleMap = {
-      'corporate_professional': 'Corporate Professional',
-      'casual_conversational': 'Casual Conversational'
+  // Helper function to convert difficulty string back to slider number
+  const getDifficultyNumber = (difficulty: string): number => {
+    const difficultyMap = {
+      'softball': 2,
+      'medium': 5,
+      'hard': 7,
+      'hard_as_fck': 10
     }
-    return styleMap[style as keyof typeof styleMap] || style
+    return difficultyMap[difficulty as keyof typeof difficultyMap] || parseInt(difficulty) || 5
   }
+
 
   // Tab descriptions
   const tabDescriptions = {
@@ -284,9 +290,13 @@ const Results = () => {
         {/* Celebration Header */}
         <div className="text-center mb-8">
           <div className="text-4xl mb-2">🎉</div>
-          <h1 className="text-2xl font-semibold text-foreground">Interview Complete!</h1>
+          <h1 className="text-2xl font-semibold text-foreground">
+            {results.session.job_descriptions?.company_name ? 
+              `${results.session.job_descriptions.company_name} Interview Complete!` : 
+              'Interview Complete!'}
+          </h1>
           <p className="text-muted-foreground mt-2">
-            {getInterviewTypeDisplay(results.session.interview_type)} • {getCommunicationStyleDisplay(results.session.communication_style)} • Level {results.session.difficulty_level}
+            {getInterviewTypeDisplay(results.session.interview_type)} • Difficulty: {getDifficultyNumber(results.session.difficulty_level)}/10
           </p>
         </div>
 
