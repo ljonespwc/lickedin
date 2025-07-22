@@ -1094,8 +1094,11 @@ export async function GET(
       let currentQuestion = null
       let candidateResponses = []
 
+      // Find first closing question to exclude everything after
+      const firstClosingTurn = conversation.find(turn => turn.speaker === 'interviewer' && turn.message_type === 'closing')?.turn_number || Number.MAX_SAFE_INTEGER;
+      
       for (const turn of conversation) {
-        if (turn.speaker === 'interviewer' && (turn.message_type === 'main_question' || (turn.message_type === 'follow_up' && turn.related_main_question_id))) {
+        if (turn.speaker === 'interviewer' && (turn.message_type === 'main_question' || turn.message_type === 'follow_up') && turn.turn_number < firstClosingTurn) {
           // Save previous Q&A pair if exists
           if (currentQuestion && candidateResponses.length > 0) {
             conversationPairs.push({
@@ -1241,8 +1244,11 @@ export async function GET(
       let currentQuestion = null
       let candidateResponses = []
 
+      // Find first closing question to exclude everything after
+      const firstClosingTurn = conversation.find(turn => turn.speaker === 'interviewer' && turn.message_type === 'closing')?.turn_number || Number.MAX_SAFE_INTEGER;
+      
       for (const turn of conversation) {
-        if (turn.speaker === 'interviewer' && (turn.message_type === 'main_question' || (turn.message_type === 'follow_up' && turn.related_main_question_id))) {
+        if (turn.speaker === 'interviewer' && (turn.message_type === 'main_question' || turn.message_type === 'follow_up') && turn.turn_number < firstClosingTurn) {
           if (currentQuestion && candidateResponses.length > 0) {
             qaPairs.push({
               question: currentQuestion,
