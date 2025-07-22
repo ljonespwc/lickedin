@@ -1095,7 +1095,7 @@ export async function GET(
       let candidateResponses = []
 
       for (const turn of conversation) {
-        if (turn.speaker === 'interviewer' && (turn.message_type === 'main_question' || turn.message_type === 'follow_up')) {
+        if (turn.speaker === 'interviewer' && (turn.message_type === 'main_question' || (turn.message_type === 'follow_up' && turn.related_main_question_id))) {
           // Save previous Q&A pair if exists
           if (currentQuestion && candidateResponses.length > 0) {
             conversationPairs.push({
@@ -1124,7 +1124,8 @@ export async function GET(
         question: {
           question_text: pair.question.message_text,
           question_order: index + 1,
-          question_type: pair.question.message_type
+          question_type: pair.question.message_type,
+          related_main_question_id: pair.question.related_main_question_id
         },
         score: null, // No scoring implemented yet
         feedback: null, // No individual feedback yet
@@ -1241,7 +1242,7 @@ export async function GET(
       let candidateResponses = []
 
       for (const turn of conversation) {
-        if (turn.speaker === 'interviewer' && (turn.message_type === 'main_question' || turn.message_type === 'follow_up')) {
+        if (turn.speaker === 'interviewer' && (turn.message_type === 'main_question' || (turn.message_type === 'follow_up' && turn.related_main_question_id))) {
           if (currentQuestion && candidateResponses.length > 0) {
             qaPairs.push({
               question: currentQuestion,

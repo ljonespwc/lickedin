@@ -51,6 +51,7 @@ interface InterviewResults {
       question_text: string
       question_order: number
       question_type?: string
+      related_main_question_id?: string | null
     }
     score: number
     feedback: string
@@ -501,7 +502,11 @@ const Results = () => {
                 {results.responses && results.responses.length > 0 ? (
                   results.responses
                     .filter(response => response.analysis) // Only show responses that have analysis
-                    .filter(response => response.question?.question_type !== 'closing') // Exclude closing section questions
+                    .filter(response => {
+                      // Exclude closing questions and follow-ups from closing section
+                      const questionType = response.question?.question_type;
+                      return questionType !== 'closing' && !(questionType === 'follow_up' && !response.question?.related_main_question_id);
+                    }) // Exclude closing section questions and closing follow-ups
                     .map((response, index) => {
                       const score = response.analysis?.quality_score || 0;
                       const scoreColor = score >= 80 ? 'text-green-600 bg-green-50 border-green-200' : 
