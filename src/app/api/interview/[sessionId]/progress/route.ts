@@ -112,18 +112,62 @@ export async function GET(
       turn.speaker === 'interviewer' && turn.message_type === 'main_question'
     ).length || 0
 
-    // Current question number = number of questions asked (1-based)
-    // If 0 questions asked, we're on question 1
-    // If 1 question asked, we're still on question 1 (until it's answered)
-    const currentQuestion = Math.max(1, mainQuestionsAsked)
-    const totalQuestions = actualQuestionCount
-    const progress = Math.round((mainQuestionsAsked / totalQuestions) * 100)
+    // Find the most recent interviewer question to determine current question type
+    const recentInterviewerTurns = conversation?.filter(turn => 
+      turn.speaker === 'interviewer' && 
+      (turn.message_type === 'main_question' || turn.message_type === 'follow_up')
+    ) || []
+    
+    const lastInterviewerTurn = recentInterviewerTurns[recentInterviewerTurns.length - 1]
+    const currentQuestionType = lastInterviewerTurn?.message_type || 'main_question'
+
+    // Count follow-ups for the current main question
+    let currentFollowupCount = 0
+    if (mainQuestionsAsked > 0) {
+      // Find the most recent main question turn number
+      const mainQuestionTurns = conversation?.filter(turn => 
+        turn.speaker === 'interviewer' && turn.message_type === 'main_question'
+      ) || []
+      
+      if (mainQuestionTurns.length > 0) {
+        const lastMainQuestionIndex = conversation?.findLastIndex(turn => 
+          turn.speaker === 'interviewer' && turn.message_type === 'main_question'
+        ) || -1
+        
+        // Count follow-ups after the last main question
+        const followUpsAfterLastMain = conversation?.slice(lastMainQuestionIndex + 1).filter(turn => 
+          turn.speaker === 'interviewer' && turn.message_type === 'follow_up'
+        ).length || 0
+        
+        currentFollowupCount = followUpsAfterLastMain
+      }
+    }
+
+    // Calculate current main question number (1-based)
+    const currentMainQuestion = Math.max(1, Math.min(mainQuestionsAsked + 1, actualQuestionCount))
+    
+    // Generate follow-up letter (a, b, c, etc.)
+    const followupLetter = currentFollowupCount > 0 ? String.fromCharCode(97 + currentFollowupCount - 1) : null
+    
+    // Total questions asked by interviewer
+    const totalQuestionsAsked = conversation?.filter(turn => 
+      turn.speaker === 'interviewer' && 
+      (turn.message_type === 'main_question' || turn.message_type === 'follow_up')
+    ).length || 0
+
+    const progress = Math.round((mainQuestionsAsked / actualQuestionCount) * 100)
 
     return NextResponse.json({
-      currentQuestion: Math.min(currentQuestion, totalQuestions),
-      totalQuestions,
+      currentMainQuestion: Math.min(currentMainQuestion, actualQuestionCount),
+      totalQuestions: actualQuestionCount,
       progress: Math.min(progress, 100),
-      mainQuestionsAsked
+      mainQuestionsAsked,
+      currentQuestionType,
+      currentFollowupCount,
+      followupLetter,
+      totalQuestionsAsked,
+      // Legacy fields for backward compatibility
+      currentQuestion: Math.min(currentMainQuestion, actualQuestionCount)
     })
 
   } catch (error) {

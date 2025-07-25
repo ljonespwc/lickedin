@@ -39,9 +39,18 @@ const InterviewSession = () => {
   const router = useRouter()
   const sessionId = params.sessionId as string
   
-  const [currentQuestion, setCurrentQuestion] = useState(1)
   const [totalQuestions, setTotalQuestions] = useState(5)
   const [timeElapsed, setTimeElapsed] = useState(0)
+  // Enhanced progress tracking
+  const [progressData, setProgressData] = useState({
+    currentMainQuestion: 1,
+    mainQuestionsAsked: 0,
+    currentQuestionType: 'main_question',
+    currentFollowupCount: 0,
+    followupLetter: null as string | null,
+    totalQuestionsAsked: 0,
+    progress: 0
+  })
   // const [transcription] = useState('') // TODO: Implement live transcription
   const [session, setSession] = useState<InterviewSession | null>(null)
   // const [questions] = useState<Question[]>([]) // TODO: Load and use questions
@@ -218,9 +227,18 @@ const InterviewSession = () => {
         })
         
         if (response.ok) {
-          const progressData = await response.json()
-          setCurrentQuestion(progressData.currentQuestion)
-          setTotalQuestions(progressData.totalQuestions)
+          const apiProgressData = await response.json()
+          setTotalQuestions(apiProgressData.totalQuestions)
+          // Update enhanced progress data
+          setProgressData({
+            currentMainQuestion: apiProgressData.currentMainQuestion,
+            mainQuestionsAsked: apiProgressData.mainQuestionsAsked,
+            currentQuestionType: apiProgressData.currentQuestionType,
+            currentFollowupCount: apiProgressData.currentFollowupCount,
+            followupLetter: apiProgressData.followupLetter,
+            totalQuestionsAsked: apiProgressData.totalQuestionsAsked,
+            progress: apiProgressData.progress
+          })
         }
       } catch (error) {
         console.error('Error fetching progress:', error)
@@ -337,7 +355,23 @@ const InterviewSession = () => {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
                 <div className="text-2xl">{interviewer.emoji}</div>
-                <h2 className="text-lg font-medium">{interviewer.name}</h2>
+                <div>
+                  <h2 className="text-lg font-medium">{interviewer.name}</h2>
+                  {/* Question type indicator */}
+                  <div className="flex items-center space-x-2 mt-1">
+                    {progressData.currentQuestionType === 'main_question' ? (
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center space-x-1">
+                        <span>📋</span>
+                        <span>Main Question {progressData.currentMainQuestion}</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full flex items-center space-x-1">
+                        <span>🔍</span>
+                        <span>Follow-up {progressData.currentMainQuestion}{progressData.followupLetter}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
               {showEndButton ? (
                 <div className="flex items-center space-x-2">
@@ -413,20 +447,31 @@ const InterviewSession = () => {
           </CardContent>
         </Card>
 
-        {/* Progress Section */}
+        {/* Enhanced Progress Section */}
         <Card>
           <CardContent className="p-6">
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4">
+              {/* Main Questions Progress */}
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium">Progress: Question {currentQuestion} of {totalQuestions}</span>
-                  <span className="text-sm text-muted-foreground">{Math.round((currentQuestion / totalQuestions) * 100)}%</span>
+                  <span className="text-sm font-medium">Main Questions: {progressData.mainQuestionsAsked} of {totalQuestions} completed</span>
+                  <span className="text-sm text-muted-foreground">{progressData.progress}%</span>
                 </div>
-                <Progress value={(currentQuestion / totalQuestions) * 100} className="mb-2" />
+                <Progress value={progressData.progress} className="mb-2" />
               </div>
               
-              <div className="text-right">
-                <span className="text-sm font-medium">Total Time: {formatTime(timeElapsed)}</span>
+              {/* Current Question Status */}
+              <div className="flex justify-between items-center text-sm text-muted-foreground">
+                <div className="flex items-center space-x-4">
+                  <span>
+                    Currently: {progressData.currentQuestionType === 'main_question' ? 
+                      `Main Question ${progressData.currentMainQuestion}` : 
+                      `Follow-up ${progressData.currentMainQuestion}${progressData.followupLetter}`
+                    }
+                  </span>
+                  <span>({progressData.totalQuestionsAsked} questions asked total)</span>
+                </div>
+                <span className="font-medium">Total Time: {formatTime(timeElapsed)}</span>
               </div>
             </div>
             
