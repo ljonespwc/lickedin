@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
 import { User, Flame, ArrowLeft, Briefcase } from "lucide-react"
 
 const SetupCustomize = () => {
@@ -19,6 +20,72 @@ const SetupCustomize = () => {
   const [communicationStyle, setCommunicationStyle] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [session, setSession] = useState<{ user: { id: string }; access_token: string } | null>(null)
+  // Enhanced progress tracking
+  const [progressStep, setProgressStep] = useState(0)
+  const [progressPercent, setProgressPercent] = useState(0)
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState(8)
+
+  // Progress steps configuration
+  const progressSteps = [
+    { 
+      id: 0, 
+      title: "Analyzing your background...", 
+      description: "Loading resume and job requirements",
+      duration: 2000, // 2 seconds
+      emoji: "📋"
+    },
+    { 
+      id: 1, 
+      title: "Generating personalized questions...", 
+      description: "Creating questions tailored to your experience",
+      duration: 6000, // 6 seconds
+      emoji: "🤖"
+    },
+    { 
+      id: 2, 
+      title: "Launching interview...", 
+      description: "Setting up your interview session",
+      duration: 1000, // 1 second
+      emoji: "🚀"
+    }
+  ]
+
+  // Progress simulation
+  const simulateProgress = () => {
+    let currentStep = 0
+    let elapsedTime = 0
+    const totalTime = progressSteps.reduce((sum, step) => sum + step.duration, 0)
+    
+    const updateProgress = () => {
+      const currentStepData = progressSteps[currentStep]
+      if (!currentStepData) return
+      
+      // Update step
+      setProgressStep(currentStep)
+      
+      // Calculate overall progress
+      const overallProgress = Math.min(100, (elapsedTime / totalTime) * 100)
+      setProgressPercent(overallProgress)
+      
+      // Calculate time remaining
+      const timeRemaining = Math.max(0, Math.ceil((totalTime - elapsedTime) / 1000))
+      setEstimatedTimeRemaining(timeRemaining)
+      
+      elapsedTime += 200 // Update every 200ms
+      
+      // Move to next step if current step is complete
+      if (elapsedTime >= progressSteps.slice(0, currentStep + 1).reduce((sum, step) => sum + step.duration, 0)) {
+        currentStep++
+      }
+      
+      // Continue simulation if not complete
+      if (currentStep < progressSteps.length && elapsedTime < totalTime) {
+        setTimeout(updateProgress, 200)
+      }
+    }
+    
+    updateProgress()
+  }
 
   // Check authentication and cache session
   useEffect(() => {
@@ -126,6 +193,12 @@ const SetupCustomize = () => {
 
     const accessToken = validSession.access_token
     setIsCreating(true)
+    
+    // Reset and start progress simulation
+    setProgressStep(0)
+    setProgressPercent(0)
+    setEstimatedTimeRemaining(9)
+    simulateProgress()
 
     try {
       // Create interview session
@@ -339,6 +412,64 @@ const SetupCustomize = () => {
           </Button>
         </div>
       </div>
+
+      {/* Enhanced Loading Modal */}
+      {isCreating && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardContent className="p-8">
+              <div className="text-center space-y-6">
+                {/* Header */}
+                <div>
+                  <h2 className="text-xl font-semibold mb-2">Creating Your Interview</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Please wait while we prepare your personalized interview
+                  </p>
+                </div>
+
+                {/* Current Step Indicator */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <span className="text-2xl">{progressSteps[progressStep]?.emoji}</span>
+                    <div className="text-left">
+                      <div className="font-medium text-sm">{progressSteps[progressStep]?.title}</div>
+                      <div className="text-xs text-muted-foreground">{progressSteps[progressStep]?.description}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{Math.round(progressPercent)}% complete</span>
+                    <span>{estimatedTimeRemaining}s remaining</span>
+                  </div>
+                  <Progress value={progressPercent} className="w-full" />
+                </div>
+
+                {/* Step Indicators */}
+                <div className="flex justify-center space-x-6 text-xs">
+                  {progressSteps.map((step, index) => (
+                    <div 
+                      key={step.id}
+                      className={`flex items-center space-x-1 ${
+                        index <= progressStep ? 'text-primary' : 'text-muted-foreground'
+                      }`}
+                    >
+                      <div className={`w-2 h-2 rounded-full ${
+                        index < progressStep ? 'bg-primary' : 
+                        index === progressStep ? 'bg-primary animate-pulse' : 
+                        'bg-muted-foreground/30'
+                      }`} />
+                      <span className="hidden sm:inline">{step.title.replace('...', '')}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
