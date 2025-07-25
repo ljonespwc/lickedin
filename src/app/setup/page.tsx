@@ -265,11 +265,13 @@ const Setup = () => {
                         setJobUrl(e.target.value)
                         if (e.target.value && jobText) {
                           setJobText('') // Clear text if URL is entered
+                          setIsComplete(false) // Reset completion state when switching input methods
                         }
                         setValidationResults(null) // Clear validation when input changes
+                        setError('') // Clear any previous errors
                       }}
                       className="h-12"
-                      disabled={!!jobText}
+                      disabled={!!jobText && jobText.trim().length > 0}
                     />
                   </div>
                   
@@ -291,19 +293,25 @@ const Setup = () => {
                       value={jobText}
                       onChange={(e) => {
                         const value = e.target.value
-                        if (value.length <= 5000) {
+                        if (value.length <= 7500) {
                           setJobText(value)
                           if (value && jobUrl) {
                             setJobUrl('') // Clear URL if text is entered
+                            setIsComplete(false) // Reset completion state when switching input methods
                           }
                           setValidationResults(null) // Clear validation when input changes
+                          setError('') // Clear any previous errors
+                        } else {
+                          setError('Job description is too long. Please limit to 7500 characters.')
                         }
                       }}
                       className="min-h-[120px] resize-none"
-                      disabled={!!jobUrl}
+                      disabled={!!jobUrl && jobUrl.trim().length > 0}
                     />
                     <div className="text-xs text-muted-foreground text-right">
-                      {jobText.length}/5000 characters
+                      <span className={jobText.length > 7500 ? 'text-red-500' : ''}>
+                        {jobText.length}/7500 characters
+                      </span>
                     </div>
                   </div>
                   
@@ -396,7 +404,7 @@ const Setup = () => {
         <div className="flex justify-center">
           <Button 
             size="lg" 
-            disabled={!isComplete || (validationResults ? !validationResults.isValid : false)}
+            disabled={!isComplete || !validationResults?.isValid}
             className="px-8"
             onClick={() => router.push('/setup/customize')}
           >
