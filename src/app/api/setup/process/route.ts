@@ -166,7 +166,7 @@ function validateJobContent(content: string): { isValid: boolean; reason?: strin
   const matchedCategories = jobKeywords.filter(regex => regex.test(content)).length
   
   if (matchedCategories < 2) {
-    return { isValid: false, reason: 'Content appears to be incomplete or not a job posting (insufficient job-related keywords)' }
+    return { isValid: false, reason: 'Content appears to be incomplete or not a job posting (insufficient job-related keywords). This may be due to a job posting that loads in a modal/popup. Try using a direct link to the job description or paste the job text directly using Option 2.' }
   }
   
   return { isValid: true }
