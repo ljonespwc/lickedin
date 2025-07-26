@@ -1166,6 +1166,7 @@ export async function POST(request: NextRequest) {
           console.log(`✅ Asking Q${nextQuestion.question_order}: ${nextQuestion.question_text.substring(0, 50)}...`)
         } else {
           console.log('⚠️  No next question found - all questions may have been asked')
+          decision.action = 'end_interview'
         }
       }
       

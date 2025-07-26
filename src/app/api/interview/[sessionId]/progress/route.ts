@@ -116,7 +116,7 @@ export async function GET(
     
     // Progress advances when the next main question is asked
     // If we're on Q1, progress is 0%. If we're on Q2, Q1 is complete (progress = 1/8)
-    const mainQuestionsCompleted = Math.max(0, mainQuestionsAsked - 1)
+    const mainQuestionsCompleted = Math.min(Math.max(0, mainQuestionsAsked - 1), actualQuestionCount)
 
     // Find the most recent interviewer question to determine current question type
     const recentInterviewerTurns = conversation?.filter(turn => 
