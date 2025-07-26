@@ -94,7 +94,7 @@ export async function GET(
     // Get conversation progress
     const { data: conversation, error: conversationError } = await supabase
       .from('interview_conversation')
-      .select('message_type, speaker')
+      .select('message_type, speaker, turn_number')
       .eq('session_id', sessionId)
       .order('turn_number')
 
@@ -107,10 +107,27 @@ export async function GET(
       })
     }
 
-    // Count main questions asked
-    const mainQuestionsAsked = conversation?.filter(turn => 
+    // Count main questions that have been answered (not just asked)
+    // A main question is considered "completed" only after the candidate has responded
+    const mainQuestionTurns = conversation?.filter(turn => 
       turn.speaker === 'interviewer' && turn.message_type === 'main_question'
-    ).length || 0
+    ) || []
+    
+    let mainQuestionsCompleted = 0
+    for (const questionTurn of mainQuestionTurns) {
+      // Check if there's a candidate response after this main question
+      const hasResponse = conversation?.some(turn => 
+        turn.speaker === 'candidate' && 
+        turn.turn_number > questionTurn.turn_number
+      )
+      if (hasResponse) {
+        mainQuestionsCompleted++
+      }
+    }
+    
+    // For progress calculation, use completed questions
+    // But for current question display, use the total asked
+    const mainQuestionsAsked = mainQuestionTurns.length
 
     // Find the most recent interviewer question to determine current question type
     const recentInterviewerTurns = conversation?.filter(turn => 
@@ -159,13 +176,14 @@ export async function GET(
       (turn.message_type === 'main_question' || turn.message_type === 'follow_up')
     ).length || 0
 
-    const progress = Math.round((mainQuestionsAsked / actualQuestionCount) * 100)
+    const progress = Math.round((mainQuestionsCompleted / actualQuestionCount) * 100)
 
     return NextResponse.json({
       currentMainQuestion: Math.min(currentMainQuestion, actualQuestionCount),
       totalQuestions: actualQuestionCount,
       progress: Math.min(progress, 100),
       mainQuestionsAsked,
+      mainQuestionsCompleted,
       currentQuestionType,
       currentFollowupCount,
       followupLetter,

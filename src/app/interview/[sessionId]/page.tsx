@@ -45,6 +45,7 @@ const InterviewSession = () => {
   const [progressData, setProgressData] = useState({
     currentMainQuestion: 1,
     mainQuestionsAsked: 0,
+    mainQuestionsCompleted: 0,
     currentQuestionType: 'main_question',
     currentFollowupCount: 0,
     followupLetter: null as string | null,
@@ -233,6 +234,7 @@ const InterviewSession = () => {
           setProgressData({
             currentMainQuestion: apiProgressData.currentMainQuestion,
             mainQuestionsAsked: apiProgressData.mainQuestionsAsked,
+            mainQuestionsCompleted: apiProgressData.mainQuestionsCompleted,
             currentQuestionType: apiProgressData.currentQuestionType,
             currentFollowupCount: apiProgressData.currentFollowupCount,
             followupLetter: apiProgressData.followupLetter,
@@ -459,7 +461,7 @@ const InterviewSession = () => {
               {/* Main Questions Progress */}
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium">Main Questions: {progressData.mainQuestionsAsked} of {totalQuestions} completed</span>
+                  <span className="text-sm font-medium">Main Questions: {progressData.mainQuestionsCompleted || progressData.mainQuestionsAsked} of {totalQuestions} completed</span>
                   <span className="text-sm text-muted-foreground">{progressData.progress}%</span>
                 </div>
                 <Progress value={progressData.progress} className="mb-2" />
