@@ -461,7 +461,7 @@ const InterviewSession = () => {
               {/* Main Questions Progress */}
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium">Main Questions: {progressData.mainQuestionsCompleted || progressData.mainQuestionsAsked} of {totalQuestions} completed</span>
+                  <span className="text-sm font-medium">Main Questions: {progressData.mainQuestionsCompleted || 0} of {totalQuestions} completed</span>
                   <span className="text-sm text-muted-foreground">{progressData.progress}%</span>
                 </div>
                 <Progress value={progressData.progress} className="mb-2" />
