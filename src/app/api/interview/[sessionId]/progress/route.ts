@@ -107,8 +107,10 @@ export async function GET(
       })
     }
 
-    // Count main questions that have been answered (not just asked)
-    // A main question is considered "completed" only after the candidate has responded
+    // Count main questions that have been truly completed (not just asked)
+    // A main question is "completed" only if:
+    // 1. Candidate has responded AND
+    // 2. No follow-up question was asked (indicating the answer was sufficient)
     const mainQuestionTurns = conversation?.filter(turn => 
       turn.speaker === 'interviewer' && turn.message_type === 'main_question'
     ) || []
@@ -116,12 +118,24 @@ export async function GET(
     let mainQuestionsCompleted = 0
     for (const questionTurn of mainQuestionTurns) {
       // Check if there's a candidate response after this main question
-      const hasResponse = conversation?.some(turn => 
+      const candidateResponseExists = conversation?.some(turn => 
         turn.speaker === 'candidate' && 
         turn.turn_number > questionTurn.turn_number
       )
-      if (hasResponse) {
-        mainQuestionsCompleted++
+      
+      if (candidateResponseExists) {
+        // Check if there's a follow-up question after the candidate's response
+        // If there is, the main question is not truly "completed" yet
+        const followUpExists = conversation?.some(turn => 
+          turn.speaker === 'interviewer' && 
+          turn.message_type === 'follow_up' &&
+          turn.turn_number > questionTurn.turn_number
+        )
+        
+        // Only count as completed if there's no follow-up (question was satisfactorily answered)
+        if (!followUpExists) {
+          mainQuestionsCompleted++
+        }
       }
     }
     
