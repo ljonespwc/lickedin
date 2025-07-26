@@ -121,7 +121,7 @@ export async function GET(
     // Find the most recent interviewer question to determine current question type
     const recentInterviewerTurns = conversation?.filter(turn => 
       turn.speaker === 'interviewer' && 
-      (turn.message_type === 'main_question' || turn.message_type === 'follow_up')
+      (turn.message_type === 'main_question' || turn.message_type === 'follow_up' || turn.message_type === 'closing')
     ) || []
     
     const lastInterviewerTurn = recentInterviewerTurns[recentInterviewerTurns.length - 1]
