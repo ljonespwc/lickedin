@@ -364,10 +364,15 @@ const InterviewSession = () => {
                         <span>📋</span>
                         <span>Main Question {progressData.currentMainQuestion}</span>
                       </span>
-                    ) : (
+                    ) : progressData.currentQuestionType === 'follow_up' ? (
                       <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full flex items-center space-x-1">
                         <span>🔍</span>
-                        <span>Follow-up to Q#{progressData.currentMainQuestion}</span>
+                        <span>Follow-up to Q{progressData.currentMainQuestion}</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full flex items-center space-x-1">
+                        <span>👋</span>
+                        <span>Getting Started</span>
                       </span>
                     )}
                   </div>

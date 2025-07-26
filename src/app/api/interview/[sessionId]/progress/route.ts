@@ -119,7 +119,7 @@ export async function GET(
     ) || []
     
     const lastInterviewerTurn = recentInterviewerTurns[recentInterviewerTurns.length - 1]
-    const currentQuestionType = lastInterviewerTurn?.message_type || 'main_question'
+    const currentQuestionType = lastInterviewerTurn?.message_type || 'intro'
 
     // Count follow-ups for the current main question
     let currentFollowupCount = 0
@@ -144,7 +144,10 @@ export async function GET(
     }
 
     // Calculate current main question number (1-based)
-    const currentMainQuestion = Math.max(1, Math.min(mainQuestionsAsked + 1, actualQuestionCount))
+    // Only show "Main Question X" if we're actually on a main question
+    const currentMainQuestion = currentQuestionType === 'main_question' ? 
+      Math.max(1, Math.min(mainQuestionsAsked + 1, actualQuestionCount)) :
+      mainQuestionsAsked // Show the number of questions already completed
     
     // Generate follow-up letter (a, b, c, etc.)
     const followupLetter = currentFollowupCount > 0 ? String.fromCharCode(97 + currentFollowupCount - 1) : null
