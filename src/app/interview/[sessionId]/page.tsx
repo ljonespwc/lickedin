@@ -371,6 +371,11 @@ const InterviewSession = () => {
                         <span>🔍</span>
                         <span>Follow-up to Q{progressData.currentMainQuestion}</span>
                       </span>
+                    ) : progressData.currentQuestionType === 'closing' ? (
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center space-x-1">
+                        <span>🎯</span>
+                        <span>Wrapping Up</span>
+                      </span>
                     ) : (
                       <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full flex items-center space-x-1">
                         <span>👋</span>

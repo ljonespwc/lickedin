@@ -163,14 +163,17 @@ export async function GET(
       (turn.message_type === 'main_question' || turn.message_type === 'follow_up')
     ).length || 0
 
-    const progress = Math.round((mainQuestionsCompleted / actualQuestionCount) * 100)
+    // Check if we're in closing section - if so, all questions are complete
+    const isClosing = currentQuestionType === 'closing'
+    const finalMainQuestionsCompleted = isClosing ? actualQuestionCount : mainQuestionsCompleted
+    const finalProgress = isClosing ? 100 : Math.round((mainQuestionsCompleted / actualQuestionCount) * 100)
 
     return NextResponse.json({
       currentMainQuestion: Math.min(currentMainQuestion, actualQuestionCount),
       totalQuestions: actualQuestionCount,
-      progress: Math.min(progress, 100),
+      progress: Math.min(finalProgress, 100),
       mainQuestionsAsked,
-      mainQuestionsCompleted,
+      mainQuestionsCompleted: finalMainQuestionsCompleted,
       currentQuestionType,
       currentFollowupCount,
       followupLetter,
