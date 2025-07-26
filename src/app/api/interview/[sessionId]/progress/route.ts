@@ -107,41 +107,16 @@ export async function GET(
       })
     }
 
-    // Count main questions that have been truly completed (not just asked)
-    // A main question is "completed" only if:
-    // 1. Candidate has responded AND
-    // 2. No follow-up question was asked (indicating the answer was sufficient)
+    // Count main questions that have been asked
     const mainQuestionTurns = conversation?.filter(turn => 
       turn.speaker === 'interviewer' && turn.message_type === 'main_question'
     ) || []
     
-    let mainQuestionsCompleted = 0
-    for (const questionTurn of mainQuestionTurns) {
-      // Check if there's a candidate response after this main question
-      const candidateResponseExists = conversation?.some(turn => 
-        turn.speaker === 'candidate' && 
-        turn.turn_number > questionTurn.turn_number
-      )
-      
-      if (candidateResponseExists) {
-        // Check if there's a follow-up question after the candidate's response
-        // If there is, the main question is not truly "completed" yet
-        const followUpExists = conversation?.some(turn => 
-          turn.speaker === 'interviewer' && 
-          turn.message_type === 'follow_up' &&
-          turn.turn_number > questionTurn.turn_number
-        )
-        
-        // Only count as completed if there's no follow-up (question was satisfactorily answered)
-        if (!followUpExists) {
-          mainQuestionsCompleted++
-        }
-      }
-    }
-    
-    // For progress calculation, use completed questions
-    // But for current question display, use the total asked
     const mainQuestionsAsked = mainQuestionTurns.length
+    
+    // Progress advances when the next main question is asked
+    // If we're on Q1, progress is 0%. If we're on Q2, Q1 is complete (progress = 1/8)
+    const mainQuestionsCompleted = Math.max(0, mainQuestionsAsked - 1)
 
     // Find the most recent interviewer question to determine current question type
     const recentInterviewerTurns = conversation?.filter(turn => 
