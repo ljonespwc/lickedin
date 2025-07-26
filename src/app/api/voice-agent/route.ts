@@ -803,7 +803,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   // Start total pipeline timing
   const pipelineStartTime = Date.now()
-  console.time('⏱️ TOTAL_PIPELINE')
+  
+  // Timing tracker for consolidated reporting
+  const timings: { [key: string]: { start: number; duration?: number } } = {
+    pipeline: { start: pipelineStartTime }
+  }
   
   let requestBody
   try {
@@ -866,13 +870,13 @@ export async function POST(request: NextRequest) {
     let interviewSessionId: string | null = null
     
     if (layercodeSessionId) {
-      console.time('⏱️ SESSION_LOOKUP')
+      timings.sessionLookup = { start: Date.now() }
       const { data: sessionData, error: sessionError } = await supabase
         .from('interview_sessions')
         .select('id')
         .eq('layercode_session_id', layercodeSessionId)
         .single()
-      console.timeEnd('⏱️ SESSION_LOOKUP')
+      timings.sessionLookup.duration = Date.now() - timings.sessionLookup.start
       
       if (sessionError || !sessionData) {
         console.error('❌ No interview session found for LayerCode session:', layercodeSessionId, sessionError)
@@ -913,11 +917,11 @@ export async function POST(request: NextRequest) {
     let nextTurnNumber = 1
     
     if (interviewSessionId) {
-      console.time('⏱️ CONTEXT_LOADING')
+      timings.contextLoading = { start: Date.now() }
       sessionContext = await fetchSessionContext(interviewSessionId)
       recentConversation = await getRecentConversation(interviewSessionId, 100)
       nextTurnNumber = await getNextTurnNumber(interviewSessionId)
-      console.timeEnd('⏱️ CONTEXT_LOADING')
+      timings.contextLoading.duration = Date.now() - timings.contextLoading.start
     }
 
     // Send user transcription immediately via stream.data()
@@ -930,7 +934,7 @@ export async function POST(request: NextRequest) {
       
       // Store user message in conversation if we have a session
       if (interviewSessionId && text) {
-        console.time('⏱️ USER_STORAGE')
+        timings.userStorage = { start: Date.now() }
         const insertResult = await supabase
           .from('interview_conversation')
           .insert({
@@ -951,7 +955,7 @@ export async function POST(request: NextRequest) {
         await markInterviewStarted(interviewSessionId)
         
         nextTurnNumber++
-        console.timeEnd('⏱️ USER_STORAGE')
+        timings.userStorage.duration = Date.now() - timings.userStorage.start
       }
     }
 
@@ -1049,9 +1053,9 @@ export async function POST(request: NextRequest) {
       
       // Use decision engine for all cases (including first turn)
       if (sessionContext && recentConversation.length >= 0) {
-        console.time('⏱️ DECISION_ENGINE')
+        timings.decisionEngine = { start: Date.now() }
         decision = await analyzeConversationAndDecide(sessionContext, recentConversation, text || '')
-        console.timeEnd('⏱️ DECISION_ENGINE')
+        timings.decisionEngine.duration = Date.now() - timings.decisionEngine.start
       }
       
       // BULLETPROOF OVERRIDE: If decision is end_interview but candidate asked question, switch to follow_up
@@ -1092,7 +1096,7 @@ export async function POST(request: NextRequest) {
       const systemPrompt = buildSystemPrompt(sessionContext)
       const decisionGuidance = getDecisionGuidance(decision.action, sessionContext, recentConversation)
       
-      console.time('⏱️ RESPONSE_GENERATION')
+      timings.responseGeneration = { start: Date.now() }
       const completion = await openai.chat.completions.create({
         model: "gpt-4.1-mini",
         messages: [
@@ -1105,7 +1109,7 @@ export async function POST(request: NextRequest) {
         temperature: 0.7,
         max_tokens: 150
       })
-      console.timeEnd('⏱️ RESPONSE_GENERATION')
+      timings.responseGeneration.duration = Date.now() - timings.responseGeneration.start
 
       let response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
       
@@ -1306,7 +1310,7 @@ export async function POST(request: NextRequest) {
           turnNumber: nextTurnNumber
         })
         
-        console.time('⏱️ RESPONSE_STORAGE')
+        timings.responseStorage = { start: Date.now() }
         const insertResult = await supabase
           .from('interview_conversation')
           .insert(conversationEntry)
@@ -1316,24 +1320,25 @@ export async function POST(request: NextRequest) {
         } else {
           console.log('✅ Conversation stored successfully')
         }
-        console.timeEnd('⏱️ RESPONSE_STORAGE')
+        timings.responseStorage.duration = Date.now() - timings.responseStorage.start
       }
       
       // Calculate and log comprehensive latency metrics
       const pipelineEndTime = Date.now()
       const totalPipelineTime = pipelineEndTime - pipelineStartTime
-      console.timeEnd('⏱️ TOTAL_PIPELINE')
+      timings.pipeline.duration = totalPipelineTime
       
       // Comprehensive latency summary
-      console.log(`
-⏱️ LATENCY METRICS - Session: ${interviewSessionId}
-├─ Session Lookup: (see timing above)
-├─ Context Loading: (see timing above)  
-├─ User Storage: (see timing above)
-├─ Decision Engine: (see timing above)
-├─ Response Generation: (see timing above)
-├─ Response Storage: (see timing above)
-└─ Total Pipeline: ${totalPipelineTime}ms (${(totalPipelineTime/1000).toFixed(1)}s)`)
+      console.log('📊 ============ LATENCY BREAKDOWN ============')
+      console.log(`🔍 Session: ${interviewSessionId}`)
+      console.log(`├─ Session Lookup: ${timings.sessionLookup?.duration || 'N/A'}ms`)
+      console.log(`├─ Context Loading: ${timings.contextLoading?.duration || 'N/A'}ms`)
+      console.log(`├─ User Storage: ${timings.userStorage?.duration || 'N/A'}ms`)
+      console.log(`├─ Decision Engine: ${timings.decisionEngine?.duration || 'N/A'}ms`)
+      console.log(`├─ Response Generation: ${timings.responseGeneration?.duration || 'N/A'}ms`)
+      console.log(`├─ Response Storage: ${timings.responseStorage?.duration || 'N/A'}ms`)
+      console.log(`└─ 🎯 TOTAL PIPELINE: ${totalPipelineTime}ms (${(totalPipelineTime/1000).toFixed(1)}s)`)
+      console.log('📊 ===========================================')
 
       // Send agent transcription immediately via stream.data()
       stream.data({
