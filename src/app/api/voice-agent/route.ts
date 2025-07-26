@@ -486,9 +486,16 @@ function getDecisionGuidance(
         turn.related_main_question_id
       )
       
-      const usedQuestionIds = new Set(mainQuestionTurns.map(turn => turn.related_main_question_id!))
       const sortedQuestions = questions.sort((a, b) => a.question_order - b.question_order)
-      const nextQuestion = sortedQuestions[usedQuestionIds.size]
+      
+      // Find the highest question_order that has been asked
+      const maxQuestionOrder = Math.max(0, ...mainQuestionTurns.map(turn => {
+        const q = sortedQuestions.find(sq => sq.id === turn.related_main_question_id)
+        return q ? q.question_order : 0
+      }))
+
+      // Get the next question in sequence
+      const nextQuestion = sortedQuestions.find(q => q.question_order === maxQuestionOrder + 1)
       
       return nextQuestion 
         ? "DECISION: Move to the next main question."
@@ -521,8 +528,13 @@ async function analyzeConversationAndDecide(
       turn.related_main_question_id
     )
     
-    const usedQuestionIds = new Set(mainQuestionTurns.map(turn => turn.related_main_question_id!))
-    const mainQuestionsAsked = usedQuestionIds.size
+    // Find the highest question order that has been asked
+    const maxQuestionOrder = mainQuestionTurns.length > 0 ? Math.max(...mainQuestionTurns.map(turn => {
+      const q = sessionContext?.interview_questions?.find(sq => sq.id === turn.related_main_question_id)
+      return q ? q.question_order : 0
+    })) : 0
+    
+    const mainQuestionsAsked = maxQuestionOrder
     
     // Count follow-ups since the last unique main question
     const lastMainQuestionTurn = recentConversation
@@ -566,7 +578,7 @@ async function analyzeConversationAndDecide(
     }
 
     // Phase 1 Fix: Deterministic introduction and first question logic
-    if (usedQuestionIds.size === 0) {
+    if (mainQuestionsAsked === 0) {
       // Check if we've already shown introduction
       const hasIntroduction = recentConversation.some(turn => 
         turn.speaker === 'interviewer' && turn.message_type === 'transition' && turn.turn_number === 1
@@ -1123,16 +1135,22 @@ export async function POST(request: NextRequest) {
           turn.related_main_question_id
         )
         
-        const usedQuestionIds = new Set(mainQuestionTurns.map(turn => turn.related_main_question_id!))
         const sortedQuestions = sessionContext.interview_questions
           .sort((a, b) => a.question_order - b.question_order)
         
-        const nextQuestion = sortedQuestions[usedQuestionIds.size]
+        // Find the highest question_order that has been asked
+        const maxQuestionOrder = Math.max(0, ...mainQuestionTurns.map(turn => {
+          const q = sortedQuestions.find(sq => sq.id === turn.related_main_question_id)
+          return q ? q.question_order : 0
+        }))
+
+        // Get the next question in sequence
+        const nextQuestion = sortedQuestions.find(q => q.question_order === maxQuestionOrder + 1)
         
         // Phase 4: Enhanced logging for question selection
         console.log('🎯 Question Selection:', {
-          usedQuestionIds: Array.from(usedQuestionIds),
-          nextQuestionIndex: usedQuestionIds.size,
+          maxQuestionOrder,
+          nextQuestionOrder: maxQuestionOrder + 1,
           totalQuestions: sortedQuestions.length,
           nextQuestion: nextQuestion ? {
             id: nextQuestion.id,
