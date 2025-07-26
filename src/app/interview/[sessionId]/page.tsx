@@ -367,7 +367,7 @@ const InterviewSession = () => {
                     ) : (
                       <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full flex items-center space-x-1">
                         <span>🔍</span>
-                        <span>Follow-up {progressData.currentMainQuestion}{progressData.followupLetter}</span>
+                        <span>Follow-up to Q#{progressData.currentMainQuestion}</span>
                       </span>
                     )}
                   </div>
@@ -460,17 +460,8 @@ const InterviewSession = () => {
                 <Progress value={progressData.progress} className="mb-2" />
               </div>
               
-              {/* Current Question Status */}
-              <div className="flex justify-between items-center text-sm text-muted-foreground">
-                <div className="flex items-center space-x-4">
-                  <span>
-                    Currently: {progressData.currentQuestionType === 'main_question' ? 
-                      `Main Question ${progressData.currentMainQuestion}` : 
-                      `Follow-up ${progressData.currentMainQuestion}${progressData.followupLetter}`
-                    }
-                  </span>
-                  <span>({progressData.totalQuestionsAsked} questions asked total)</span>
-                </div>
+              {/* Timer */}
+              <div className="flex justify-end items-center text-sm text-muted-foreground">
                 <span className="font-medium">Total Time: {formatTime(timeElapsed)}</span>
               </div>
             </div>
