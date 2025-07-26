@@ -1063,11 +1063,21 @@ export async function POST(request: NextRequest) {
       // Use decision engine to determine next action
       let decision: { action: 'introduction' | 'recovery' | 'follow_up' | 'next_question' | 'end_interview', reasoning: string } = { action: 'follow_up', reasoning: 'Default behavior' }
       
-      // Use decision engine for all cases (including first turn)
-      if (sessionContext && recentConversation.length >= 0) {
-        timings.decisionEngine = { start: Date.now() }
-        decision = await analyzeConversationAndDecide(sessionContext, recentConversation, text || '')
-        timings.decisionEngine.duration = Date.now() - timings.decisionEngine.start
+      // BULLETPROOF CLOSING MODE: If already in closing, force end_interview decision
+      const isAlreadyInClosingMode = recentConversation.some(turn => 
+        turn.speaker === 'interviewer' && turn.message_type === 'closing'
+      )
+
+      if (isAlreadyInClosingMode) {
+        decision = { action: 'end_interview', reasoning: 'Already in closing mode - must stay in closing' }
+        console.log('🔒 FORCING CLOSING MODE: Overriding decision engine to stay in closing')
+      } else {
+        // Only call decision engine if NOT in closing mode
+        if (sessionContext && recentConversation.length >= 0) {
+          timings.decisionEngine = { start: Date.now() }
+          decision = await analyzeConversationAndDecide(sessionContext, recentConversation, text || '')
+          timings.decisionEngine.duration = Date.now() - timings.decisionEngine.start
+        }
       }
       
       // BULLETPROOF OVERRIDE: If decision is end_interview but candidate asked question, switch to follow_up
@@ -1170,10 +1180,7 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Check if we're already in closing mode
-      const isAlreadyInClosingMode = recentConversation.some(turn => 
-        turn.speaker === 'interviewer' && turn.message_type === 'closing'
-      )
+      // isAlreadyInClosingMode already defined above
       
       // Handle opening closing question when starting closing mode
       if (decision.action === 'end_interview' && !isAlreadyInClosingMode) {
