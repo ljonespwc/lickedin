@@ -292,6 +292,47 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
+    // Generate resume summary for voice conversations
+    let resumeSummary = ''
+    if (resumeData) {
+      try {
+        const summaryResponse = await openai.chat.completions.create({
+          model: 'gpt-4.1-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `Summarize this resume into 800 characters or less. Focus on:
+- Current/recent role and company
+- Key technical skills and expertise areas
+- Years of experience in relevant domains
+- Notable achievements or certifications
+- Educational background (degree/school only)
+
+Remove: personal details, full job descriptions, lengthy project descriptions, references, contact info.
+Be concise and factual.`
+            },
+            {
+              role: 'user',
+              content: extractedText
+            }
+          ],
+          max_tokens: 200,
+          temperature: 0.1
+        })
+        resumeSummary = summaryResponse.choices[0]?.message?.content || ''
+        
+        // Update resume with summary
+        await supabase
+          .from('resumes')
+          .update({ parsed_summary: resumeSummary })
+          .eq('id', resumeData.id)
+          
+        console.log(`📄 Resume summary generated: ${extractedText.length} → ${resumeSummary.length} chars`)
+      } catch (summaryError) {
+        console.error('Resume summarization failed:', summaryError)
+      }
+    }
+
     if (resumeError) {
       console.error('Resume storage error:', resumeError)
       return NextResponse.json(
@@ -385,6 +426,47 @@ export async function POST(request: NextRequest) {
       })
       .select()
       .single()
+
+    // Generate job description summary for voice conversations
+    let jobSummary = ''
+    if (jobData) {
+      try {
+        const jobSummaryResponse = await openai.chat.completions.create({
+          model: 'gpt-4.1-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `Summarize this job description into 800 characters or less. Focus on:
+- Key responsibilities and role requirements
+- Required technical skills and qualifications
+- Experience level needed (years, seniority)
+- Important company/team context
+- Critical "nice-to-have" skills mentioned
+
+Remove: boilerplate text, lengthy benefit descriptions, legal disclaimers, repetitive requirements, company history.
+Be concise and factual.`
+            },
+            {
+              role: 'user',
+              content: jobContent
+            }
+          ],
+          max_tokens: 200,
+          temperature: 0.1
+        })
+        jobSummary = jobSummaryResponse.choices[0]?.message?.content || ''
+        
+        // Update job description with summary
+        await supabase
+          .from('job_descriptions')
+          .update({ job_summary: jobSummary })
+          .eq('id', jobData.id)
+          
+        console.log(`💼 Job summary generated: ${jobContent.length} → ${jobSummary.length} chars`)
+      } catch (jobSummaryError) {
+        console.error('Job description summarization failed:', jobSummaryError)
+      }
+    }
 
     if (jobError) {
       console.error('Job description storage error:', jobError)

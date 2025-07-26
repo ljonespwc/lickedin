@@ -39,8 +39,8 @@ interface SessionContext {
   voice_gender: string
   communication_style: string
   interview_questions: InterviewQuestion[]
-  resumes: { parsed_content: string }[]
-  job_descriptions: { job_content: string; company_name: string; job_title: string }[]
+  resumes: { parsed_summary: string }[]
+  job_descriptions: { job_summary: string; company_name: string; job_title: string }[]
 }
 
 // Helper function to detect if candidate asked a question using AI
@@ -151,10 +151,10 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
       return null
     }
 
-    // Get resume data
+    // Get resume data (use summary for voice conversations)
     const { data: resumeData, error: resumeError } = await supabase
       .from('resumes')
-      .select('parsed_content')
+      .select('parsed_summary')
       .eq('id', session.resume_id)
       .single()
 
@@ -162,10 +162,10 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
       console.error('Error fetching resume:', resumeError)
     }
 
-    // Get job description data
+    // Get job description data (use summary for voice conversations)
     const { data: jobData, error: jobError } = await supabase
       .from('job_descriptions')
-      .select('job_content, company_name, job_title')
+      .select('job_summary, company_name, job_title')
       .eq('id', session.job_description_id)
       .single()
 
@@ -192,9 +192,9 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
       voice_gender: session.voice_gender,
       communication_style: session.communication_style,
       interview_questions: questionsData || [],
-      resumes: resumeData ? [{ parsed_content: resumeData.parsed_content }] : [],
+      resumes: resumeData ? [{ parsed_summary: resumeData.parsed_summary }] : [],
       job_descriptions: jobData ? [{ 
-        job_content: jobData.job_content,
+        job_summary: jobData.job_summary,
         company_name: jobData.company_name,
         job_title: jobData.job_title
       }] : []
@@ -205,8 +205,8 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
       hasResume: sessionContext.resumes.length > 0,
       hasJobDescription: sessionContext.job_descriptions.length > 0,
       questionCount: sessionContext.interview_questions.length,
-      resumeLength: sessionContext.resumes[0]?.parsed_content?.length || 0,
-      jobLength: sessionContext.job_descriptions[0]?.job_content?.length || 0
+      resumeLength: sessionContext.resumes[0]?.parsed_summary?.length || 0,
+      jobLength: sessionContext.job_descriptions[0]?.job_summary?.length || 0
     })
 
     return sessionContext
@@ -277,8 +277,8 @@ Guidelines:
 Current interview context: This is a demo interview session.`
   }
 
-  const resume = sessionContext.resumes?.[0]?.parsed_content || 'No resume content available'
-  const jobDescription = sessionContext.job_descriptions?.[0]?.job_content || 'No job description available'
+  const resume = sessionContext.resumes?.[0]?.parsed_summary || 'No resume content available'
+  const jobDescription = sessionContext.job_descriptions?.[0]?.job_summary || 'No job description available'
   const difficulty = sessionContext.difficulty_level
   const interviewType = sessionContext.interview_type
   const communicationStyle = sessionContext.communication_style
@@ -919,7 +919,7 @@ export async function POST(request: NextRequest) {
     if (interviewSessionId) {
       timings.contextLoading = { start: Date.now() }
       sessionContext = await fetchSessionContext(interviewSessionId)
-      recentConversation = await getRecentConversation(interviewSessionId, 100)
+      recentConversation = await getRecentConversation(interviewSessionId, 10)
       nextTurnNumber = await getNextTurnNumber(interviewSessionId)
       timings.contextLoading.duration = Date.now() - timings.contextLoading.start
     }
