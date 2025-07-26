@@ -801,6 +801,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  // Start total pipeline timing
+  const pipelineStartTime = Date.now()
+  console.time('⏱️ TOTAL_PIPELINE')
   
   let requestBody
   try {
@@ -863,11 +866,13 @@ export async function POST(request: NextRequest) {
     let interviewSessionId: string | null = null
     
     if (layercodeSessionId) {
+      console.time('⏱️ SESSION_LOOKUP')
       const { data: sessionData, error: sessionError } = await supabase
         .from('interview_sessions')
         .select('id')
         .eq('layercode_session_id', layercodeSessionId)
         .single()
+      console.timeEnd('⏱️ SESSION_LOOKUP')
       
       if (sessionError || !sessionData) {
         console.error('❌ No interview session found for LayerCode session:', layercodeSessionId, sessionError)
@@ -908,9 +913,11 @@ export async function POST(request: NextRequest) {
     let nextTurnNumber = 1
     
     if (interviewSessionId) {
+      console.time('⏱️ CONTEXT_LOADING')
       sessionContext = await fetchSessionContext(interviewSessionId)
       recentConversation = await getRecentConversation(interviewSessionId, 100)
       nextTurnNumber = await getNextTurnNumber(interviewSessionId)
+      console.timeEnd('⏱️ CONTEXT_LOADING')
     }
 
     // Send user transcription immediately via stream.data()
@@ -923,6 +930,7 @@ export async function POST(request: NextRequest) {
       
       // Store user message in conversation if we have a session
       if (interviewSessionId && text) {
+        console.time('⏱️ USER_STORAGE')
         const insertResult = await supabase
           .from('interview_conversation')
           .insert({
@@ -943,6 +951,7 @@ export async function POST(request: NextRequest) {
         await markInterviewStarted(interviewSessionId)
         
         nextTurnNumber++
+        console.timeEnd('⏱️ USER_STORAGE')
       }
     }
 
@@ -1040,7 +1049,9 @@ export async function POST(request: NextRequest) {
       
       // Use decision engine for all cases (including first turn)
       if (sessionContext && recentConversation.length >= 0) {
+        console.time('⏱️ DECISION_ENGINE')
         decision = await analyzeConversationAndDecide(sessionContext, recentConversation, text || '')
+        console.timeEnd('⏱️ DECISION_ENGINE')
       }
       
       // BULLETPROOF OVERRIDE: If decision is end_interview but candidate asked question, switch to follow_up
@@ -1081,6 +1092,7 @@ export async function POST(request: NextRequest) {
       const systemPrompt = buildSystemPrompt(sessionContext)
       const decisionGuidance = getDecisionGuidance(decision.action, sessionContext, recentConversation)
       
+      console.time('⏱️ RESPONSE_GENERATION')
       const completion = await openai.chat.completions.create({
         model: "gpt-4.1-mini",
         messages: [
@@ -1093,6 +1105,7 @@ export async function POST(request: NextRequest) {
         temperature: 0.7,
         max_tokens: 150
       })
+      console.timeEnd('⏱️ RESPONSE_GENERATION')
 
       let response = completion.choices[0]?.message?.content || "I see. Can you tell me more about that?"
       
@@ -1293,6 +1306,7 @@ export async function POST(request: NextRequest) {
           turnNumber: nextTurnNumber
         })
         
+        console.time('⏱️ RESPONSE_STORAGE')
         const insertResult = await supabase
           .from('interview_conversation')
           .insert(conversationEntry)
@@ -1302,8 +1316,25 @@ export async function POST(request: NextRequest) {
         } else {
           console.log('✅ Conversation stored successfully')
         }
+        console.timeEnd('⏱️ RESPONSE_STORAGE')
       }
       
+      // Calculate and log comprehensive latency metrics
+      const pipelineEndTime = Date.now()
+      const totalPipelineTime = pipelineEndTime - pipelineStartTime
+      console.timeEnd('⏱️ TOTAL_PIPELINE')
+      
+      // Comprehensive latency summary
+      console.log(`
+⏱️ LATENCY METRICS - Session: ${interviewSessionId}
+├─ Session Lookup: (see timing above)
+├─ Context Loading: (see timing above)  
+├─ User Storage: (see timing above)
+├─ Decision Engine: (see timing above)
+├─ Response Generation: (see timing above)
+├─ Response Storage: (see timing above)
+└─ Total Pipeline: ${totalPipelineTime}ms (${(totalPipelineTime/1000).toFixed(1)}s)`)
+
       // Send agent transcription immediately via stream.data()
       stream.data({
         type: 'agent_transcription',
