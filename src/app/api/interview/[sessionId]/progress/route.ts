@@ -144,10 +144,11 @@ export async function GET(
     }
 
     // Calculate current main question number (1-based)
-    // Only show "Main Question X" if we're actually on a main question
+    // For main questions: show the next question number (mainQuestionsAsked + 1)
+    // For follow-ups: show the most recent main question number (mainQuestionsAsked)
     const currentMainQuestion = currentQuestionType === 'main_question' ? 
       Math.max(1, Math.min(mainQuestionsAsked + 1, actualQuestionCount)) :
-      mainQuestionsAsked // Show the number of questions already completed
+      Math.max(1, mainQuestionsAsked) // For follow-ups, show the current main question being followed up
     
     // Generate follow-up letter (a, b, c, etc.)
     const followupLetter = currentFollowupCount > 0 ? String.fromCharCode(97 + currentFollowupCount - 1) : null

@@ -10,7 +10,7 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { difficulty, interviewType, voiceGender, communicationStyle, questionCount } = await request.json()
+    const { difficulty, interviewType, voiceGender, communicationStyle } = await request.json()
 
     if (!difficulty || !interviewType || !voiceGender || !communicationStyle) {
       return NextResponse.json(
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
         interview_type: interviewType,
         voice_gender: voiceGender,
         communication_style: communicationStyle,
-        question_count: questionCount || 8,
+        question_count: 8, // Will be updated after questions are generated
         status: 'pending'
       })
       .select()
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
       }
 
       const questionPrompt = `
-Generate ${questionCount || 8} personalized interview questions based on the following context:
+Generate 8 personalized interview questions based on the following context:
 
 CANDIDATE BACKGROUND:
 ${resumeData.parsed_content || 'No resume content available'}
@@ -269,19 +269,15 @@ Structure questions to elicit responses that demonstrate:
           { status: 500 }
         )
       }
-      
-      // Update session with actual question count
+
+      // Update the session with the actual number of questions generated
       const actualQuestionCount = generatedQuestions.length
-      const { error: updateError } = await supabase
+      await supabase
         .from('interview_sessions')
         .update({ question_count: actualQuestionCount })
         .eq('id', sessionData.id)
-      
-      if (updateError) {
-        console.error('Failed to update question count:', updateError)
-      } else {
-        console.log(`✅ Updated session ${sessionData.id} with question_count: ${actualQuestionCount}`)
-      }
+
+      console.log(`✅ Generated ${actualQuestionCount} questions for session ${sessionData.id}`)
 
     } catch (openaiError) {
       console.error('OpenAI error:', openaiError)

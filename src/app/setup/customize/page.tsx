@@ -213,8 +213,7 @@ const SetupCustomize = () => {
           difficulty: difficultyValue,
           interviewType: interviewType,
           voiceGender: voiceGender,
-          communicationStyle: communicationStyle,
-          questionCount: 5
+          communicationStyle: communicationStyle
         }),
       })
 
