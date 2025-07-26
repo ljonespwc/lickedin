@@ -446,24 +446,6 @@ const SetupCustomize = () => {
                   <Progress value={progressPercent} className="w-full" />
                 </div>
 
-                {/* Step Indicators */}
-                <div className="flex justify-center space-x-6 text-xs">
-                  {progressSteps.map((step, index) => (
-                    <div 
-                      key={step.id}
-                      className={`flex items-center space-x-1 ${
-                        index <= progressStep ? 'text-primary' : 'text-muted-foreground'
-                      }`}
-                    >
-                      <div className={`w-2 h-2 rounded-full ${
-                        index < progressStep ? 'bg-primary' : 
-                        index === progressStep ? 'bg-primary animate-pulse' : 
-                        'bg-muted-foreground/30'
-                      }`} />
-                      <span className="hidden sm:inline">{step.title.replace('...', '')}</span>
-                    </div>
-                  ))}
-                </div>
               </div>
             </CardContent>
           </Card>

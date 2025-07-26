@@ -1303,6 +1303,7 @@ export async function POST(request: NextRequest) {
       // Store interviewer response in conversation
       if (interviewSessionId && response) {
         const messageType = decision.action === 'end_interview' ? 'closing' : 
+                           (decision.action === 'follow_up' && isAlreadyInClosingMode) ? 'closing' :
                            decision.action === 'next_question' ? 'main_question' : 
                            decision.action === 'introduction' ? 'transition' : 
                            decision.action === 'recovery' ? 'follow_up' : 'follow_up'
