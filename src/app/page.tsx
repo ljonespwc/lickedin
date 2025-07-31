@@ -160,7 +160,7 @@ export default function Home() {
                     <div className="text-4xl">🦾</div>
                     <div className="flex-1 text-left">
                       <h3 className="text-xl font-bold text-foreground mb-2">
-                        🔥 Try Our Demo: Interview as Tony Stark for Apple CEO
+                        Demo: Interview as Tony Stark for Apple CEO
                       </h3>
                       <p className="text-sm text-muted-foreground mb-3">
                         Experience our AI-powered interview platform with a fun twist! No setup required - 
@@ -195,7 +195,7 @@ export default function Home() {
                     <div className="text-4xl">🎅</div>
                     <div className="flex-1 text-left">
                       <h3 className="text-xl font-bold text-foreground mb-2">
-                        🎄 Holiday Demo: Interview as Santa for US President
+                        Demo: Interview as Santa for US President
                       </h3>
                       <p className="text-sm text-muted-foreground mb-3">
                         Ho ho ho! Experience a delightfully different interview where Santa Claus 
@@ -205,7 +205,7 @@ export default function Home() {
                     <Button
                       onClick={handleSantaDemo}
                       disabled={santaDemoLoading}
-                      className="bg-gradient-to-r from-red-600 to-green-600 hover:from-red-700 hover:to-green-700 text-white px-6 py-2 font-semibold"
+                      className="bg-gradient-to-r from-red-600 to-yellow-600 hover:from-red-700 hover:to-yellow-700 text-white px-6 py-2 font-semibold"
                     >
                       {santaDemoLoading ? (
                         <div className="flex items-center">
