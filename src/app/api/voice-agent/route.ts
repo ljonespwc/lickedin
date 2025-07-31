@@ -38,6 +38,7 @@ interface SessionContext {
   interview_type: string
   voice_gender: string
   communication_style: string
+  demo_type?: string // For demo sessions like 'tony_stark'
   interview_questions: InterviewQuestion[]
   resumes: { parsed_summary: string }[]
   job_descriptions: { job_summary: string; company_name: string; job_title: string }[]
@@ -140,6 +141,7 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
         interview_type,
         voice_gender,
         communication_style,
+        demo_type,
         resume_id,
         job_description_id
       `)
@@ -191,6 +193,7 @@ async function fetchSessionContext(sessionId: string): Promise<SessionContext | 
       interview_type: session.interview_type,
       voice_gender: session.voice_gender,
       communication_style: session.communication_style,
+      demo_type: session.demo_type,
       interview_questions: questionsData || [],
       resumes: resumeData ? [{ parsed_summary: resumeData.parsed_summary }] : [],
       job_descriptions: jobData ? [{ 
@@ -277,6 +280,9 @@ Guidelines:
 Current interview context: This is a demo interview session.`
   }
 
+  // Check if this is a Tony Stark demo session
+  const isTonyStarkDemo = sessionContext.demo_type === 'tony_stark'
+  
   const resume = sessionContext.resumes?.[0]?.parsed_summary || 'No resume content available'
   const jobDescription = sessionContext.job_descriptions?.[0]?.job_summary || 'No job description available'
   const difficulty = sessionContext.difficulty_level
@@ -305,6 +311,35 @@ Current interview context: This is a demo interview session.`
   // Get communication style and interview type instructions
   const styleInstructions = getCommunicationStyleInstructions(communicationStyle, interviewType)
   
+  // Special handling for Tony Stark demo
+  if (isTonyStarkDemo) {
+    return `You are conducting a voice interview for LickedIn Interviews with ${difficultyContext}. ${styleInstructions}
+
+🦾 SPECIAL DEMO CONTEXT: You are interviewing TONY STARK for the Apple CEO position. This is a fun, engaging demo showcasing our platform's capabilities.
+
+CANDIDATE: Tony Stark - Genius, billionaire, philanthropist, and current CEO/CTO of Stark Industries
+KEY BACKGROUND: MIT graduate at 17, revolutionized clean energy with Arc Reactor technology, transformed Stark Industries from defense to clean tech, holds 73+ patents
+
+APPLE CEO ROLE: Leading Apple through AI transformation, Vision Pro strategy, and next-generation product development
+
+INTERVIEW STYLE:
+- You KNOW you're interviewing Tony Stark - acknowledge his accomplishments naturally
+- Ask engaging questions that connect his Marvel experience to Apple CEO challenges
+- Keep it fun but professional - this is still a real CEO interview
+- Reference his innovations (Arc Reactor → clean energy, FRIDAY AI → Siri upgrade, etc.)
+- Maintain the same interview flow as normal sessions
+
+CORE INSTRUCTIONS:
+- Keep responses conversational and natural for voice (1-2 sentences max)
+- Ask thoughtful follow-up questions to get deeper insights
+- Work through the interview but allow natural conversation flow
+- If this seems like the start, introduce yourself briefly and acknowledge you're excited to interview Tony Stark
+- Be encouraging but maintain professionalism
+- Focus on getting detailed responses about how his unique experience applies to Apple
+
+CURRENT CONTEXT: You are conducting a personalized demo interview where Tony Stark is applying to be Apple's next CEO.`
+  }
+
   return `You are conducting a voice interview for LickedIn Interviews with ${difficultyContext}. ${styleInstructions}
 
 CANDIDATE BACKGROUND:

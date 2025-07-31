@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import Image from 'next/image'
-import { Play } from "lucide-react"
+import { Play, Zap } from "lucide-react"
 
 export default function Home() {
   const router = useRouter()
@@ -17,6 +17,7 @@ export default function Home() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [demoLoading, setDemoLoading] = useState(false)
 
   useEffect(() => {
     // Get initial session
@@ -66,6 +67,34 @@ export default function Home() {
     router.push('/setup')
   }
 
+  const handleTonyStarkDemo = async () => {
+    if (!user) return
+    
+    setDemoLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch('/api/demo/tony-stark', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create demo')
+      }
+
+      const data = await response.json()
+      router.push(`/interview/${data.sessionId}`)
+    } catch (error) {
+      console.error('Demo creation error:', error)
+      setMessage('Failed to create Tony Stark demo. Please try again.')
+    } finally {
+      setDemoLoading(false)
+    }
+  }
+
   if (user) {
     // Authenticated - show main landing page
     return (
@@ -89,11 +118,46 @@ export default function Home() {
               <Button 
                 size="lg" 
                 onClick={handleStartInterview}
-                className="bg-primary hover:bg-primary/90 text-white px-8 py-3 text-lg mb-12"
+                className="bg-primary hover:bg-primary/90 text-white px-8 py-3 text-lg mb-8"
               >
                 <Play className="mr-2" size={20} />
                 Start Your Interview Prep
               </Button>
+
+              {/* Tony Stark Demo Section */}
+              <Card className="mb-12 border-2 border-gradient-to-r from-red-200 to-yellow-200 bg-gradient-to-r from-red-50 to-yellow-50">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="text-4xl">🦾</div>
+                    <div className="flex-1 text-left">
+                      <h3 className="text-xl font-bold text-foreground mb-2">
+                        🔥 Try Our Demo: Interview as Tony Stark for Apple CEO
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Experience our AI-powered interview platform with a fun twist! No setup required - 
+                        jump straight into an engaging interview with Marvel-themed questions.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleTonyStarkDemo}
+                      disabled={demoLoading}
+                      className="bg-gradient-to-r from-red-600 to-yellow-600 hover:from-red-700 hover:to-yellow-700 text-white px-6 py-2 font-semibold"
+                    >
+                      {demoLoading ? (
+                        <div className="flex items-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Creating...
+                        </div>
+                      ) : (
+                        <>
+                          <Zap className="mr-2" size={16} />
+                          Start Tony Stark Demo
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
               
               <div className="grid md:grid-cols-3 gap-6 text-left">
                 <div className="space-y-2">
