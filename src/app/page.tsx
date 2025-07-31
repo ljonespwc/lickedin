@@ -18,6 +18,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [demoLoading, setDemoLoading] = useState(false)
+  const [santaDemoLoading, setSantaDemoLoading] = useState(false)
 
   useEffect(() => {
     // Get initial session
@@ -95,6 +96,34 @@ export default function Home() {
     }
   }
 
+  const handleSantaDemo = async () => {
+    if (!user) return
+    
+    setSantaDemoLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch('/api/demo/santa-president', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create demo')
+      }
+
+      const data = await response.json()
+      router.push(`/interview/${data.sessionId}`)
+    } catch (error) {
+      console.error('Santa demo creation error:', error)
+      setMessage('Failed to create Santa President demo. Please try again.')
+    } finally {
+      setSantaDemoLoading(false)
+    }
+  }
+
   if (user) {
     // Authenticated - show main landing page
     return (
@@ -125,7 +154,7 @@ export default function Home() {
               </Button>
 
               {/* Tony Stark Demo Section */}
-              <Card className="mb-12 border-2 border-gradient-to-r from-red-200 to-yellow-200 bg-gradient-to-r from-red-50 to-yellow-50">
+              <Card className="mb-6 border-2 border-gradient-to-r from-red-200 to-yellow-200 bg-gradient-to-r from-red-50 to-yellow-50">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
                     <div className="text-4xl">🦾</div>
@@ -152,6 +181,41 @@ export default function Home() {
                         <>
                           <Zap className="mr-2" size={16} />
                           Start Tony Stark Demo
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Santa President Demo Section */}
+              <Card className="mb-12 border-2 border-gradient-to-r from-red-200 to-green-200 bg-gradient-to-r from-red-50 to-green-50">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="text-4xl">🎅</div>
+                    <div className="flex-1 text-left">
+                      <h3 className="text-xl font-bold text-foreground mb-2">
+                        🎄 Holiday Demo: Interview as Santa for US President
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Ho ho ho! Experience a delightfully different interview where Santa Claus 
+                        applies his 1,700+ years of leadership experience to running America.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleSantaDemo}
+                      disabled={santaDemoLoading}
+                      className="bg-gradient-to-r from-red-600 to-green-600 hover:from-red-700 hover:to-green-700 text-white px-6 py-2 font-semibold"
+                    >
+                      {santaDemoLoading ? (
+                        <div className="flex items-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Creating...
+                        </div>
+                      ) : (
+                        <>
+                          <Zap className="mr-2" size={16} />
+                          Start Santa Demo
                         </>
                       )}
                     </Button>
