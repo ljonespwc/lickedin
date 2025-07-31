@@ -233,23 +233,23 @@ Total potential compensation: $50,000,000 - $100,000,000 (including equity grant
 
 **Apple is an Equal Opportunity Employer committed to inclusion and diversity.**`
 
-// Custom Tony Stark Questions for Apple CEO
+// Custom Tony Stark Questions for Apple CEO - Easy/Accessible Version
 const TONY_STARK_QUESTIONS = [
-  "Tony, your Arc Reactor technology revolutionized clean energy at Stark Industries. How would you apply that innovation mindset to help Apple achieve carbon neutrality by 2030 while maintaining rapid product development cycles?",
+  "Hi Tony! Tell me, what made you want to leave Stark Industries to become Apple's CEO?",
   
-  "You've successfully managed both the Avengers superhero team and a global corporation. How would your experience handling strong personalities like Thor and Tony prepare you to lead Apple's 150,000 employees and executive team?",
+  "You've invented some amazing technology like the Arc Reactor. What's the coolest thing you think Apple could build next?",
   
-  "Siri clearly needs an intelligence upgrade to compete with ChatGPT and other AI assistants. How would you transform Siri to be as responsive and capable as your FRIDAY AI system, while preserving Apple's privacy-first approach?",
+  "Managing the Avengers must have been interesting! How do you keep a team motivated when everyone has different personalities?",
   
-  "Apple Vision Pro has groundbreaking technology but slow adoption. You've made spatial computing work with your heads-up displays and holographic interfaces. What's your strategy to make Vision Pro as transformative as the iPhone?",
+  "Your AI assistant FRIDAY is pretty impressive. If you could improve Siri, what would you add to make it more helpful?",
   
-  "At Stark Industries, you pivoted from weapons manufacturing to clean technology. If you had to identify Apple's next major product category beyond phones and computers, what emerging technology would you bet the company on?",
+  "You've had to make some tough choices as a leader. Can you tell me about a time when you had to change direction on an important project?",
   
-  "Managing the egos and conflicts within the Avengers taught you crisis leadership. How would you handle Apple's complex relationship with global regulators, especially around App Store policies and antitrust concerns?",
+  "Apple makes products that millions of people use every day. What would you want those users to think about when they use Apple products?",
   
-  "Your rapid prototyping approach allowed you to build the Mark I suit in a cave with scraps. How would you accelerate Apple's traditionally secretive, perfectionist development culture to compete with faster-moving AI companies?",
+  "You're known for being innovative and thinking outside the box. What's one crazy idea you have that might actually work at Apple?",
   
-  "You've literally saved the world multiple times and revolutionized entire industries. Looking at Apple's next decade, what's your vision for how the company can have its most significant impact on humanity's future?"
+  "Finally, if you got this job, what would you be most excited to work on in your first year as Apple's CEO?"
 ]
 
 export async function POST(request: NextRequest) {
@@ -395,7 +395,7 @@ export async function POST(request: NextRequest) {
         job_description_id: jobData.id,
         difficulty_level: '5', // Medium difficulty
         interview_type: 'hiring_manager',
-        voice_gender: 'male',
+        voice_gender: 'female',
         communication_style: 'corporate_professional',
         question_count: 8,
         demo_type: 'tony_stark', // Mark as demo
