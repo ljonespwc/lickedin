@@ -1105,7 +1105,7 @@ export async function POST(request: NextRequest) {
         console.log('🏁 BULLETPROOF TERMINATION: Candidate responded without question in closing phase')
         
         // Generate final goodbye response
-        const finalGoodbye = "Thanks so much for your time today, Lance! It was great getting to know you. We'll be in touch soon with next steps. Take care!"
+        const finalGoodbye = "Thanks so much for your time today! It was great getting to know you. We'll be in touch soon with next steps. Take care!"
         
         // Store final goodbye in conversation
         if (interviewSessionId) {
@@ -1333,7 +1333,7 @@ export async function POST(request: NextRequest) {
           console.log('🏁 ENDING INTERVIEW: Candidate responded without question in closing phase - BULLETPROOF TERMINATION')
           
           // Generate final goodbye response first
-          const finalGoodbye = "Thanks so much for your time today, Lance! It was great getting to know you. We'll be in touch soon with next steps. Take care!"
+          const finalGoodbye = "Thanks so much for your time today! It was great getting to know you. We'll be in touch soon with next steps. Take care!"
           
           // Store final goodbye in conversation
           if (interviewSessionId) {
