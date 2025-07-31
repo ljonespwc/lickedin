@@ -233,23 +233,15 @@ Total potential compensation: $50,000,000 - $100,000,000 (including equity grant
 
 **Apple is an Equal Opportunity Employer committed to inclusion and diversity.**`
 
-// Custom Tony Stark Questions for Apple CEO - Easy/Accessible Version
+// Custom Tony Stark Questions for Apple CEO - 4 Best Questions
 const TONY_STARK_QUESTIONS = [
   "Hi Tony! Tell me, what made you want to leave Stark Industries to become Apple's CEO?",
   
   "You've invented some amazing technology like the Arc Reactor. What's the coolest thing you think Apple could build next?",
   
-  "Managing the Avengers must have been interesting! How do you keep a team motivated when everyone has different personalities?",
-  
   "Your AI assistant FRIDAY is pretty impressive. If you could improve Siri, what would you add to make it more helpful?",
   
-  "You've had to make some tough choices as a leader. Can you tell me about a time when you had to change direction on an important project?",
-  
-  "Apple makes products that millions of people use every day. What would you want those users to think about when they use Apple products?",
-  
-  "You're known for being innovative and thinking outside the box. What's one crazy idea you have that might actually work at Apple?",
-  
-  "Finally, if you got this job, what would you be most excited to work on in your first year as Apple's CEO?"
+  "You're known for being innovative and thinking outside the box. What's one crazy idea you have that might actually work at Apple?"
 ]
 
 export async function POST(request: NextRequest) {
@@ -397,7 +389,7 @@ export async function POST(request: NextRequest) {
         interview_type: 'hiring_manager',
         voice_gender: 'female',
         communication_style: 'corporate_professional',
-        question_count: 8,
+        question_count: 4,
         demo_type: 'tony_stark', // Mark as demo
         status: 'pending'
       })

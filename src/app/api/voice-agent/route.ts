@@ -552,11 +552,11 @@ function getDecisionGuidance(
         - Ask SUPER EASY questions that anyone can answer with 1-2 sentences
         - Focus on fun, personal aspects: "What's your favorite thing about...?", "That sounds cool! What's it like to...?"
         - Ask about feelings, preferences, or simple experiences rather than complex strategies
-        - Examples: "What's the best part about working with elves?", "What's your favorite gadget you've invented?"
         - Avoid ANY questions that require detailed explanations or analysis
         - Make it feel like a casual, friendly chat rather than a real interview
-        - Show amazement and ask simple follow-ups to their amazing background
+        - Show amazement and ask simple follow-ups about their incredible background
         - Keep it light, positive, and completely non-intimidating
+        - Let your natural curiosity about their unique experience guide the questions
         
         IMPORTANT CONTEXT: You are in the MIDDLE of the interview process (${questionsAsked}/${totalQuestions} main questions covered). 
         DO NOT use closing language like "wrap up", "before we finish", or "final questions". 
@@ -641,9 +641,10 @@ async function analyzeConversationAndDecide(
       turn.turn_number > lastMainQuestionTurn
     ).length
 
-    // Phase 2: Enhanced force progression rules
-    const MAX_FOLLOWUPS_PER_QUESTION = 3 // Increased from 2 to 3 for more natural flow
-    const MAX_TOTAL_INTERVIEWER_TURNS = 26 // Allow 8 questions + 3 follow-ups each + closing turns
+    // Phase 2: Enhanced force progression rules - Demo-aware
+    const isDemoSession = sessionContext?.demo_type === 'tony_stark' || sessionContext?.demo_type === 'santa_president'
+    const MAX_FOLLOWUPS_PER_QUESTION = isDemoSession ? 1 : 3 // Demos: 1 follow-up, Regular: 3 follow-ups
+    const MAX_TOTAL_INTERVIEWER_TURNS = isDemoSession ? 10 : 26 // Demos: 4 questions + 1 follow-up each + closing, Regular: 8 questions + 3 follow-ups each + closing
     const totalQuestions = questions.length
     
     const totalInterviewerTurns = recentConversation.filter(turn => 

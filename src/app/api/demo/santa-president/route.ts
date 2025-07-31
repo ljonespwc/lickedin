@@ -274,23 +274,15 @@ You will inherit a nation of extraordinary potential—with the world's leading 
 
 **The United States Government is an Equal Opportunity Employer and does not discriminate on the basis of race, color, religion, sex, national origin, age, disability, or political affiliation.**`
 
-// Custom Santa President Questions - Easy/Accessible Version
+// Custom Santa President Questions - 4 Best Questions
 const SANTA_PRESIDENT_QUESTIONS = [
   "Hi Santa! What made you decide to run for President after all these years managing Christmas operations at the North Pole?",
   
-  "You've successfully managed 50,000 elves for centuries. How would you apply that experience to working with Congress and handling political disagreements?",
-  
-  "Your Christmas gift operation has a 99.97% success rate. How would you use your logistics expertise to make the government work more efficiently?",
+  "You've successfully managed elves for centuries. How would you apply that experience to working with Congress and handling political disagreements?",
   
   "You know every child in the world through your naughty-or-nice system. What would you want American families to know about how you'd lead the country?",
   
-  "Climate change is affecting the North Pole. Based on your experience there, what's your plan to help America tackle environmental challenges?",
-  
-  "Managing Christmas logistics across all time zones is incredibly complex. How would you handle a national crisis or emergency as President?",
-  
-  "Your philosophy is about being good versus naughty and bringing joy to others. How would these values guide your leadership style as President?",
-  
-  "If you became President, what would you be most excited to accomplish in your first year to help the American people?"
+  "Your philosophy is about being good versus naughty and bringing joy to others. How would these values guide your leadership style as President?"
 ]
 
 export async function POST(request: NextRequest) {
@@ -438,7 +430,7 @@ export async function POST(request: NextRequest) {
         interview_type: 'hiring_manager',
         voice_gender: 'male',
         communication_style: 'corporate_professional',
-        question_count: 8,
+        question_count: 4,
         demo_type: 'santa_president', // Mark as Santa demo
         status: 'pending'
       })
