@@ -538,6 +538,25 @@ function getDecisionGuidance(
       const totalQuestions = questions.length
       const questionsAsked = followUpMainQuestions.length
       
+      // Check if this is a demo session
+      const isDemoSession = sessionContext?.demo_type === 'tony_stark' || sessionContext?.demo_type === 'santa_president'
+      
+      if (isDemoSession) {
+        return `DECISION: Ask a simple, accessible follow-up question to keep the demo engaging and fun.
+        
+        DEMO FOLLOW-UP GUIDELINES:
+        - Keep follow-ups light, fun, and easy to answer
+        - Ask about interesting aspects of their unique background (Santa's elves, Tony's tech, etc.)
+        - Avoid complex policy questions or technical deep-dives
+        - Focus on entertaining connections between their experience and the role
+        - Use simple language that anyone can understand and respond to
+        - Make it conversational and approachable, not intimidating
+        
+        IMPORTANT CONTEXT: You are in the MIDDLE of the interview process (${questionsAsked}/${totalQuestions} main questions covered). 
+        DO NOT use closing language like "wrap up", "before we finish", or "final questions". 
+        Continue the natural interview flow with curiosity about their unique experience.`
+      }
+      
       return `DECISION: Ask a follow-up question to get more depth on the current topic. Probe for specific examples, challenges, or outcomes.
       
       IMPORTANT CONTEXT: You are in the MIDDLE of the interview process (${questionsAsked}/${totalQuestions} main questions covered). 
